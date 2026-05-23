@@ -6,1119 +6,707 @@ Tài liệu này mô tả thiết kế cơ sở dữ liệu của hệ thống V
 
 Hệ thống được xây dựng theo mô hình offline-first nhằm hỗ trợ ứng dụng mobile hoạt động ổn định ngay cả khi không có kết nối internet. Dữ liệu được lưu trữ cục bộ bằng SQLite trên thiết bị di động và đồng bộ với backend server khi có mạng.
 
-Thiết kế cơ sở dữ liệu hướng tới các mục tiêu:
+Thiết kế database tuân theo:
 
-* Hỗ trợ GPS Audio Tour
-* Quản lý Tour và Point Of Interest (POI)
-* Hỗ trợ đa ngôn ngữ
-* Tối ưu đồng bộ dữ liệu
-* Hỗ trợ tải offline package
-* Theo dõi lịch sử narration
-* Tối ưu hiệu năng trên mobile
+* SQL Server cho backend server
+* SQLite cho mobile offline storage
+* Incremental synchronization
+* Soft-delete synchronization
+* Multi-language support
+* GPS geofencing optimization
 
 ---
 
-# Database Schema Overview
+# Database Architecture
 
-Hệ thống sử dụng relational database schema để quản lý dữ liệu Tour, POI, Audio và synchronization.
+Hệ thống sử dụng 2 tầng dữ liệu:
 
-Các nhóm bảng chính gồm:
+## 1. Server Database (SQL Server)
 
-* Tour management
-* POI management
-* Audio management
-* Translation system
-* Offline synchronization
+Sử dụng cho:
+
+* Quản lý dữ liệu trung tâm
+* Authentication & authorization
+* CMS quản trị nội dung
+* Analytics
+* Synchronization API
+* Audit logging
+* Offline package publishing
+
+Công nghệ:
+
+* SQL Server 2019+
+* Entity Framework Core
+* ASP.NET Core 9
+
+---
+
+## 2. Mobile Database (SQLite)
+
+Sử dụng cho:
+
+* Offline data storage
+* Audio cache metadata
+* Runtime geofence state
 * Narration logging
-* QR navigation
+* Local synchronization state
+* Mobile performance optimization
+
+Công nghệ:
+
+* SQLite
+* sqlite-net-pcl
+* .NET MAUI
+
+---
+
+# Languages Reference Strategy
+
+Bảng `Languages` là reference table chứa danh sách ngôn ngữ được hỗ trợ.
+
+Các cột `LanguageCode` trong hệ thống hiện KHÔNG khai báo foreign key trực tiếp tới `Languages(Code)`.
+
+Thiết kế này nhằm:
+
+* Giảm coupling giữa synchronization layer và lookup table
+* Tránh lỗi sync khi mobile chưa seed đủ dữ liệu
+* Đơn giản hóa migration trên SQLite
+* Tăng tính linh hoạt khi bổ sung ngôn ngữ mới
+
+Validation của `LanguageCode` sẽ được xử lý tại:
+
+* Backend validation layer
+* Service layer
+* Synchronization API
+* CMS validation
+
+Lưu ý:
+
+* Trên ERD vẫn thể hiện quan hệ logic giữa `LanguageCode` và `Languages.Code`
+* Tuy nhiên database vật lý không enforce foreign key constraint
 
 ---
 
 # Danh Sách Bảng Chính
 
-| Table            | Chức năng                   |
-| ---------------- | --------------------------- |
-| Tours            | Quản lý thông tin Tour      |
-| TourTranslations | Nội dung Tour đa ngôn ngữ   |
-| POIs             | Quản lý Point Of Interest   |
-| POITranslations  | Nội dung POI đa ngôn ngữ    |
-| AudioTracks      | Quản lý audio narration     |
-| TourPOIs         | Liên kết Tour và POI        |
-| QRLocations      | Quản lý QR trigger          |
-| NarrationLogs    | Lưu lịch sử narration       |
-| OfflinePackages  | Quản lý offline package     |
-| SyncCursors      | Theo dõi synchronization    |
-| GeofenceState    | Trạng thái geofence runtime |
-| LocalSettings    | Cấu hình local application  |
+| Table              | Chức năng                              |
+| ------------------ | -------------------------------------- |
+| Roles              | Phân quyền hệ thống                    |
+| Users              | Quản lý tài khoản                      |
+| Devices            | Thiết bị mobile đã đăng ký             |
+| Languages          | Danh sách ngôn ngữ                     |
+| Tours              | Quản lý tour                           |
+| TourTranslations   | Nội dung tour đa ngôn ngữ              |
+| POIs               | Point Of Interest                      |
+| POITranslations    | Nội dung POI đa ngôn ngữ               |
+| AudioTracks        | Audio narration                        |
+| TourPOIs           | Liên kết Tour và POI                   |
+| QRLocations        | QR trigger                             |
+| GeofenceConfigs    | Cấu hình geofence theo POI             |
+| OfflinePackages    | Offline package                        |
+| NarrationLogs      | Nhật ký narration                      |
+| SyncHistory        | Lịch sử synchronization                |
+| DeletedRecords     | Tombstone synchronization              |
+| AuditLogs          | Audit log hệ thống                     |
+| ContentVersions    | Version snapshot                       |
+| AnalyticsDaily     | Thống kê narration                     |
+| SyncCursors        | Theo dõi incremental sync              |
+| GeofenceState      | Runtime geofence state                 |
+| LocalSettings      | Local app configuration                |
+| DeviceRegistration | Device registration trên mobile SQLite |
 
 ---
 
-# Thiết Kế Các Bảng
+# SQL Server Database Design
+
+## Roles
+
+Bảng phân quyền hệ thống.
+
+### Columns
+
+| Column      | Type          | Description |
+| ----------- | ------------- | ----------- |
+| Id          | INT           | Primary key |
+| Name        | NVARCHAR(50)  | Tên role    |
+| Description | NVARCHAR(200) | Mô tả       |
+
+### Constraints
+
+* UNIQUE(Name)
+
+---
+
+## Users
+
+Bảng quản lý tài khoản người dùng.
+
+### Columns
+
+| Column             | Type          | Description          |
+| ------------------ | ------------- | -------------------- |
+| Id                 | INT           | Primary key          |
+| Username           | NVARCHAR(100) | Username             |
+| Email              | NVARCHAR(254) | Email                |
+| PasswordHash       | NVARCHAR(512) | Password hash        |
+| RoleId             | INT           | Role liên kết        |
+| PreferredLanguage  | NVARCHAR(10)  | Ngôn ngữ mặc định    |
+| IsActive           | BIT           | Trạng thái hoạt động |
+| RefreshToken       | NVARCHAR(512) | Refresh token        |
+| RefreshTokenExpiry | DATETIME2     | Hết hạn token        |
+| CreatedAt          | DATETIME2     | Ngày tạo             |
+| UpdatedAt          | DATETIME2     | Ngày cập nhật        |
+
+### Relationships
+
+* Users.RoleId → Roles.Id
+
+### Constraints
+
+* UNIQUE(Username)
+* UNIQUE(Email)
+
+---
+
+## Devices
+
+Thiết bị mobile đã đăng ký với backend.
+
+### Columns
+
+| Column     | Type          | Description             |
+| ---------- | ------------- | ----------------------- |
+| Id         | INT           | Primary key             |
+| DeviceId   | NVARCHAR(100) | UUID thiết bị           |
+| UserId     | INT           | User liên kết           |
+| Platform   | NVARCHAR(50)  | android / ios           |
+| AppVersion | NVARCHAR(50)  | Phiên bản app           |
+| OsVersion  | NVARCHAR(50)  | Phiên bản OS            |
+| PushToken  | NVARCHAR(512) | Push notification token |
+| LastSeenAt | DATETIME2     | Hoạt động gần nhất      |
+| CreatedAt  | DATETIME2     | Ngày tạo                |
+
+### Relationships
+
+* Devices.UserId → Users.Id
+
+### Constraints
+
+* UNIQUE(DeviceId)
+
+---
+
+## Languages
+
+Reference table quản lý ngôn ngữ.
+
+### Columns
+
+| Column     | Type          | Description     |
+| ---------- | ------------- | --------------- |
+| Code       | NVARCHAR(10)  | Mã ngôn ngữ     |
+| Name       | NVARCHAR(100) | Tên             |
+| NativeName | NVARCHAR(100) | Tên bản địa     |
+| IsActive   | BIT           | Trạng thái      |
+| SortOrder  | INT           | Thứ tự hiển thị |
+
+### Constraints
+
+* PRIMARY KEY(Code)
+* UNIQUE(Name)
+
+---
 
 ## Tours
 
-Bảng lưu thông tin Tour.
+Quản lý thông tin Tour.
 
-### Các cột chính
+### Columns
 
-| Column           | Type    | Mô tả                     |
-| ---------------- | ------- | ------------------------- |
-| Id               | INTEGER | Khóa chính                |
-| Code             | TEXT    | Mã Tour duy nhất          |
-| DefaultLanguage  | TEXT    | Ngôn ngữ mặc định         |
-| IsActive         | INTEGER | Trạng thái hoạt động      |
-| EstimatedMinutes | INTEGER | Thời lượng ước tính       |
-| Version          | INTEGER | Phiên bản synchronization |
-| UpdatedAt        | TEXT    | Thời gian cập nhật        |
+| Column           | Type          | Description           |
+| ---------------- | ------------- | --------------------- |
+| Id               | INT           | Primary key           |
+| Code             | NVARCHAR(100) | Mã tour               |
+| DefaultLanguage  | NVARCHAR(10)  | Ngôn ngữ mặc định     |
+| EstimatedMinutes | INT           | Thời lượng ước tính   |
+| IsActive         | BIT           | Trạng thái            |
+| DeletedAt        | DATETIME2     | Soft-delete timestamp |
+| Version          | BIGINT        | Sync version          |
+| UpdatedAt        | DATETIME2     | Last updated          |
+
+### Constraints
+
+* UNIQUE(Code)
 
 ---
 
 ## TourTranslations
 
-Bảng lưu nội dung đa ngôn ngữ cho Tour.
+Nội dung đa ngôn ngữ của Tour.
 
-### Các cột chính
+### Columns
 
-| Column       | Type    | Mô tả          |
-| ------------ | ------- | -------------- |
-| Id           | INTEGER | Khóa chính     |
-| TourId       | INTEGER | Tour liên kết  |
-| LanguageCode | TEXT    | Mã ngôn ngữ    |
-| Name         | TEXT    | Tên Tour       |
-| Description  | TEXT    | Nội dung mô tả |
+| Column       | Type          | Description   |
+| ------------ | ------------- | ------------- |
+| Id           | INT           | Primary key   |
+| TourId       | INT           | Tour liên kết |
+| LanguageCode | NVARCHAR(10)  | Mã ngôn ngữ   |
+| Name         | NVARCHAR(200) | Tên tour      |
+| Description  | NVARCHAR(MAX) | Mô tả         |
+
+### Relationships
+
+* TourTranslations.TourId → Tours.Id
+
+### Constraints
+
+* UNIQUE(TourId, LanguageCode)
 
 ---
 
 ## POIs
 
-Bảng quản lý Point Of Interest.
+Point Of Interest dùng cho GPS narration.
 
-### Các cột chính
+### Columns
 
-| Column       | Type    | Mô tả                     |
-| ------------ | ------- | ------------------------- |
-| Id           | INTEGER | Khóa chính                |
-| Code         | TEXT    | Mã POI                    |
-| Latitude     | REAL    | Vĩ độ GPS                 |
-| Longitude    | REAL    | Kinh độ GPS               |
-| RadiusMeters | REAL    | Bán kính kích hoạt        |
-| Priority     | INTEGER | Độ ưu tiên                |
-| Category     | TEXT    | Loại địa điểm             |
-| ImageUrl     | TEXT    | Hình ảnh                  |
-| IsActive     | INTEGER | Trạng thái hoạt động      |
-| Version      | INTEGER | Phiên bản synchronization |
-| UpdatedAt    | TEXT    | Thời gian cập nhật        |
+| Column          | Type          | Description                    |
+| --------------- | ------------- | ------------------------------ |
+| Id              | INT           | Primary key                    |
+| Code            | NVARCHAR(100) | Mã POI                         |
+| Latitude        | DECIMAL(9,6)  | Vĩ độ                          |
+| Longitude       | DECIMAL(9,6)  | Kinh độ                        |
+| RadiusMeters    | FLOAT         | Bán kính geofence              |
+| Priority        | INT           | Độ ưu tiên                     |
+| Category        | NVARCHAR(100) | Phân loại                      |
+| ImageUrl        | NVARCHAR(500) | Ảnh                            |
+| CooldownSeconds | INT           | Cooldown narration             |
+| MinDwellSeconds | INT           | Thời gian tối thiểu trong vùng |
+| IsActive        | BIT           | Trạng thái                     |
+| DeletedAt       | DATETIME2     | Soft-delete                    |
+| Version         | BIGINT        | Sync version                   |
+| UpdatedAt       | DATETIME2     | Last updated                   |
+
+### Constraints
+
+* UNIQUE(Code)
 
 ---
 
 ## POITranslations
 
-Bảng lưu nội dung đa ngôn ngữ cho POI.
+Nội dung đa ngôn ngữ của POI.
 
-### Các cột chính
+### Columns
 
-| Column           | Type    | Mô tả          |
-| ---------------- | ------- | -------------- |
-| Id               | INTEGER | Khóa chính     |
-| POIId            | INTEGER | POI liên kết   |
-| LanguageCode     | TEXT    | Mã ngôn ngữ    |
-| Name             | TEXT    | Tên địa điểm   |
-| Description      | TEXT    | Nội dung mô tả |
-| ShortDescription | TEXT    | Mô tả ngắn     |
+| Column           | Type          | Description  |
+| ---------------- | ------------- | ------------ |
+| Id               | INT           | Primary key  |
+| POIId            | INT           | POI liên kết |
+| LanguageCode     | NVARCHAR(10)  | Mã ngôn ngữ  |
+| Name             | NVARCHAR(200) | Tên địa điểm |
+| Description      | NVARCHAR(MAX) | Mô tả        |
+| ShortDescription | NVARCHAR(500) | Mô tả ngắn   |
+
+### Relationships
+
+* POITranslations.POIId → POIs.Id
+
+### Constraints
+
+* UNIQUE(POIId, LanguageCode)
 
 ---
 
 ## AudioTracks
 
-Bảng quản lý audio narration.
+Metadata của audio narration.
 
-### Các cột chính
+### Columns
 
-| Column          | Type    | Mô tả                   |
-| --------------- | ------- | ----------------------- |
-| Id              | INTEGER | Khóa chính              |
-| POIId           | INTEGER | POI liên kết            |
-| LanguageCode    | TEXT    | Ngôn ngữ audio          |
-| AudioType       | TEXT    | Loại audio              |
-| FileUrl         | TEXT    | Đường dẫn file          |
-| TTSText         | TEXT    | Nội dung Text To Speech |
-| DurationSeconds | INTEGER | Thời lượng              |
-| FileSizeBytes   | INTEGER | Kích thước file         |
-| MimeType        | TEXT    | Định dạng file          |
-| LocalFilePath   | TEXT    | Đường dẫn local cache   |
-| IsDownloaded    | INTEGER | Trạng thái tải xuống    |
+| Column          | Type           | Description       |
+| --------------- | -------------- | ----------------- |
+| Id              | INT            | Primary key       |
+| POIId           | INT            | POI liên kết      |
+| LanguageCode    | NVARCHAR(10)   | Ngôn ngữ          |
+| AudioType       | NVARCHAR(50)   | prerecorded / tts |
+| FileUrl         | NVARCHAR(1000) | URL file          |
+| TTSText         | NVARCHAR(MAX)  | Nội dung TTS      |
+| DurationSeconds | INT            | Thời lượng        |
+| FileSizeBytes   | BIGINT         | Kích thước        |
+| MimeType        | NVARCHAR(100)  | Mime type         |
+| DeletedAt       | DATETIME2      | Soft-delete       |
+| Version         | BIGINT         | Sync version      |
+| UpdatedAt       | DATETIME2      | Last updated      |
+
+### Relationships
+
+* AudioTracks.POIId → POIs.Id
+
+### Constraints
+
+* UNIQUE(POIId, LanguageCode)
 
 ---
 
 ## TourPOIs
 
-Bảng liên kết giữa Tour và POI.
+Liên kết giữa Tour và POI.
 
-### Các cột chính
+### Columns
 
-| Column     | Type    | Mô tả            |
-| ---------- | ------- | ---------------- |
-| Id         | INTEGER | Khóa chính       |
-| TourId     | INTEGER | Tour liên kết    |
-| POIId      | INTEGER | POI liên kết     |
-| OrderIndex | INTEGER | Thứ tự tham quan |
+| Column     | Type | Description   |
+| ---------- | ---- | ------------- |
+| Id         | INT  | Primary key   |
+| TourId     | INT  | Tour liên kết |
+| POIId      | INT  | POI liên kết  |
+| OrderIndex | INT  | Thứ tự        |
+
+### Relationships
+
+* TourPOIs.TourId → Tours.Id
+* TourPOIs.POIId → POIs.Id
+
+### Constraints
+
+* UNIQUE(TourId, POIId)
 
 ---
 
 ## QRLocations
 
-Bảng quản lý QR trigger.
+QR trigger narration.
 
-### Các cột chính
+### Columns
 
-| Column   | Type    | Mô tả                |
-| -------- | ------- | -------------------- |
-| Id       | INTEGER | Khóa chính           |
-| POIId    | INTEGER | POI liên kết         |
-| QRCode   | TEXT    | Giá trị QR           |
-| Label    | TEXT    | Tên hiển thị         |
-| IsActive | INTEGER | Trạng thái hoạt động |
+| Column    | Type          | Description  |
+| --------- | ------------- | ------------ |
+| Id        | INT           | Primary key  |
+| POIId     | INT           | POI liên kết |
+| QRCode    | NVARCHAR(200) | Nội dung QR  |
+| Label     | NVARCHAR(200) | Tên hiển thị |
+| IsActive  | BIT           | Trạng thái   |
+| ExpiresAt | DATETIME2     | Ngày hết hạn |
+| DeletedAt | DATETIME2     | Soft-delete  |
+
+### Relationships
+
+* QRLocations.POIId → POIs.Id
+
+### Constraints
+
+* UNIQUE(QRCode)
+
+---
+
+## GeofenceConfigs
+
+Cấu hình geofence nâng cao theo POI.
+
+### Purpose
+
+Tách geofence runtime configuration khỏi dữ liệu POI nhằm:
+
+* Dễ tuning geofence
+* Tránh thay đổi core POI metadata
+* Hỗ trợ future optimization
 
 ---
 
 ## NarrationLogs
 
-Bảng lưu lịch sử narration.
+Lưu lịch sử narration từ mobile.
 
-### Các cột chính
+### Columns
 
-| Column                | Type    | Mô tả                      |
-| --------------------- | ------- | -------------------------- |
-| Id                    | INTEGER | Khóa chính local           |
-| ServerId              | INTEGER | ID từ server               |
-| POIId                 | INTEGER | POI liên kết               |
-| TriggerType           | TEXT    | Kiểu kích hoạt             |
-| LanguageCode          | TEXT    | Ngôn ngữ                   |
-| PlayedAt              | TEXT    | Thời gian phát             |
-| DurationPlayedSeconds | INTEGER | Thời lượng đã nghe         |
-| Synced                | INTEGER | Trạng thái synchronization |
+| Column                | Type          | Description       |
+| --------------------- | ------------- | ----------------- |
+| Id                    | BIGINT        | Primary key       |
+| DeviceId              | NVARCHAR(100) | Thiết bị          |
+| POIId                 | INT           | POI               |
+| TriggerType           | NVARCHAR(50)  | gps / qr / manual |
+| LanguageCode          | NVARCHAR(10)  | Ngôn ngữ          |
+| PlayedAt              | DATETIME2     | Thời gian phát    |
+| DurationPlayedSeconds | INT           | Thời gian nghe    |
+
+### Relationships
+
+* NarrationLogs.POIId → POIs.Id
+* NarrationLogs.DeviceId → Devices.DeviceId
 
 ---
 
 ## OfflinePackages
 
-Bảng quản lý offline package.
+Offline content package.
 
-### Các cột chính
+### Columns
 
-| Column         | Type    | Mô tả                     |
-| -------------- | ------- | ------------------------- |
-| Id             | INTEGER | Khóa chính                |
-| TourId         | INTEGER | Tour liên kết             |
-| LanguageCode   | TEXT    | Ngôn ngữ package          |
-| PackageVersion | TEXT    | Phiên bản package         |
-| DownloadUrl    | TEXT    | Link tải                  |
-| FileSizeBytes  | INTEGER | Kích thước package        |
-| Checksum       | TEXT    | Kiểm tra toàn vẹn dữ liệu |
-| IsDownloaded   | INTEGER | Trạng thái tải            |
+| Column         | Type           | Description  |
+| -------------- | -------------- | ------------ |
+| Id             | INT            | Primary key  |
+| TourId         | INT            | Tour         |
+| LanguageCode   | NVARCHAR(10)   | Ngôn ngữ     |
+| PackageVersion | NVARCHAR(50)   | Phiên bản    |
+| DownloadUrl    | NVARCHAR(1000) | URL tải      |
+| FileSizeBytes  | BIGINT         | Kích thước   |
+| Checksum       | NVARCHAR(256)  | Checksum     |
+| PublishedAt    | DATETIME2      | Ngày publish |
 
----
+### Relationships
 
-## SyncCursors
+* OfflinePackages.TourId → Tours.Id
 
-Bảng theo dõi synchronization.
+### Constraints
 
-### Các cột chính
-
-| Column       | Type | Mô tả                   |
-| ------------ | ---- | ----------------------- |
-| EntityType   | TEXT | Tên entity              |
-| LastSyncedAt | TEXT | Thời gian sync gần nhất |
+* UNIQUE(TourId, LanguageCode, PackageVersion)
 
 ---
 
-## GeofenceState
+## SyncHistory
 
-Bảng lưu trạng thái geofence runtime.
+Lưu lịch sử synchronization.
 
-### Các cột chính
+### Relationships
 
-| Column          | Type    | Mô tả                         |
-| --------------- | ------- | ----------------------------- |
-| POIId           | INTEGER | POI liên kết                  |
-| LastTriggeredAt | TEXT    | Trigger gần nhất              |
-| CooldownUntil   | TEXT    | Thời gian cooldown            |
-| EnteredAt       | TEXT    | Thời gian đi vào vùng         |
-| IsInsideRadius  | INTEGER | Trạng thái bên trong geofence |
+* SyncHistory.UserId → Users.Id
+* SyncHistory.DeviceId → Devices.DeviceId
 
 ---
 
-## LocalSettings
+## DeletedRecords
 
-Bảng lưu cấu hình local application.
+Tombstone table phục vụ incremental synchronization.
 
-### Các cột chính
+### Purpose
 
-| Column    | Type | Mô tả              |
-| --------- | ---- | ------------------ |
-| Key       | TEXT | Tên cấu hình       |
-| Value     | TEXT | Giá trị cấu hình   |
-| UpdatedAt | TEXT | Thời gian cập nhật |
+Cho phép mobile biết record nào đã bị xóa trên server.
 
----
+### Relationships
 
-# Kiến Trúc Hệ Thống Dữ Liệu
-
-Hệ thống sử dụng 2 tầng dữ liệu:
-
-## 1. Server Database
-
-Server database đóng vai trò quản lý dữ liệu trung tâm.
-
-Chức năng:
-
-* Quản lý nội dung Tour
-* Quản lý Point Of Interest
-* Lưu metadata audio
-* Quản lý translation đa ngôn ngữ
-* Quản lý QR location
-* Xuất offline package
-* Đồng bộ dữ liệu cho mobile app
-
-## 2. Mobile SQLite Database
-
-SQLite database trên mobile được sử dụng để:
-
-* Lưu dữ liệu offline
-* Cache audio file
-* Ghi nhận narration log
-* Tăng tốc truy cập dữ liệu
-* Hỗ trợ hoạt động không cần internet
+* DeletedRecords.DeletedBy → Users.Id
 
 ---
 
-# Mô Hình Nghiệp Vụ
+## AuditLogs
 
-## Tours
+Lưu lịch sử thao tác hệ thống.
 
-Tours đại diện cho các hành trình tham quan.
+### Important Notes
 
-Mỗi tour bao gồm:
+* UserId cho phép NULL
+* RecordId KHÔNG phải foreign key
+* RecordId chỉ lưu ID động của record bị tác động
 
-* Danh sách POI
-* Thứ tự tham quan
-* Nội dung mô tả
-* Audio narration
-* Dữ liệu đa ngôn ngữ
+Ví dụ:
 
-Một tour có thể chứa nhiều POI.
+* RecordId = '15' của bảng POIs
+* RecordId = '7' của bảng Tours
+* RecordId = 'AUDIO_22'
 
----
+Thiết kế này giúp AuditLogs hoạt động generic cho nhiều bảng khác nhau.
 
-## POIs (Point Of Interest)
+### Relationships
 
-POI là các địa điểm tham quan thực tế.
-
-Mỗi POI bao gồm:
-
-* Vị trí GPS
-* Bán kính kích hoạt
-* Nội dung mô tả
-* Audio narration
-* Hình ảnh minh họa
-* QR trigger
-
-POI là thành phần trung tâm của hệ thống.
+* AuditLogs.UserId → Users.Id
 
 ---
 
-## AudioTracks
+## ContentVersions
 
-AudioTracks quản lý audio narration cho từng POI.
+Snapshot versioning của nội dung.
 
-Hệ thống hỗ trợ:
+### Purpose
 
-* Audio file upload
-* Text To Speech (TTS)
-* Offline audio cache
-* Multi-language narration
+* Lưu lịch sử thay đổi nội dung
+* Rollback content
+* Audit dữ liệu
+* Synchronization debugging
 
-Audio có thể được tải sẵn về thiết bị để sử dụng offline.
+### Relationships
 
----
-
-## Translation System
-
-Hệ thống sử dụng translation table riêng để hỗ trợ đa ngôn ngữ.
-
-Thiết kế này giúp:
-
-* Dễ mở rộng ngôn ngữ
-* Giảm trùng lặp dữ liệu
-* Tăng khả năng bảo trì
-* Tối ưu synchronization
-
-Các nội dung được hỗ trợ localization:
-
-* Tên Tour
-* Mô tả Tour
-* Tên POI
-* Nội dung narration
-* Audio narration
+* ContentVersions.CreatedBy → Users.Id
 
 ---
 
-## QR Navigation
+## AnalyticsDaily
 
-Hệ thống hỗ trợ QR code để kích hoạt narration.
+Thống kê narration theo ngày.
 
-QR được sử dụng trong các trường hợp:
+### Relationships
 
-* Indoor navigation
-* Museum guide
-* GPS không chính xác
-* Kích hoạt nội dung thủ công
-
-Khi người dùng quét QR code, hệ thống sẽ:
-
-1. Xác định POI tương ứng
-2. Lấy nội dung narration
-3. Phát audio theo ngôn ngữ đã chọn
+* AnalyticsDaily.POIId → POIs.Id
 
 ---
 
-# Offline-First Architecture
+# Mobile SQLite Design
 
-Thiết kế offline-first là thành phần quan trọng của hệ thống.
+SQLite schema chỉ lưu dữ liệu cần thiết cho mobile runtime.
 
-## Mục Tiêu
+## Mobile-Specific Tables
 
-Ứng dụng vẫn hoạt động khi:
+### LocalSettings
 
-* Mất kết nối internet
-* Kết nối yếu
-* Di chuyển ngoài vùng phủ sóng
+Lưu cấu hình local của ứng dụng.
 
-## Dữ Liệu Được Cache Offline
+---
 
-Các dữ liệu được lưu offline gồm:
+### DeviceRegistration
 
-* Tour
-* POI
-* Translation
-* Audio file
-* Hình ảnh
-* Narration history
+Lưu thông tin thiết bị hiện tại trên mobile.
 
-## Lợi Ích
+Khác với bảng `Devices` trên server:
 
-* Trải nghiệm ổn định hơn
-* Giảm phụ thuộc internet
-* Tăng tốc độ truy cập dữ liệu
-* Giảm chi phí mạng
+* `Devices` = toàn bộ thiết bị đã đăng ký
+* `DeviceRegistration` = trạng thái local của thiết bị hiện tại
+
+---
+
+### GeofenceState
+
+Runtime state của geofence engine.
+
+Dùng để:
+
+* debounce
+* cooldown
+* anti-repeat trigger
+* dwell time tracking
+
+Dữ liệu này KHÔNG sync lên server.
+
+---
+
+### SyncCursors
+
+Theo dõi incremental synchronization.
+
+Ví dụ:
+
+| EntityType  | LastSyncedAt         |
+| ----------- | -------------------- |
+| POIs        | 2026-05-22T10:00:00Z |
+| AudioTracks | 2026-05-22T10:01:00Z |
 
 ---
 
 # Synchronization Strategy
 
-Hệ thống sử dụng cơ chế incremental synchronization.
+Hệ thống sử dụng incremental synchronization.
 
-## Nguyên Lý Hoạt Động
+## Sync Components
 
-Chỉ những dữ liệu thay đổi mới được đồng bộ.
+* UpdatedAt timestamp
+* Version tracking
+* DeletedRecords tombstone
+* Sync cursors
+* Background retry queue
 
-Điều này giúp:
+## Synchronization Flow
 
-* Giảm băng thông
-* Tăng tốc sync
-* Giảm tải server
-* Tối ưu pin trên mobile
-
-## Sync Flow
-
-```text
-Server Database
-      ↓
-Sync API
-      ↓
-SQLite Local Database
-      ↓
-Mobile Application
-```
-
-## Offline Queue
-
-Các thao tác phát sinh offline sẽ được lưu tạm local.
-
-Ví dụ:
-
-* Narration log
-* Playback history
-* User interaction
-
-Khi có internet, dữ liệu sẽ được gửi lên server.
+1. Mobile gửi sync cursor
+2. Server trả dữ liệu thay đổi
+3. Server trả deleted records
+4. Mobile apply changes
+5. Mobile update local cursor
 
 ---
 
-# GPS & Geofencing
+# Soft Delete Strategy
 
-Hệ thống sử dụng GPS để tự động kích hoạt narration.
+Các entity quan trọng không bị hard delete.
 
-## Cơ Chế Hoạt Động
+Sử dụng:
 
-1. Ứng dụng lấy vị trí người dùng
-2. So sánh với tọa độ POI
-3. Kiểm tra bán kính kích hoạt
-4. Tự động phát narration
+* DeletedAt
+* DeletedRecords
 
-## Geofence Optimization
+Quy trình:
 
-Để tối ưu hiệu năng:
+1. Server set DeletedAt
+2. Insert tombstone vào DeletedRecords
+3. Mobile sync tombstone
+4. Mobile remove local data
 
-* Chỉ kiểm tra POI gần vị trí hiện tại
-* Giảm số lần tính khoảng cách
-* Sử dụng geofence cooldown
-* Tránh trigger lặp liên tục
+---
+
+# Geofencing Architecture
+
+Hệ thống geofence hỗ trợ:
+
+* Haversine distance
+* Debounce
+* Cooldown
+* POI priority resolver
+* Queue management
+
+## Priority Rules
+
+Nếu nhiều POI chồng vùng:
+
+1. Khoảng cách gần hơn
+2. Priority cao hơn
+3. Chưa phát gần đây
 
 ---
 
 # Audio Management
 
-Hệ thống quản lý audio theo mô hình metadata + file storage.
+Audio sử dụng mô hình:
 
-## Audio Metadata
+* Metadata database
+* File storage
+* Local cache
 
-Lưu thông tin:
+## Audio Types
 
-* Audio URL
-* Language
-* Duration
-* File size
-* Mime type
-* Audio type
+* Pre-recorded audio
+* Text-to-Speech
 
-## Audio Cache
+## Offline Cache
 
-Audio file được lưu cục bộ trên thiết bị.
+Audio được cache local để:
 
-Lợi ích:
-
-* Phát nhanh hơn
-* Hoạt động offline
-* Giảm tải mạng
+* phát nhanh hơn
+* hoạt động offline
+* giảm network usage
 
 ---
 
-# Bảo Mật & Toàn Vẹn Dữ Liệu
+# Data Integrity
 
-Hệ thống đảm bảo tính toàn vẹn dữ liệu thông qua:
+Hệ thống đảm bảo integrity thông qua:
 
 * Foreign key
 * Unique constraint
 * Version tracking
-* Synchronization timestamp
+* Audit logging
 * Checksum validation
+* Synchronization timestamp
 
-Ngoài ra hệ thống còn hỗ trợ:
+Lưu ý:
 
-* Phát hiện conflict khi sync
-* Kiểm tra dữ liệu trùng lặp
-* Đảm bảo consistency giữa mobile và server
-
----
-
-# Khả Năng Mở Rộng
-
-Thiết kế hiện tại cho phép mở rộng dễ dàng trong tương lai.
-
-Có thể bổ sung:
-
-* User account
-* Favorite POI
-* AI narration
-* Recommendation system
-* Analytics dashboard
-* Smart routing
-* AR navigation
-* Voice assistant
+* Một số logical relationship không enforce FK vật lý
+* Điều này nhằm tối ưu synchronization và mobile portability
 
 ---
 
 # Kết Luận
 
-Thiết kế cơ sở dữ liệu của VinhHy.AudioTour được xây dựng theo hướng hiện đại, tối ưu cho mobile application và offline experience.
-
-Các điểm mạnh chính:
+Thiết kế database của VinhHy.AudioTour tập trung vào:
 
 * Offline-first architecture
-* GPS-based narration
 * Multi-language support
+* GPS audio narration
 * Incremental synchronization
-* Audio caching
-* Flexible tour management
 * Mobile performance optimization
+* Maintainable architecture
+* Scalable synchronization
 
 Thiết kế phù hợp cho:
 
-* Smart tourism application
-* Museum guide system
-* Historical site navigation
-* Outdoor educational platform
-* Smart city audio tour
-# Thiết Kế Cơ Sở Dữ Liệu — VinhHy.AudioTour
-
-## Tổng Quan
-
-Tài liệu này mô tả thiết kế cơ sở dữ liệu của hệ thống VinhHy.AudioTour.
-
-Hệ thống được xây dựng theo mô hình offline-first nhằm hỗ trợ ứng dụng mobile hoạt động ổn định ngay cả khi không có kết nối internet. Dữ liệu được lưu trữ cục bộ bằng SQLite trên thiết bị di động và đồng bộ với backend server khi có mạng.
-
-Thiết kế cơ sở dữ liệu hướng tới các mục tiêu:
-
-* Hỗ trợ GPS Audio Tour
-* Quản lý Tour và Point Of Interest (POI)
-* Hỗ trợ đa ngôn ngữ
-* Tối ưu đồng bộ dữ liệu
-* Hỗ trợ tải offline package
-* Theo dõi lịch sử narration
-* Tối ưu hiệu năng trên mobile
-
----
-
-# Database Schema Overview
-
-Hệ thống sử dụng relational database schema để quản lý dữ liệu Tour, POI, Audio và synchronization.
-
-Các nhóm bảng chính gồm:
-
-* Tour management
-* POI management
-* Audio management
-* Translation system
-* Offline synchronization
-* Narration logging
-* QR navigation
-
----
-
-# Danh Sách Bảng Chính
-
-| Table            | Chức năng                   |
-| ---------------- | --------------------------- |
-| Tours            | Quản lý thông tin Tour      |
-| TourTranslations | Nội dung Tour đa ngôn ngữ   |
-| POIs             | Quản lý Point Of Interest   |
-| POITranslations  | Nội dung POI đa ngôn ngữ    |
-| AudioTracks      | Quản lý audio narration     |
-| TourPOIs         | Liên kết Tour và POI        |
-| QRLocations      | Quản lý QR trigger          |
-| NarrationLogs    | Lưu lịch sử narration       |
-| OfflinePackages  | Quản lý offline package     |
-| SyncCursors      | Theo dõi synchronization    |
-| GeofenceState    | Trạng thái geofence runtime |
-| LocalSettings    | Cấu hình local application  |
-
----
-
-# Thiết Kế Các Bảng
-
-## Tours
-
-Bảng lưu thông tin Tour.
-
-### Các cột chính
-
-| Column           | Type    | Mô tả                     |
-| ---------------- | ------- | ------------------------- |
-| Id               | INTEGER | Khóa chính                |
-| Code             | TEXT    | Mã Tour duy nhất          |
-| DefaultLanguage  | TEXT    | Ngôn ngữ mặc định         |
-| IsActive         | INTEGER | Trạng thái hoạt động      |
-| EstimatedMinutes | INTEGER | Thời lượng ước tính       |
-| Version          | INTEGER | Phiên bản synchronization |
-| UpdatedAt        | TEXT    | Thời gian cập nhật        |
-
----
-
-## TourTranslations
-
-Bảng lưu nội dung đa ngôn ngữ cho Tour.
-
-### Các cột chính
-
-| Column       | Type    | Mô tả          |
-| ------------ | ------- | -------------- |
-| Id           | INTEGER | Khóa chính     |
-| TourId       | INTEGER | Tour liên kết  |
-| LanguageCode | TEXT    | Mã ngôn ngữ    |
-| Name         | TEXT    | Tên Tour       |
-| Description  | TEXT    | Nội dung mô tả |
-
----
-
-## POIs
-
-Bảng quản lý Point Of Interest.
-
-### Các cột chính
-
-| Column       | Type    | Mô tả                     |
-| ------------ | ------- | ------------------------- |
-| Id           | INTEGER | Khóa chính                |
-| Code         | TEXT    | Mã POI                    |
-| Latitude     | REAL    | Vĩ độ GPS                 |
-| Longitude    | REAL    | Kinh độ GPS               |
-| RadiusMeters | REAL    | Bán kính kích hoạt        |
-| Priority     | INTEGER | Độ ưu tiên                |
-| Category     | TEXT    | Loại địa điểm             |
-| ImageUrl     | TEXT    | Hình ảnh                  |
-| IsActive     | INTEGER | Trạng thái hoạt động      |
-| Version      | INTEGER | Phiên bản synchronization |
-| UpdatedAt    | TEXT    | Thời gian cập nhật        |
-
----
-
-## POITranslations
-
-Bảng lưu nội dung đa ngôn ngữ cho POI.
-
-### Các cột chính
-
-| Column           | Type    | Mô tả          |
-| ---------------- | ------- | -------------- |
-| Id               | INTEGER | Khóa chính     |
-| POIId            | INTEGER | POI liên kết   |
-| LanguageCode     | TEXT    | Mã ngôn ngữ    |
-| Name             | TEXT    | Tên địa điểm   |
-| Description      | TEXT    | Nội dung mô tả |
-| ShortDescription | TEXT    | Mô tả ngắn     |
-
----
-
-## AudioTracks
-
-Bảng quản lý audio narration.
-
-### Các cột chính
-
-| Column          | Type    | Mô tả                   |
-| --------------- | ------- | ----------------------- |
-| Id              | INTEGER | Khóa chính              |
-| POIId           | INTEGER | POI liên kết            |
-| LanguageCode    | TEXT    | Ngôn ngữ audio          |
-| AudioType       | TEXT    | Loại audio              |
-| FileUrl         | TEXT    | Đường dẫn file          |
-| TTSText         | TEXT    | Nội dung Text To Speech |
-| DurationSeconds | INTEGER | Thời lượng              |
-| FileSizeBytes   | INTEGER | Kích thước file         |
-| MimeType        | TEXT    | Định dạng file          |
-| LocalFilePath   | TEXT    | Đường dẫn local cache   |
-| IsDownloaded    | INTEGER | Trạng thái tải xuống    |
-
----
-
-## TourPOIs
-
-Bảng liên kết giữa Tour và POI.
-
-### Các cột chính
-
-| Column     | Type    | Mô tả            |
-| ---------- | ------- | ---------------- |
-| Id         | INTEGER | Khóa chính       |
-| TourId     | INTEGER | Tour liên kết    |
-| POIId      | INTEGER | POI liên kết     |
-| OrderIndex | INTEGER | Thứ tự tham quan |
-
----
-
-## QRLocations
-
-Bảng quản lý QR trigger.
-
-### Các cột chính
-
-| Column   | Type    | Mô tả                |
-| -------- | ------- | -------------------- |
-| Id       | INTEGER | Khóa chính           |
-| POIId    | INTEGER | POI liên kết         |
-| QRCode   | TEXT    | Giá trị QR           |
-| Label    | TEXT    | Tên hiển thị         |
-| IsActive | INTEGER | Trạng thái hoạt động |
-
----
-
-## NarrationLogs
-
-Bảng lưu lịch sử narration.
-
-### Các cột chính
-
-| Column                | Type    | Mô tả                      |
-| --------------------- | ------- | -------------------------- |
-| Id                    | INTEGER | Khóa chính local           |
-| ServerId              | INTEGER | ID từ server               |
-| POIId                 | INTEGER | POI liên kết               |
-| TriggerType           | TEXT    | Kiểu kích hoạt             |
-| LanguageCode          | TEXT    | Ngôn ngữ                   |
-| PlayedAt              | TEXT    | Thời gian phát             |
-| DurationPlayedSeconds | INTEGER | Thời lượng đã nghe         |
-| Synced                | INTEGER | Trạng thái synchronization |
-
----
-
-## OfflinePackages
-
-Bảng quản lý offline package.
-
-### Các cột chính
-
-| Column         | Type    | Mô tả                     |
-| -------------- | ------- | ------------------------- |
-| Id             | INTEGER | Khóa chính                |
-| TourId         | INTEGER | Tour liên kết             |
-| LanguageCode   | TEXT    | Ngôn ngữ package          |
-| PackageVersion | TEXT    | Phiên bản package         |
-| DownloadUrl    | TEXT    | Link tải                  |
-| FileSizeBytes  | INTEGER | Kích thước package        |
-| Checksum       | TEXT    | Kiểm tra toàn vẹn dữ liệu |
-| IsDownloaded   | INTEGER | Trạng thái tải            |
-
----
-
-## SyncCursors
-
-Bảng theo dõi synchronization.
-
-### Các cột chính
-
-| Column       | Type | Mô tả                   |
-| ------------ | ---- | ----------------------- |
-| EntityType   | TEXT | Tên entity              |
-| LastSyncedAt | TEXT | Thời gian sync gần nhất |
-
----
-
-## GeofenceState
-
-Bảng lưu trạng thái geofence runtime.
-
-### Các cột chính
-
-| Column          | Type    | Mô tả                         |
-| --------------- | ------- | ----------------------------- |
-| POIId           | INTEGER | POI liên kết                  |
-| LastTriggeredAt | TEXT    | Trigger gần nhất              |
-| CooldownUntil   | TEXT    | Thời gian cooldown            |
-| EnteredAt       | TEXT    | Thời gian đi vào vùng         |
-| IsInsideRadius  | INTEGER | Trạng thái bên trong geofence |
-
----
-
-## LocalSettings
-
-Bảng lưu cấu hình local application.
-
-### Các cột chính
-
-| Column    | Type | Mô tả              |
-| --------- | ---- | ------------------ |
-| Key       | TEXT | Tên cấu hình       |
-| Value     | TEXT | Giá trị cấu hình   |
-| UpdatedAt | TEXT | Thời gian cập nhật |
-
----
-
-# Kiến Trúc Hệ Thống Dữ Liệu
-
-Hệ thống sử dụng 2 tầng dữ liệu:
-
-## 1. Server Database
-
-Server database đóng vai trò quản lý dữ liệu trung tâm.
-
-Chức năng:
-
-* Quản lý nội dung Tour
-* Quản lý Point Of Interest
-* Lưu metadata audio
-* Quản lý translation đa ngôn ngữ
-* Quản lý QR location
-* Xuất offline package
-* Đồng bộ dữ liệu cho mobile app
-
-## 2. Mobile SQLite Database
-
-SQLite database trên mobile được sử dụng để:
-
-* Lưu dữ liệu offline
-* Cache audio file
-* Ghi nhận narration log
-* Tăng tốc truy cập dữ liệu
-* Hỗ trợ hoạt động không cần internet
-
----
-
-# Mô Hình Nghiệp Vụ
-
-## Tours
-
-Tours đại diện cho các hành trình tham quan.
-
-Mỗi tour bao gồm:
-
-* Danh sách POI
-* Thứ tự tham quan
-* Nội dung mô tả
-* Audio narration
-* Dữ liệu đa ngôn ngữ
-
-Một tour có thể chứa nhiều POI.
-
----
-
-## POIs (Point Of Interest)
-
-POI là các địa điểm tham quan thực tế.
-
-Mỗi POI bao gồm:
-
-* Vị trí GPS
-* Bán kính kích hoạt
-* Nội dung mô tả
-* Audio narration
-* Hình ảnh minh họa
-* QR trigger
-
-POI là thành phần trung tâm của hệ thống.
-
----
-
-## AudioTracks
-
-AudioTracks quản lý audio narration cho từng POI.
-
-Hệ thống hỗ trợ:
-
-* Audio file upload
-* Text To Speech (TTS)
-* Offline audio cache
-* Multi-language narration
-
-Audio có thể được tải sẵn về thiết bị để sử dụng offline.
-
----
-
-## Translation System
-
-Hệ thống sử dụng translation table riêng để hỗ trợ đa ngôn ngữ.
-
-Thiết kế này giúp:
-
-* Dễ mở rộng ngôn ngữ
-* Giảm trùng lặp dữ liệu
-* Tăng khả năng bảo trì
-* Tối ưu synchronization
-
-Các nội dung được hỗ trợ localization:
-
-* Tên Tour
-* Mô tả Tour
-* Tên POI
-* Nội dung narration
-* Audio narration
-
----
-
-## QR Navigation
-
-Hệ thống hỗ trợ QR code để kích hoạt narration.
-
-QR được sử dụng trong các trường hợp:
-
-* Indoor navigation
+* Smart tourism
 * Museum guide
-* GPS không chính xác
-* Kích hoạt nội dung thủ công
-
-Khi người dùng quét QR code, hệ thống sẽ:
-
-1. Xác định POI tương ứng
-2. Lấy nội dung narration
-3. Phát audio theo ngôn ngữ đã chọn
-
----
-
-# Offline-First Architecture
-
-Thiết kế offline-first là thành phần quan trọng của hệ thống.
-
-## Mục Tiêu
-
-Ứng dụng vẫn hoạt động khi:
-
-* Mất kết nối internet
-* Kết nối yếu
-* Di chuyển ngoài vùng phủ sóng
-
-## Dữ Liệu Được Cache Offline
-
-Các dữ liệu được lưu offline gồm:
-
-* Tour
-* POI
-* Translation
-* Audio file
-* Hình ảnh
-* Narration history
-
-## Lợi Ích
-
-* Trải nghiệm ổn định hơn
-* Giảm phụ thuộc internet
-* Tăng tốc độ truy cập dữ liệu
-* Giảm chi phí mạng
-
----
-
-# Synchronization Strategy
-
-Hệ thống sử dụng cơ chế incremental synchronization.
-
-## Nguyên Lý Hoạt Động
-
-Chỉ những dữ liệu thay đổi mới được đồng bộ.
-
-Điều này giúp:
-
-* Giảm băng thông
-* Tăng tốc sync
-* Giảm tải server
-* Tối ưu pin trên mobile
-
-## Sync Flow
-
-```text
-Server Database
-      ↓
-Sync API
-      ↓
-SQLite Local Database
-      ↓
-Mobile Application
-```
-
-## Offline Queue
-
-Các thao tác phát sinh offline sẽ được lưu tạm local.
-
-Ví dụ:
-
-* Narration log
-* Playback history
-* User interaction
-
-Khi có internet, dữ liệu sẽ được gửi lên server.
-
----
-
-# GPS & Geofencing
-
-Hệ thống sử dụng GPS để tự động kích hoạt narration.
-
-## Cơ Chế Hoạt Động
-
-1. Ứng dụng lấy vị trí người dùng
-2. So sánh với tọa độ POI
-3. Kiểm tra bán kính kích hoạt
-4. Tự động phát narration
-
-## Geofence Optimization
-
-Để tối ưu hiệu năng:
-
-* Chỉ kiểm tra POI gần vị trí hiện tại
-* Giảm số lần tính khoảng cách
-* Sử dụng geofence cooldown
-* Tránh trigger lặp liên tục
-
----
-
-# Audio Management
-
-Hệ thống quản lý audio theo mô hình metadata + file storage.
-
-## Audio Metadata
-
-Lưu thông tin:
-
-* Audio URL
-* Language
-* Duration
-* File size
-* Mime type
-* Audio type
-
-## Audio Cache
-
-Audio file được lưu cục bộ trên thiết bị.
-
-Lợi ích:
-
-* Phát nhanh hơn
-* Hoạt động offline
-* Giảm tải mạng
-
----
-
-# Bảo Mật & Toàn Vẹn Dữ Liệu
-
-Hệ thống đảm bảo tính toàn vẹn dữ liệu thông qua:
-
-* Foreign key
-* Unique constraint
-* Version tracking
-* Synchronization timestamp
-* Checksum validation
-
-Ngoài ra hệ thống còn hỗ trợ:
-
-* Phát hiện conflict khi sync
-* Kiểm tra dữ liệu trùng lặp
-* Đảm bảo consistency giữa mobile và server
-
----
-
-# Khả Năng Mở Rộng
-
-Thiết kế hiện tại cho phép mở rộng dễ dàng trong tương lai.
-
-Có thể bổ sung:
-
-* User account
-* Favorite POI
-* AI narration
-* Recommendation system
-* Analytics dashboard
-* Smart routing
-* AR navigation
-* Voice assistant
-
----
-
-# Kết Luận
-
-Thiết kế cơ sở dữ liệu của VinhHy.AudioTour được xây dựng theo hướng hiện đại, tối ưu cho mobile application và offline experience.
-
-Các điểm mạnh chính:
-
-* Offline-first architecture
-* GPS-based narration
-* Multi-language support
-* Incremental synchronization
-* Audio caching
-* Flexible tour management
-* Mobile performance optimization
-
-Thiết kế phù hợp cho:
-
-* Smart tourism application
-* Museum guide system
 * Historical site navigation
-* Outdoor educational platform
+* Outdoor education
 * Smart city audio tour

@@ -1,0 +1,6 @@
+@VinhHy.NarrationAPI.Api_HostAddress = http://localhost:5082
+
+GET {{VinhHy.NarrationAPI.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
