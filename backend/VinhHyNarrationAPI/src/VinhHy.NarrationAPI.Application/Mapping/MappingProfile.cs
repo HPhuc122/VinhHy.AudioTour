@@ -77,7 +77,9 @@ public class MappingProfile : Profile
             .ForMember(d => d.Poi, opt => opt.Ignore());
         CreateMap<AudioTrack, SyncableAudioTrackDto>();
 
-        CreateMap<Tour, TourDto>();
+        CreateMap<Tour, TourDto>()
+            .ForMember(d => d.Pois, opt => opt.MapFrom(s => s.TourPois))
+            .ForMember(d => d.Translations, opt => opt.MapFrom(s => s.Translations));
         CreateMap<CreateTourRequest, Tour>()
             .ForMember(d => d.Id, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())

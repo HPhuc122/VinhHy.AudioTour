@@ -22,6 +22,7 @@ public class PoiTranslationConfiguration : IEntityTypeConfiguration<PoiTranslati
 
         builder.HasIndex(e => new { e.POIId, e.LanguageCode }).IsUnique();
         builder.HasIndex(e => e.LanguageCode);
+        builder.HasIndex(e => e.UpdatedAt);
 
         builder.HasOne(e => e.Poi)
             .WithMany(p => p.Translations)

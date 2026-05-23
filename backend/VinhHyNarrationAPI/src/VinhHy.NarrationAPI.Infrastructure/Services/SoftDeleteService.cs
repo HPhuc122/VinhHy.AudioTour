@@ -25,18 +25,8 @@ public class SoftDeleteService
         if (entity is IVersionedEntity versioned)
             versioned.Version++;
 
-        switch (entity)
-        {
-            case Poi poi:
-                poi.UpdatedAt = now;
-                break;
-            case AudioTrack track:
-                track.UpdatedAt = now;
-                break;
-            case Tour tour:
-                tour.UpdatedAt = now;
-                break;
-        }
+        if (entity is IAuditableEntity auditable)
+            auditable.UpdatedAt = now;
 
         var entityId = entity switch
         {

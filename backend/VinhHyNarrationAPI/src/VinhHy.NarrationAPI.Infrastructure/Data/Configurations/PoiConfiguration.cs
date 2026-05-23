@@ -28,6 +28,8 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
 
         builder.HasIndex(e => e.Code).IsUnique();
         builder.HasIndex(e => e.UpdatedAt);
+        builder.HasIndex(e => e.DeletedAt)
+            .HasFilter("[DeletedAt] IS NOT NULL");
         builder.HasIndex(e => new { e.Latitude, e.Longitude })
             .HasFilter("[IsActive] = 1 AND [DeletedAt] IS NULL");
 

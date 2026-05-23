@@ -13,7 +13,11 @@ public static class DataSeeder
     public static async Task SeedAsync(ApplicationDbContext db, CancellationToken cancellationToken = default)
     {
         await SeedRolesAsync(db, cancellationToken).ConfigureAwait(false);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
         await SeedLanguagesAsync(db, cancellationToken).ConfigureAwait(false);
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
         await SeedAdminUserAsync(db, cancellationToken).ConfigureAwait(false);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }

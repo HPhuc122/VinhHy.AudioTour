@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:VinhHy.AudioTour.Mobile.ViewModels"
+             x:Class="VinhHy.AudioTour.Mobile.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="12">
+            <Label Text="API base URL" />
+            <Entry Text="{Binding ApiBaseUrl}" />
+            <Label Text="Preferred language" />
+            <Entry Text="{Binding PreferredLanguage}" />
+            <Label Text="Device ID" />
+            <Label Text="{Binding DeviceId}" FontSize="12" />
+            <Button Text="Save" Command="{Binding SaveCommand}" />
+            <Label Text="{Binding StatusMessage}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

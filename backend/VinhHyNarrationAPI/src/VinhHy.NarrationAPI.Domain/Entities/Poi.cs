@@ -2,10 +2,8 @@ using VinhHy.NarrationAPI.Domain.Common;
 
 namespace VinhHy.NarrationAPI.Domain.Entities;
 
-public class Poi : ISoftDeletable, IVersionedEntity, IAuditableEntity
+public class Poi : SyncableEntity
 {
-    public int Id { get; set; }
-
     public string Code { get; set; } = null!;
 
     public decimal Latitude { get; set; }
@@ -25,14 +23,6 @@ public class Poi : ISoftDeletable, IVersionedEntity, IAuditableEntity
     public int CooldownSeconds { get; set; } = 300;
 
     public int MinDwellSeconds { get; set; } = 5;
-
-    public DateTime? DeletedAt { get; set; }
-
-    public int Version { get; set; } = 1;
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
 
     public ICollection<PoiTranslation> Translations { get; set; } = [];
 

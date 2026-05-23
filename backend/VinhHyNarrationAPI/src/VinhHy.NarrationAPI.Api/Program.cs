@@ -1,15 +1,14 @@
 using System.Text.Json;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using VinhHy.NarrationAPI.Api.Middleware;
 using VinhHy.NarrationAPI.Application.DependencyInjection;
+using VinhHy.NarrationAPI.Application.Features.Auth.Validators;
 using VinhHy.NarrationAPI.Infrastructure.DependencyInjection;
-
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
 
 try
 {
@@ -30,8 +29,7 @@ try
 
     builder.Services.AddFluentValidationAutoValidation();
     builder.Services.AddFluentValidationClientsideAdapters();
-    builder.Services.AddValidatorsFromAssembly(
-        typeof(VinhHy.NarrationAPI.Application.Features.Auth.Validators.LoginRequestValidator).Assembly);
+    builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(options =>
@@ -67,6 +65,16 @@ try
 
     var app = builder.Build();
 
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.GetLevel = (httpContext, elapsed, ex) =>
+            ex is not null || httpContext.Response.StatusCode >= 500
+                ? Serilog.Events.LogEventLevel.Error
+                : httpContext.Response.StatusCode >= 400
+                    ? Serilog.Events.LogEventLevel.Warning
+                    : Serilog.Events.LogEventLevel.Information;
+    });
+
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
     if (app.Environment.IsDevelopment())
@@ -76,14 +84,30 @@ try
         {
             options.SwaggerEndpoint("/swagger/v1/swagger.json", "VinhHy Narration API v1");
         });
+    }
 
-        await app.Services.MigrateAndSeedAsync();
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            await app.Services.MigrateAndSeedAsync();
+        }
     }
 
     app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();
+
     app.MapControllers();
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = WriteHealthCheckResponse
+    });
+    app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = WriteHealthCheckResponse
+    });
 
     app.Run();
 }
@@ -96,3 +120,24 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+static Task WriteHealthCheckResponse(HttpContext context, HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+    var payload = new
+    {
+        status = report.Status.ToString(),
+        totalDuration = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description,
+            duration = e.Value.Duration.TotalMilliseconds
+        })
+    };
+
+    return context.Response.WriteAsJsonAsync(payload);
+}
+
+public partial class Program;

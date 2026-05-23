@@ -20,5 +20,8 @@ public class TourConfiguration : IEntityTypeConfiguration<Tour>
         builder.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
 
         builder.HasIndex(e => e.Code).IsUnique();
+        builder.HasIndex(e => e.UpdatedAt);
+        builder.HasIndex(e => e.DeletedAt)
+            .HasFilter("[DeletedAt] IS NOT NULL");
     }
 }

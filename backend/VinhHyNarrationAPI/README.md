@@ -98,6 +98,22 @@ Alternatively apply `docs/database/sqlserver/schema.sql` and treat EF migrations
 
 Sample requests: [docs/sample-api-requests.md](docs/sample-api-requests.md)
 
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [IMPLEMENTATION_PROGRESS.md](docs/IMPLEMENTATION_PROGRESS.md) | Module status and next steps |
+| [KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) | Limitations and mitigations |
+| [ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) | ADR-style design record |
+
+## Tests
+
+```bash
+dotnet test tests/VinhHy.NarrationAPI.SmokeTests
+```
+
+Smoke tests cover health endpoints, login, languages, DI, and AutoMapper validation (in-memory DB).
+
 ## Response format
 
 ```json

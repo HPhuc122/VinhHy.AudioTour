@@ -1,8 +1,6 @@
-using VinhHy.NarrationAPI.Domain.Common;
-
 namespace VinhHy.NarrationAPI.Domain.Entities;
 
-public class ContentVersion : IAuditableEntity
+public class ContentVersion
 {
     public long Id { get; set; }
 

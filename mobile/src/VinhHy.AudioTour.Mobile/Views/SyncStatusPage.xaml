@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:VinhHy.AudioTour.Mobile.ViewModels"
+             x:Class="VinhHy.AudioTour.Mobile.Views.SyncStatusPage"
+             x:DataType="vm:SyncStatusViewModel"
+             Title="{Binding Title}">
+
+    <VerticalStackLayout Padding="24" Spacing="16">
+        <Label Text="{Binding StatusMessage}" />
+        <Label Text="{Binding IsOnline, StringFormat='Network: {0}'}" />
+        <Label Text="{Binding LastPoiSync, StringFormat='Last POI sync: {0:g}'}" />
+        <Label Text="{Binding PendingLogCount, StringFormat='Pending narration logs: {0}'}" />
+        <Button Text="Sync now" Command="{Binding SyncNowCommand}" />
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+    </VerticalStackLayout>
+</ContentPage>

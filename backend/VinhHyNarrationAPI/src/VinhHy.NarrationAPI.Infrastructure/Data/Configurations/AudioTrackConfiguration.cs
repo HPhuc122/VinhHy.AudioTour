@@ -22,6 +22,9 @@ public class AudioTrackConfiguration : IEntityTypeConfiguration<AudioTrack>
         builder.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
 
         builder.HasIndex(e => new { e.POIId, e.LanguageCode }).IsUnique();
+        builder.HasIndex(e => e.UpdatedAt);
+        builder.HasIndex(e => new { e.POIId, e.LanguageCode })
+            .HasFilter("[IsActive] = 1 AND [DeletedAt] IS NULL");
 
         builder.ToTable(t =>
         {

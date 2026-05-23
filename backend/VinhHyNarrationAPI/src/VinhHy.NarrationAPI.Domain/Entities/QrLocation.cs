@@ -2,10 +2,8 @@ using VinhHy.NarrationAPI.Domain.Common;
 
 namespace VinhHy.NarrationAPI.Domain.Entities;
 
-public class QrLocation : ISoftDeletable, IAuditableEntity
+public class QrLocation : BaseEntity, ISoftDeletable
 {
-    public int Id { get; set; }
-
     public int POIId { get; set; }
 
     public string QRCode { get; set; } = null!;

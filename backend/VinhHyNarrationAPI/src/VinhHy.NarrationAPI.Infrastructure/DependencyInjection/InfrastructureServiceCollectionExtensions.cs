@@ -6,8 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
-using AutoMapper;
-using VinhHy.NarrationAPI.Application.Mapping;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 using VinhHy.NarrationAPI.Infrastructure.Data.Seed;
 using VinhHy.NarrationAPI.Infrastructure.Options;
@@ -24,16 +22,28 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
 
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+        var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");
 
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(connectionString, sql =>
-                sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        if (useInMemory)
+        {
+            var inMemoryName = configuration.GetValue<string>("InMemoryDatabaseName") ?? "VinhHyNarrationTests";
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseInMemoryDatabase(inMemoryName));
+        }
+        else
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
-        var mapperConfig = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
-        services.AddSingleton(mapperConfig);
-        services.AddSingleton<IMapper>(sp => sp.GetRequiredService<MapperConfiguration>().CreateMapper());
+            services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlServer(connectionString, sql =>
+                    sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        }
+
+        services.AddHealthChecks()
+            .AddDbContextCheck<ApplicationDbContext>(
+                name: "database",
+                tags: ["ready", "db"]);
 
         RegisterRepositories(services);
         RegisterServices(services);
@@ -46,7 +56,16 @@ public static class InfrastructureServiceCollectionExtensions
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await db.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+
+        if (db.Database.IsRelational())
+        {
+            await db.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         await DataSeeder.SeedAsync(db, cancellationToken).ConfigureAwait(false);
     }
 

@@ -138,8 +138,11 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UpdatedAt");
+
                     b.HasIndex("POIId", "LanguageCode")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1 AND [DeletedAt] IS NULL");
 
                     b.ToTable("AudioTracks", null, t =>
                         {
@@ -553,6 +556,9 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
+                    b.HasIndex("DeletedAt")
+                        .HasFilter("[DeletedAt] IS NOT NULL");
+
                     b.HasIndex("UpdatedAt");
 
                     b.HasIndex("Latitude", "Longitude")
@@ -619,6 +625,8 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("LanguageCode");
+
+                    b.HasIndex("UpdatedAt");
 
                     b.HasIndex("POIId", "LanguageCode")
                         .IsUnique();
@@ -796,6 +804,11 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.HasIndex("Code")
                         .IsUnique();
+
+                    b.HasIndex("DeletedAt")
+                        .HasFilter("[DeletedAt] IS NOT NULL");
+
+                    b.HasIndex("UpdatedAt");
 
                     b.ToTable("Tours", (string)null);
                 });

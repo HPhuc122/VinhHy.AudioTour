@@ -1,8 +1,6 @@
-using VinhHy.NarrationAPI.Domain.Common;
-
 namespace VinhHy.NarrationAPI.Domain.Entities;
 
-public class AuditLog : IAuditableEntity
+public class AuditLog
 {
     public long Id { get; set; }
 
