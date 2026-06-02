@@ -37,6 +37,8 @@ public sealed class LocalDatabase : IAsyncDisposable
                 await _connection.ExecuteAsync(statement).ConfigureAwait(false);
             }
 
+            await LocalDatabaseMigrator.MigrateAsync(_connection).ConfigureAwait(false);
+
             await _connection.ExecuteAsync($"PRAGMA user_version = {SqlSchema.UserVersion};")
                 .ConfigureAwait(false);
 

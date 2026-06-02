@@ -14,6 +14,15 @@ public static class SqlSchema
         );
         """,
         """
+        CREATE TABLE IF NOT EXISTS Languages (
+            Code       TEXT    NOT NULL PRIMARY KEY,
+            Name       TEXT    NOT NULL,
+            NativeName TEXT    NOT NULL,
+            IsActive   INTEGER NOT NULL DEFAULT 1,
+            SortOrder  INTEGER NOT NULL DEFAULT 0
+        );
+        """,
+        """
         CREATE TABLE IF NOT EXISTS DeviceRegistration (
             DeviceId     TEXT NOT NULL PRIMARY KEY,
             Platform     TEXT NOT NULL,
@@ -107,6 +116,35 @@ public static class SqlSchema
         );
         """,
         """
+        CREATE TABLE IF NOT EXISTS TourPOIs (
+            Id         INTEGER NOT NULL PRIMARY KEY,
+            TourId     INTEGER NOT NULL,
+            POIId      INTEGER NOT NULL,
+            OrderIndex INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (TourId) REFERENCES Tours(Id) ON DELETE CASCADE,
+            FOREIGN KEY (POIId)  REFERENCES POIs(Id),
+            UNIQUE (TourId, POIId)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS QRLocations (
+            Id        INTEGER NOT NULL PRIMARY KEY,
+            POIId     INTEGER NOT NULL,
+            QRCode    TEXT    NOT NULL UNIQUE,
+            Label     TEXT,
+            IsActive  INTEGER NOT NULL DEFAULT 1,
+            DeletedAt TEXT,
+            ExpiresAt TEXT,
+            CreatedAt TEXT    NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (POIId) REFERENCES POIs(Id)
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS IX_QRLocations_Code
+            ON QRLocations (QRCode)
+            WHERE IsActive = 1 AND DeletedAt IS NULL;
+        """,
+        """
         CREATE TABLE IF NOT EXISTS TourTranslations (
             Id           INTEGER NOT NULL PRIMARY KEY,
             TourId       INTEGER NOT NULL,
@@ -182,6 +220,20 @@ public static class SqlSchema
         );
         """,
         """
+        CREATE TABLE IF NOT EXISTS SyncRetryQueue (
+            Id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            Operation     TEXT    NOT NULL,
+            AttemptCount  INTEGER NOT NULL DEFAULT 0,
+            NextAttemptAt TEXT    NOT NULL,
+            CreatedAt     TEXT    NOT NULL DEFAULT (datetime('now')),
+            LastError     TEXT
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS IX_SyncRetryQueue_Due
+            ON SyncRetryQueue (NextAttemptAt);
+        """,
+        """
         CREATE TABLE IF NOT EXISTS SyncCursors (
             EntityType   TEXT NOT NULL PRIMARY KEY,
             LastSyncedAt TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z'
@@ -194,5 +246,61 @@ public static class SqlSchema
         "INSERT OR IGNORE INTO SyncCursors (EntityType) VALUES ('OfflinePackage');",
         "INSERT OR IGNORE INTO SyncCursors (EntityType) VALUES ('Language');",
         "INSERT OR IGNORE INTO SyncCursors (EntityType) VALUES ('DeletedRecord');",
+    ];
+
+  public static string[] GetVersion2UpgradeStatements() =>
+    [
+        """
+        CREATE TABLE IF NOT EXISTS Languages (
+            Code       TEXT    NOT NULL PRIMARY KEY,
+            Name       TEXT    NOT NULL,
+            NativeName TEXT    NOT NULL,
+            IsActive   INTEGER NOT NULL DEFAULT 1,
+            SortOrder  INTEGER NOT NULL DEFAULT 0
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS TourPOIs (
+            Id         INTEGER NOT NULL PRIMARY KEY,
+            TourId     INTEGER NOT NULL,
+            POIId      INTEGER NOT NULL,
+            OrderIndex INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (TourId) REFERENCES Tours(Id) ON DELETE CASCADE,
+            FOREIGN KEY (POIId)  REFERENCES POIs(Id),
+            UNIQUE (TourId, POIId)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS QRLocations (
+            Id        INTEGER NOT NULL PRIMARY KEY,
+            POIId     INTEGER NOT NULL,
+            QRCode    TEXT    NOT NULL UNIQUE,
+            Label     TEXT,
+            IsActive  INTEGER NOT NULL DEFAULT 1,
+            DeletedAt TEXT,
+            ExpiresAt TEXT,
+            CreatedAt TEXT    NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (POIId) REFERENCES POIs(Id)
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS IX_QRLocations_Code
+            ON QRLocations (QRCode)
+            WHERE IsActive = 1 AND DeletedAt IS NULL;
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS SyncRetryQueue (
+            Id            INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+            Operation     TEXT    NOT NULL,
+            AttemptCount  INTEGER NOT NULL DEFAULT 0,
+            NextAttemptAt TEXT    NOT NULL,
+            CreatedAt     TEXT    NOT NULL DEFAULT (datetime('now')),
+            LastError     TEXT
+        );
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS IX_SyncRetryQueue_Due
+            ON SyncRetryQueue (NextAttemptAt);
+        """,
     ];
 }

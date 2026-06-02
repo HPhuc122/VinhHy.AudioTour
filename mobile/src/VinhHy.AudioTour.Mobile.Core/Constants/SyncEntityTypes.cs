@@ -2,7 +2,9 @@ namespace VinhHy.AudioTour.Mobile.Core.Constants;
 
 public static class SyncEntityTypes
 {
-    public const string Poi = "POI";
+    public const string POI = "POI";
+
+    public const string Poi = POI;
 
     public const string AudioTrack = "AudioTrack";
 

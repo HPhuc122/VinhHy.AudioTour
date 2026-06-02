@@ -103,4 +103,27 @@ public static class SyncDtoMapper
             EntityId = dto.EntityId,
             DeletedAt = dto.DeletedAt
         };
+
+    public static LanguageLocal ToLocal(SyncableLanguageDto dto) =>
+        new()
+        {
+            Code = dto.Code,
+            Name = dto.Name,
+            NativeName = dto.NativeName,
+            IsActive = dto.IsActive,
+            SortOrder = dto.SortOrder
+        };
+
+    public static QrLocationLocal ToLocal(SyncableQrLocationDto dto) =>
+        new()
+        {
+            Id = dto.Id,
+            PoiId = dto.PoiId,
+            QrCode = dto.QrCode,
+            Label = dto.Label,
+            IsActive = dto.IsActive,
+            DeletedAt = dto.DeletedAt,
+            CreatedAt = dto.CreatedAt,
+            ExpiresAt = dto.ExpiresAt
+        };
 }

@@ -288,4 +288,66 @@ public static class EntityMapper
         EntityType = model.EntityType,
         LastSyncedAt = model.LastSyncedAt,
     };
+
+    public static LanguageLocal ToLocal(LanguageEntity entity) => new()
+    {
+        Code = entity.Code,
+        Name = entity.Name,
+        NativeName = entity.NativeName,
+        IsActive = entity.IsActive,
+        SortOrder = entity.SortOrder,
+    };
+
+    public static LanguageEntity FromLocal(LanguageLocal model) => new()
+    {
+        Code = model.Code,
+        Name = model.Name,
+        NativeName = model.NativeName,
+        IsActive = model.IsActive,
+        SortOrder = model.SortOrder,
+    };
+
+    public static QrLocationLocal ToLocal(QrLocationEntity entity) => new()
+    {
+        Id = entity.Id,
+        PoiId = entity.POIId,
+        QrCode = entity.QRCode,
+        Label = entity.Label,
+        IsActive = entity.IsActive,
+        DeletedAt = entity.DeletedAt,
+        CreatedAt = entity.CreatedAt,
+        ExpiresAt = entity.ExpiresAt,
+    };
+
+    public static QrLocationEntity FromLocal(QrLocationLocal model) => new()
+    {
+        Id = model.Id,
+        POIId = model.PoiId,
+        QRCode = model.QrCode,
+        Label = model.Label,
+        IsActive = model.IsActive,
+        DeletedAt = model.DeletedAt,
+        CreatedAt = model.CreatedAt,
+        ExpiresAt = model.ExpiresAt,
+    };
+
+    public static SyncRetryItemLocal ToLocal(SyncRetryQueueEntity entity) => new()
+    {
+        Id = entity.Id,
+        Operation = entity.Operation,
+        AttemptCount = entity.AttemptCount,
+        NextAttemptAt = entity.NextAttemptAt,
+        CreatedAt = entity.CreatedAt,
+        LastError = entity.LastError,
+    };
+
+    public static SyncRetryQueueEntity FromLocal(SyncRetryItemLocal model) => new()
+    {
+        Id = model.Id,
+        Operation = model.Operation,
+        AttemptCount = model.AttemptCount,
+        NextAttemptAt = model.NextAttemptAt,
+        CreatedAt = model.CreatedAt,
+        LastError = model.LastError,
+    };
 }

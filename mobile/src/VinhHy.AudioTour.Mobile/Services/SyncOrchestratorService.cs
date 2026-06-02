@@ -19,6 +19,8 @@ public sealed class SyncOrchestratorService(
     ITourRepository tours,
     ITourTranslationRepository tourTranslations,
     IOfflinePackageRepository offlinePackages,
+    ILanguageRepository languages,
+    IQrLocationRepository qrLocations,
     IDeletedRecordRepository deletedRecords,
     INarrationLogQueueService narrationQueue) : ISyncService
 {
@@ -133,6 +135,20 @@ public sealed class SyncOrchestratorService(
                 cancellationToken).ConfigureAwait(false);
         }
 
+        if (pull.Languages.Count > 0)
+        {
+            await languages.UpsertRangeAsync(
+                pull.Languages.Select(SyncDtoMapper.ToLocal),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        if (pull.QrLocations.Count > 0)
+        {
+            await qrLocations.UpsertRangeAsync(
+                pull.QrLocations.Select(SyncDtoMapper.ToLocal),
+                cancellationToken).ConfigureAwait(false);
+        }
+
         if (pull.DeletedRecords.Count > 0)
         {
             await deletedRecords.InsertRangeAsync(
@@ -146,6 +162,8 @@ public sealed class SyncOrchestratorService(
         await UpdateCursorAsync(SyncEntityTypes.AudioTrack, syncedAt, cancellationToken).ConfigureAwait(false);
         await UpdateCursorAsync(SyncEntityTypes.Tour, syncedAt, cancellationToken).ConfigureAwait(false);
         await UpdateCursorAsync(SyncEntityTypes.OfflinePackage, syncedAt, cancellationToken).ConfigureAwait(false);
+        await UpdateCursorAsync(SyncEntityTypes.Language, syncedAt, cancellationToken).ConfigureAwait(false);
+        await UpdateCursorAsync(SyncEntityTypes.QrLocation, syncedAt, cancellationToken).ConfigureAwait(false);
         await UpdateCursorAsync(SyncEntityTypes.DeletedRecord, syncedAt, cancellationToken).ConfigureAwait(false);
     }
 
@@ -176,6 +194,9 @@ public sealed class SyncOrchestratorService(
                     break;
                 case SyncEntityTypes.Tour:
                     await tours.DeleteAsync(tombstone.EntityId, cancellationToken).ConfigureAwait(false);
+                    break;
+                case SyncEntityTypes.QrLocation:
+                    await qrLocations.DeleteAsync(tombstone.EntityId, cancellationToken).ConfigureAwait(false);
                     break;
             }
 

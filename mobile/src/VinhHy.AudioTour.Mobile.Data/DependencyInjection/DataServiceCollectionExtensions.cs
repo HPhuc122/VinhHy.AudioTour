@@ -26,6 +26,9 @@ public static class DataServiceCollectionExtensions
         services.AddSingleton<IDeletedRecordRepository, DeletedRecordRepository>();
 
         services.AddSingleton<ITourTranslationRepository, TourTranslationRepository>();
+        services.AddSingleton<ILanguageRepository, LanguageRepository>();
+        services.AddSingleton<IQrLocationRepository, QrLocationRepository>();
+        services.AddSingleton<ISyncRetryQueueRepository, SyncRetryQueueRepository>();
 
         return services;
     }

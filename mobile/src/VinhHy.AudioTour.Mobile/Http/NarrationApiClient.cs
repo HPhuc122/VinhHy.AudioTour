@@ -1,12 +1,8 @@
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Retry;
-using VinhHy.AudioTour.Mobile.Configuration;
 using VinhHy.AudioTour.Mobile.Core.Api;
-using VinhHy.AudioTour.Mobile.Core.Constants;
 using VinhHy.AudioTour.Mobile.Core.Contracts.Services;
 
 namespace VinhHy.AudioTour.Mobile.Http;
@@ -20,20 +16,11 @@ public sealed class NarrationApiClient : IApiClient
     };
 
     private readonly HttpClient _httpClient;
-    private readonly ILocalSettingsService _settings;
     private readonly AsyncRetryPolicy<HttpResponseMessage> _retryPolicy;
 
-    public NarrationApiClient(
-        HttpClient httpClient,
-        IOptions<ApiOptions> options,
-        ILocalSettingsService settings)
+    public NarrationApiClient(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _settings = settings;
-
-        var api = options.Value;
-        _httpClient.BaseAddress = new Uri(api.BaseUrl.TrimEnd('/') + "/");
-        _httpClient.Timeout = TimeSpan.FromSeconds(api.TimeoutSeconds);
 
         _retryPolicy = Policy<HttpResponseMessage>
             .Handle<HttpRequestException>()
@@ -66,12 +53,6 @@ public sealed class NarrationApiClient : IApiClient
         CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path.TrimStart('/'));
-
-        var token = await _settings.GetAsync(SettingKeys.AccessToken, cancellationToken).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
 
         if (body is not null)
         {

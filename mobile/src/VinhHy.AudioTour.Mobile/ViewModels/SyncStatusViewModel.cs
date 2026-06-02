@@ -8,7 +8,7 @@ using VinhHy.AudioTour.Mobile.Mvvm;
 namespace VinhHy.AudioTour.Mobile.ViewModels;
 
 public partial class SyncStatusViewModel(
-    ISyncService syncService,
+    IOfflineSyncCoordinator syncCoordinator,
     IConnectivityMonitor connectivity,
     ISyncCursorRepository syncCursors,
     INarrationLogQueueService narrationQueue) : ViewModelBase
@@ -45,7 +45,7 @@ public partial class SyncStatusViewModel(
         {
             IsBusy = true;
             StatusMessage = "Syncing...";
-            await syncService.SyncAllAsync(cancellationToken).ConfigureAwait(false);
+            await syncCoordinator.SyncNowAsync(cancellationToken).ConfigureAwait(false);
             await InitializeAsync(cancellationToken).ConfigureAwait(false);
             StatusMessage = "Sync completed";
         }

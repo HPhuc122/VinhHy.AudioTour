@@ -1,4 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
 using VinhHy.AudioTour.Mobile.Configuration;
+using VinhHy.AudioTour.Mobile.Core.Constants;
 using VinhHy.AudioTour.Mobile.Core.Contracts.Services;
 using VinhHy.AudioTour.Mobile.Data.DependencyInjection;
 using VinhHy.AudioTour.Mobile.Http;
@@ -16,13 +18,18 @@ public static class MobileServiceCollectionExtensions
         builder.Services.Configure<ApiOptions>(
             builder.Configuration.GetSection(ApiOptions.SectionName));
 
-        builder.Services.AddHttpClient<IApiClient, NarrationApiClient>();
+        RegisterHttpClients(builder.Services);
+
+        builder.Services.AddSingleton<IAuthTokenStore, SecureAuthTokenStore>();
+        builder.Services.AddSingleton<IAuthSessionProvider, AuthSessionProvider>();
+        builder.Services.AddSingleton<IAuthService, AuthService>();
 
         builder.Services.AddSingleton<ILocalSettingsService, LocalSettingsService>();
         builder.Services.AddSingleton<IDeviceIdentityService, DeviceIdentityService>();
         builder.Services.AddSingleton<IConnectivityMonitor, ConnectivityMonitorService>();
         builder.Services.AddSingleton<INarrationLogQueueService, NarrationLogQueueService>();
         builder.Services.AddSingleton<ISyncService, SyncOrchestratorService>();
+        builder.Services.AddSingleton<IOfflineSyncCoordinator, OfflineSyncCoordinatorService>();
         builder.Services.AddSingleton<IAudioPlaybackService, AudioPlaybackService>();
         builder.Services.AddSingleton<IGpsTrackingService, GpsTrackingService>();
         builder.Services.AddSingleton<IBackgroundTourService, BackgroundTourService>();
@@ -39,5 +46,16 @@ public static class MobileServiceCollectionExtensions
         builder.Services.AddSingleton<AppShell>();
 
         return builder;
+    }
+
+    private static void RegisterHttpClients(IServiceCollection services)
+    {
+        services.AddTransient<AuthenticatedHttpMessageHandler>();
+
+        services.AddHttpClient(HttpClientNames.Auth, HttpClientConfiguration.ConfigureApiClient);
+        services.AddHttpClient(HttpClientNames.Api, HttpClientConfiguration.ConfigureApiClient)
+            .AddHttpMessageHandler<AuthenticatedHttpMessageHandler>();
+
+        services.AddHttpClient<IApiClient, NarrationApiClient>(HttpClientNames.Api);
     }
 }
