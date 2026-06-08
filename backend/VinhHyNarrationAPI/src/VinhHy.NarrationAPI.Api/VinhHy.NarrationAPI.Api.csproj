@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>VinhHy.NarrationAPI.Api</RootNamespace>
+    <UserSecretsId>e9807284-fdd2-48c9-aee8-65e48ce0b9e3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
