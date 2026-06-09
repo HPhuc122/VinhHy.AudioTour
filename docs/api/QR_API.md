@@ -1,0 +1,101 @@
+# QR API
+
+Base route: `/api/v1/qr`
+
+All responses use the standard API envelope:
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {}
+}
+```
+
+## Entity
+
+`QrLocation` links a QR code to either one POI or one Tour.
+
+```json
+{
+  "id": 1,
+  "code": "QR-VH-001",
+  "poiId": 10,
+  "poiCode": "POI-VH-001",
+  "tourId": null,
+  "tourCode": null,
+  "isActive": true,
+  "createdAt": "2026-06-08T10:00:00Z",
+  "updatedAt": "2026-06-08T10:00:00Z",
+  "deletedAt": null
+}
+```
+
+Validation:
+
+- `code` is required and unique.
+- Either `poiId` or `tourId` is required.
+- A QR code targets only one entity: POI or Tour.
+
+## List QR Codes
+
+```http
+GET /api/v1/qr
+Authorization: Bearer {accessToken}
+```
+
+Returns all active, non-deleted QR locations.
+
+## Get QR Code By Id
+
+```http
+GET /api/v1/qr/{id}
+Authorization: Bearer {accessToken}
+```
+
+## Resolve QR Code By Code
+
+```http
+GET /api/v1/qr/code/{code}
+```
+
+This endpoint is public for QR landing pages and mobile QR scans.
+
+## Create QR Code
+
+```http
+POST /api/v1/qr
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+
+{
+  "code": "QR-VH-001",
+  "poiId": 10,
+  "tourId": null,
+  "isActive": true
+}
+```
+
+## Update QR Code
+
+```http
+PUT /api/v1/qr/{id}
+Authorization: Bearer {accessToken}
+Content-Type: application/json
+
+{
+  "code": "QR-VH-TOUR-001",
+  "poiId": null,
+  "tourId": 3,
+  "isActive": true
+}
+```
+
+## Delete QR Code
+
+```http
+DELETE /api/v1/qr/{id}
+Authorization: Bearer {accessToken}
+```
+
+Deletes are soft deletes. Deleted QR codes no longer resolve from `/api/v1/qr/code/{code}`.

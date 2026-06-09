@@ -2,6 +2,7 @@ using AutoMapper;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Qr.DTOs;
+using VinhHy.NarrationAPI.Application.Features.Tours.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
@@ -22,68 +23,111 @@ public class QrService : IQrService
         _softDelete = softDelete;
     }
 
-    public async Task<QrLocationDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<QrDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var qr = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return qr is null ? null : _mapper.Map<QrLocationDto>(qr);
+        var items = await _uow.QrLocations.GetAllAsync(cancellationToken).ConfigureAwait(false);
+        return _mapper.Map<IReadOnlyList<QrDto>>(items);
     }
 
-    public async Task<QrResolveResponse?> ResolveAsync(string qrCode, CancellationToken cancellationToken = default)
+    public async Task<QrDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        var qr = await _uow.QrLocations.GetByQrCodeAsync(qrCode, cancellationToken).ConfigureAwait(false);
-        if (qr is null || qr.ExpiresAt is not null && qr.ExpiresAt <= DateTime.UtcNow)
+        var qr = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return qr is null ? null : _mapper.Map<QrDto>(qr);
+    }
+
+    public async Task<QrDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var qr = await _uow.QrLocations
+            .GetByCodeAsync(code, activeOnly: true, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        return qr is null ? null : _mapper.Map<QrDto>(qr);
+    }
+
+    public async Task<QrResolveResponse?> ResolveAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var qr = await _uow.QrLocations
+            .GetByCodeAsync(code, activeOnly: true, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (qr is null)
+        {
             return null;
+        }
 
         return new QrResolveResponse
         {
-            QrLocation = _mapper.Map<QrLocationDto>(qr),
-            Poi = _mapper.Map<PoiDto>(qr.Poi)
+            Qr = _mapper.Map<QrDto>(qr),
+            Poi = qr.Poi is null ? null : _mapper.Map<PoiDto>(qr.Poi),
+            Tour = qr.Tour is null ? null : _mapper.Map<TourDto>(qr.Tour)
         };
     }
 
-    public async Task<IReadOnlyList<QrLocationDto>> GetByPoiIdAsync(
-        int poiId,
-        CancellationToken cancellationToken = default)
+    public async Task<QrDto> CreateAsync(CreateQrRequest request, CancellationToken cancellationToken = default)
     {
-        var items = await _uow.QrLocations.GetByPoiIdAsync(poiId, cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<IReadOnlyList<QrLocationDto>>(items);
-    }
+        ValidateCode(request.Code);
+        await ValidateTargetAsync(request.PoiId, request.TourId, cancellationToken).ConfigureAwait(false);
 
-    public async Task<QrLocationDto> CreateAsync(
-        CreateQrLocationRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        _ = await _uow.Pois.GetByIdAsync(request.POIId, cancellationToken: cancellationToken).ConfigureAwait(false)
-            ?? throw new NotFoundException(nameof(Poi), request.POIId);
+        if (await _uow.QrLocations
+                .GetByCodeAsync(request.Code, includeDeleted: true, cancellationToken: cancellationToken)
+                .ConfigureAwait(false) is not null)
+        {
+            throw new ValidationException(nameof(request.Code), "QR code already exists.");
+        }
 
-        if (await _uow.QrLocations.GetByQrCodeAsync(request.QRCode, cancellationToken).ConfigureAwait(false) is not null)
-            throw new ValidationException(nameof(request.QRCode), "QR code already exists.");
-
+        var now = DateTime.UtcNow;
         var qr = _mapper.Map<QrLocation>(request);
-        qr.CreatedAt = DateTime.UtcNow;
+        qr.CreatedAt = now;
+        qr.UpdatedAt = now;
 
         await _uow.QrLocations.AddAsync(qr, cancellationToken).ConfigureAwait(false);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return _mapper.Map<QrLocationDto>(qr);
+        var saved = await _uow.QrLocations.GetByIdAsync(qr.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return _mapper.Map<QrDto>(saved!);
     }
 
-    public async Task<QrLocationDto> UpdateAsync(
+    public async Task<QrDto> UpdateAsync(
         int id,
-        UpdateQrLocationRequest request,
+        UpdateQrRequest request,
         CancellationToken cancellationToken = default)
     {
         var qr = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(QrLocation), id);
 
-        if (request.Label is not null) qr.Label = request.Label;
-        if (request.IsActive.HasValue) qr.IsActive = request.IsActive.Value;
-        if (request.ExpiresAt.HasValue) qr.ExpiresAt = request.ExpiresAt;
+        if (request.Code is not null && request.Code != qr.Code)
+        {
+            ValidateCode(request.Code);
+
+            if (await _uow.QrLocations
+                    .GetByCodeAsync(request.Code, includeDeleted: true, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false) is not null)
+            {
+                throw new ValidationException(nameof(request.Code), "QR code already exists.");
+            }
+
+            qr.Code = request.Code;
+        }
+
+        if (request.PoiId.HasValue || request.TourId.HasValue)
+        {
+            await ValidateTargetAsync(request.PoiId, request.TourId, cancellationToken).ConfigureAwait(false);
+            qr.PoiId = request.PoiId;
+            qr.TourId = request.TourId;
+        }
+
+        if (request.IsActive.HasValue)
+        {
+            qr.IsActive = request.IsActive.Value;
+        }
+
+        qr.UpdatedAt = DateTime.UtcNow;
 
         _uow.QrLocations.Update(qr);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return _mapper.Map<QrLocationDto>(qr);
+        var saved = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return _mapper.Map<QrDto>(saved!);
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -93,7 +137,41 @@ public class QrService : IQrService
 
         await _softDelete.SoftDeleteAsync(qr, SyncEntityTypes.QRLocation, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+        qr.UpdatedAt = DateTime.UtcNow;
         _uow.QrLocations.SoftDelete(qr);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ValidateTargetAsync(int? poiId, int? tourId, CancellationToken cancellationToken)
+    {
+        if (!poiId.HasValue && !tourId.HasValue)
+        {
+            throw new ValidationException(nameof(CreateQrRequest.PoiId), "Either PoiId or TourId must be provided.");
+        }
+
+        if (poiId.HasValue && tourId.HasValue)
+        {
+            throw new ValidationException(nameof(CreateQrRequest.TourId), "QR code can target either a POI or a tour, not both.");
+        }
+
+        if (poiId.HasValue)
+        {
+            _ = await _uow.Pois.GetByIdAsync(poiId.Value, cancellationToken: cancellationToken).ConfigureAwait(false)
+                ?? throw new NotFoundException(nameof(Poi), poiId.Value);
+        }
+
+        if (tourId.HasValue)
+        {
+            _ = await _uow.Tours.GetByIdAsync(tourId.Value, cancellationToken: cancellationToken).ConfigureAwait(false)
+                ?? throw new NotFoundException(nameof(Tour), tourId.Value);
+        }
+    }
+
+    private static void ValidateCode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ValidationException(nameof(CreateQrRequest.Code), "QR code is required.");
+        }
     }
 }

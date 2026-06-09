@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosInstance } from 'axios';
 import {
   createContext,
   useCallback,
@@ -23,6 +24,7 @@ export interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isInitializing: boolean;
+  httpClient: AxiosInstance;
   authApi: AuthApi;
   login: (credentials: LoginRequest) => Promise<AuthSession>;
   logout: () => void;
@@ -154,11 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       isAuthenticated: session !== null,
       isInitializing,
+      httpClient,
       authApi,
       login,
       logout,
     }),
-    [session, isInitializing, authApi, login, logout],
+    [session, isInitializing, httpClient, authApi, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

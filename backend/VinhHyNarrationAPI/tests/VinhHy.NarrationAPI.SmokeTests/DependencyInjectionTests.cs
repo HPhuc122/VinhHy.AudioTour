@@ -19,6 +19,7 @@ public class DependencyInjectionTests(NarrationApiWebApplicationFactory factory)
         Assert.NotNull(services.GetService<IPoiService>());
         Assert.NotNull(services.GetService<IPoiTranslationService>());
         Assert.NotNull(services.GetService<IAudioService>());
+        Assert.NotNull(services.GetService<IMediaService>());
         Assert.NotNull(services.GetService<ITourService>());
         Assert.NotNull(services.GetService<IQrService>());
         Assert.NotNull(services.GetService<ISyncService>());
@@ -30,5 +31,7 @@ public class DependencyInjectionTests(NarrationApiWebApplicationFactory factory)
         Assert.NotNull(services.GetService<ILanguageService>());
         Assert.NotNull(services.GetService<IDeviceService>());
         Assert.NotNull(services.GetService<IUnitOfWork>());
+        Assert.NotNull(services.GetService<IQrRepository>());
+        Assert.NotNull(services.GetService<IMediaRepository>());
     }
 }

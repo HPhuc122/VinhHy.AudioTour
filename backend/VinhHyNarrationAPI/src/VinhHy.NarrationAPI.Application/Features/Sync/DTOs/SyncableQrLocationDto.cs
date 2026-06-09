@@ -4,17 +4,17 @@ public class SyncableQrLocationDto
 {
     public int Id { get; set; }
 
-    public int POIId { get; set; }
+    public string Code { get; set; } = null!;
 
-    public string QRCode { get; set; } = null!;
+    public int? PoiId { get; set; }
 
-    public string? Label { get; set; }
+    public int? TourId { get; set; }
 
     public bool IsActive { get; set; }
 
-    public DateTime? DeletedAt { get; set; }
-
     public DateTime CreatedAt { get; set; }
 
-    public DateTime? ExpiresAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
 }

@@ -5,39 +5,58 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Repositories;
 
-public class QrLocationRepository : IQrLocationRepository
+public class QrRepository : IQrRepository
 {
     private readonly ApplicationDbContext _db;
 
-    public QrLocationRepository(ApplicationDbContext db) => _db = db;
+    public QrRepository(ApplicationDbContext db) => _db = db;
 
     private IQueryable<QrLocation> Query(bool includeDeleted) =>
         includeDeleted ? _db.QrLocations.IgnoreQueryFilters() : _db.QrLocations;
+
+    public async Task<IReadOnlyList<QrLocation>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await Query(includeDeleted: false)
+            .AsNoTracking()
+            .Include(q => q.Poi)
+            .Include(q => q.Tour)
+            .OrderBy(q => q.Code)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
     public async Task<QrLocation?> GetByIdAsync(
         int id,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default) =>
         await Query(includeDeleted)
+            .Include(q => q.Poi)
+            .Include(q => q.Tour)
             .FirstOrDefaultAsync(q => q.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
-    public async Task<QrLocation?> GetByQrCodeAsync(string qrCode, CancellationToken cancellationToken = default) =>
-        await _db.QrLocations
+    public async Task<QrLocation?> GetByCodeAsync(
+        string code,
+        bool activeOnly = false,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        var query = Query(includeDeleted)
             .Include(q => q.Poi)
-            .FirstOrDefaultAsync(q => q.QRCode == qrCode && q.IsActive, cancellationToken)
-            .ConfigureAwait(false);
+            .Include(q => q.Tour)
+            .Where(q => q.Code == code);
 
-    public async Task<IReadOnlyList<QrLocation>> GetByPoiIdAsync(
-        int poiId,
-        CancellationToken cancellationToken = default) =>
-        await _db.QrLocations.Where(q => q.POIId == poiId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (activeOnly)
+        {
+            query = query.Where(q => q.IsActive);
+        }
+
+        return await query.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<QrLocation>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default) =>
         await _db.QrLocations.IgnoreQueryFilters()
-            .Where(q => q.CreatedAt >= since || (q.DeletedAt != null && q.DeletedAt >= since))
+            .Where(q => q.UpdatedAt >= since || (q.DeletedAt != null && q.DeletedAt >= since))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

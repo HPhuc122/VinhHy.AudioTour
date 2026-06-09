@@ -78,10 +78,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPoiRepository, PoiRepository>();
         services.AddScoped<IPoiTranslationRepository, PoiTranslationRepository>();
         services.AddScoped<IAudioTrackRepository, AudioTrackRepository>();
+        services.AddScoped<IMediaRepository, MediaRepository>();
         services.AddScoped<ITourRepository, TourRepository>();
         services.AddScoped<ITourTranslationRepository, TourTranslationRepository>();
         services.AddScoped<ITourPoiRepository, TourPoiRepository>();
-        services.AddScoped<IQrLocationRepository, QrLocationRepository>();
+        services.AddScoped<IQrRepository, QrRepository>();
         services.AddScoped<INarrationLogRepository, NarrationLogRepository>();
         services.AddScoped<IOfflinePackageRepository, OfflinePackageRepository>();
         services.AddScoped<ISyncRepository, SyncRepository>();
@@ -102,6 +103,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPoiService, PoiService>();
         services.AddScoped<IPoiTranslationService, PoiTranslationService>();
         services.AddScoped<IAudioService, AudioService>();
+        services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITourService, TourService>();
         services.AddScoped<IQrService, QrService>();
         services.AddScoped<ISyncService, SyncService>();

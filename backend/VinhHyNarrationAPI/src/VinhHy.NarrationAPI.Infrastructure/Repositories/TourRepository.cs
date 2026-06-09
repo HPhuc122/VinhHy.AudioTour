@@ -21,6 +21,7 @@ public class TourRepository : ITourRepository
         await Query(includeDeleted)
             .Include(t => t.Translations)
             .Include(t => t.TourPois)
+                .ThenInclude(tp => tp.Poi)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
@@ -35,7 +36,11 @@ public class TourRepository : ITourRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var query = Query(includeDeleted).AsNoTracking();
+        IQueryable<Tour> query = Query(includeDeleted)
+            .AsNoTracking()
+            .Include(t => t.Translations)
+            .Include(t => t.TourPois)
+                .ThenInclude(tp => tp.Poi);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(t => t.Code.Contains(search));

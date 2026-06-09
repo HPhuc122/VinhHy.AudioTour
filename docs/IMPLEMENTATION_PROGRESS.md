@@ -1,14 +1,14 @@
 # Implementation Progress — VinhHyNarrationAPI
 
-Last updated: 2026-05-22
+Last updated: 2026-06-08
 
 ## Solution status
 
 | Check | Status |
 |-------|--------|
 | Solution build | Pass (0 errors) |
-| EF migrations | `InitialCreate`, `AddSyncIndexes` |
-| Smoke tests (7) | Pass |
+| EF migrations | `InitialCreate`, `AddSyncIndexes`, `UpdateQrLocationsForTourTargets`, `AddMediaFiles` |
+| Smoke tests (11) | Pass |
 | AutoMapper validation | Pass |
 | DI registration | Verified via smoke tests |
 
@@ -37,7 +37,8 @@ backend/VinhHyNarrationAPI/
 | POI translations | `/api/v1/poi-translations` | Done |
 | Tour management | `/api/v1/tours` | Done |
 | Audio management | `/api/v1/audio` | Done |
-| QR activation | `/api/v1/qr` | Done |
+| Media management | `/api/v1/media` | Done |
+| QR activation | `/api/v1/qr` | Done - supports POI and Tour targets |
 | Offline packages | `/api/v1/offline-packages` | Done |
 | Analytics | `/api/v1/analytics` | Done |
 | Narration logging | `/api/v1/narration-logs` | Done |

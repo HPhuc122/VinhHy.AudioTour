@@ -4,15 +4,17 @@ namespace VinhHy.NarrationAPI.Application.Interfaces.Services;
 
 public interface IQrService
 {
-    Task<QrLocationDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<QrDto>> GetAllAsync(CancellationToken cancellationToken = default);
 
-    Task<QrResolveResponse?> ResolveAsync(string qrCode, CancellationToken cancellationToken = default);
+    Task<QrDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<QrLocationDto>> GetByPoiIdAsync(int poiId, CancellationToken cancellationToken = default);
+    Task<QrDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
 
-    Task<QrLocationDto> CreateAsync(CreateQrLocationRequest request, CancellationToken cancellationToken = default);
+    Task<QrResolveResponse?> ResolveAsync(string code, CancellationToken cancellationToken = default);
 
-    Task<QrLocationDto> UpdateAsync(int id, UpdateQrLocationRequest request, CancellationToken cancellationToken = default);
+    Task<QrDto> CreateAsync(CreateQrRequest request, CancellationToken cancellationToken = default);
+
+    Task<QrDto> UpdateAsync(int id, UpdateQrRequest request, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

@@ -5,6 +5,7 @@ using VinhHy.NarrationAPI.Application.Features.Audit.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Devices.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Geofence.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Languages.DTOs;
+using VinhHy.NarrationAPI.Application.Features.Media.DTOs;
 using VinhHy.NarrationAPI.Application.Features.NarrationLogs.DTOs;
 using VinhHy.NarrationAPI.Application.Features.OfflinePackages.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
@@ -77,6 +78,8 @@ public class MappingProfile : Profile
             .ForMember(d => d.Poi, opt => opt.Ignore());
         CreateMap<AudioTrack, SyncableAudioTrackDto>();
 
+        CreateMap<MediaFile, MediaFileDto>();
+
         CreateMap<Tour, TourDto>()
             .ForMember(d => d.Pois, opt => opt.MapFrom(s => s.TourPois))
             .ForMember(d => d.Translations, opt => opt.MapFrom(s => s.Translations));
@@ -101,12 +104,16 @@ public class MappingProfile : Profile
         CreateMap<TourPoi, TourPoiDto>()
             .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi.Code));
 
-        CreateMap<QrLocation, QrLocationDto>();
-        CreateMap<CreateQrLocationRequest, QrLocation>()
+        CreateMap<QrLocation, QrDto>()
+            .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi != null ? s.Poi.Code : null))
+            .ForMember(d => d.TourCode, opt => opt.MapFrom(s => s.Tour != null ? s.Tour.Code : null));
+        CreateMap<CreateQrRequest, QrLocation>()
             .ForMember(d => d.Id, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
             .ForMember(d => d.CreatedAt, opt => opt.Ignore())
-            .ForMember(d => d.Poi, opt => opt.Ignore());
+            .ForMember(d => d.UpdatedAt, opt => opt.Ignore())
+            .ForMember(d => d.Poi, opt => opt.Ignore())
+            .ForMember(d => d.Tour, opt => opt.Ignore());
         CreateMap<QrLocation, SyncableQrLocationDto>();
 
         CreateMap<Language, LanguageDto>();

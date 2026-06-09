@@ -16,10 +16,11 @@ public class UnitOfWork : IUnitOfWork
         IPoiRepository pois,
         IPoiTranslationRepository poiTranslations,
         IAudioTrackRepository audioTracks,
+        IMediaRepository mediaFiles,
         ITourRepository tours,
         ITourTranslationRepository tourTranslations,
         ITourPoiRepository tourPois,
-        IQrLocationRepository qrLocations,
+        IQrRepository qrLocations,
         INarrationLogRepository narrationLogs,
         IOfflinePackageRepository offlinePackages,
         ISyncRepository sync,
@@ -35,6 +36,7 @@ public class UnitOfWork : IUnitOfWork
         Pois = pois;
         PoiTranslations = poiTranslations;
         AudioTracks = audioTracks;
+        MediaFiles = mediaFiles;
         Tours = tours;
         TourTranslations = tourTranslations;
         TourPois = tourPois;
@@ -61,13 +63,15 @@ public class UnitOfWork : IUnitOfWork
 
     public IAudioTrackRepository AudioTracks { get; }
 
+    public IMediaRepository MediaFiles { get; }
+
     public ITourRepository Tours { get; }
 
     public ITourTranslationRepository TourTranslations { get; }
 
     public ITourPoiRepository TourPois { get; }
 
-    public IQrLocationRepository QrLocations { get; }
+    public IQrRepository QrLocations { get; }
 
     public INarrationLogRepository NarrationLogs { get; }
 

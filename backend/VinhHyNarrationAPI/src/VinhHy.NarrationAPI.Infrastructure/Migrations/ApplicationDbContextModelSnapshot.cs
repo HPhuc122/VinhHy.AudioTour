@@ -367,6 +367,76 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.ToTable("Languages", (string)null);
                 });
 
+            modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.MediaFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<int?>("UploadedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileName")
+                        .IsUnique();
+
+                    b.HasIndex("FileType");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("UploadedAt");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("MediaFiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaFiles_FileSize", "[FileSize] > 0");
+
+                            t.HasCheckConstraint("CK_MediaFiles_FileType", "[FileType] IN ('image', 'audio')");
+                        });
+                });
+
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.NarrationLog", b =>
                 {
                     b.Property<long>("Id")
@@ -642,6 +712,11 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -650,34 +725,38 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<string>("Label")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("POIId")
+                    b.Property<int?>("PoiId")
                         .HasColumnType("int");
 
-                    b.Property<string>("QRCode")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                    b.Property<int?>("TourId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("POIId");
-
-                    b.HasIndex("QRCode")
+                    b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("QRLocations", (string)null);
+                    b.HasIndex("DeletedAt")
+                        .HasFilter("[DeletedAt] IS NOT NULL");
+
+                    b.HasIndex("PoiId");
+
+                    b.HasIndex("TourId");
+
+                    b.ToTable("QRLocations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_QRLocations_Target", "([PoiId] IS NOT NULL AND [TourId] IS NULL) OR ([PoiId] IS NULL AND [TourId] IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.Role", b =>
@@ -1006,6 +1085,16 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.MediaFile", b =>
+                {
+                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UploadedByUser");
+                });
+
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.NarrationLog", b =>
                 {
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Device", "Device")
@@ -1058,11 +1147,17 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                 {
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Poi", "Poi")
                         .WithMany("QrLocations")
-                        .HasForeignKey("POIId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasForeignKey("PoiId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Tour", "Tour")
+                        .WithMany()
+                        .HasForeignKey("TourId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Poi");
+
+                    b.Navigation("Tour");
                 });
 
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.SyncHistory", b =>

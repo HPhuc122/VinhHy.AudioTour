@@ -12,16 +12,30 @@ public class QrLocationConfiguration : IEntityTypeConfiguration<QrLocation>
 
         builder.HasKey(e => e.Id);
 
-        builder.Property(e => e.QRCode).HasMaxLength(200).IsRequired();
-        builder.Property(e => e.Label).HasMaxLength(200);
+        builder.Property(e => e.Code).HasMaxLength(200).IsRequired();
         builder.Property(e => e.IsActive).HasDefaultValue(true);
         builder.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
+        builder.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
 
-        builder.HasIndex(e => e.QRCode).IsUnique();
+        builder.HasIndex(e => e.Code).IsUnique();
+        builder.HasIndex(e => e.DeletedAt)
+            .HasFilter("[DeletedAt] IS NOT NULL");
 
         builder.HasOne(e => e.Poi)
             .WithMany(p => p.QrLocations)
-            .HasForeignKey(e => e.POIId)
+            .HasForeignKey(e => e.PoiId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.Tour)
+            .WithMany()
+            .HasForeignKey(e => e.TourId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint(
+                "CK_QRLocations_Target",
+                "([PoiId] IS NOT NULL AND [TourId] IS NULL) OR ([PoiId] IS NULL AND [TourId] IS NOT NULL)");
+        });
     }
 }

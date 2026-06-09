@@ -10,23 +10,17 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/qr")]
+[Authorize(Roles = RoleGroups.ContentManagement)]
 public class QrController(IQrService qrService) : ControllerBase
 {
-    [AllowAnonymous]
-    [HttpGet("resolve/{qrCode}")]
-    public async Task<IActionResult> Resolve(string qrCode, CancellationToken cancellationToken)
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var result = await qrService.ResolveAsync(qrCode, cancellationToken);
-        if (result is null)
-        {
-            throw new NotFoundException("QR code", qrCode);
-        }
-
-        return this.ApiOk(result);
+        var locations = await qrService.GetAllAsync(cancellationToken);
+        return this.ApiOk(locations);
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
         var location = await qrService.GetByIdAsync(id, cancellationToken);
@@ -38,18 +32,35 @@ public class QrController(IQrService qrService) : ControllerBase
         return this.ApiOk(location);
     }
 
-    [HttpGet("by-poi/{poiId:int}")]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
-    public async Task<IActionResult> GetByPoiId(int poiId, CancellationToken cancellationToken)
+    [AllowAnonymous]
+    [HttpGet("code/{code}")]
+    public async Task<IActionResult> GetByCode(string code, CancellationToken cancellationToken)
     {
-        var locations = await qrService.GetByPoiIdAsync(poiId, cancellationToken);
-        return this.ApiOk(locations);
+        var location = await qrService.GetByCodeAsync(code, cancellationToken);
+        if (location is null)
+        {
+            throw new NotFoundException("QR code", code);
+        }
+
+        return this.ApiOk(location);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("resolve/{code}")]
+    public async Task<IActionResult> Resolve(string code, CancellationToken cancellationToken)
+    {
+        var result = await qrService.ResolveAsync(code, cancellationToken);
+        if (result is null)
+        {
+            throw new NotFoundException("QR code", code);
+        }
+
+        return this.ApiOk(result);
     }
 
     [HttpPost]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Create(
-        [FromBody] CreateQrLocationRequest request,
+        [FromBody] CreateQrRequest request,
         CancellationToken cancellationToken)
     {
         var location = await qrService.CreateAsync(request, cancellationToken);
@@ -57,10 +68,9 @@ public class QrController(IQrService qrService) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Update(
         int id,
-        [FromBody] UpdateQrLocationRequest request,
+        [FromBody] UpdateQrRequest request,
         CancellationToken cancellationToken)
     {
         var location = await qrService.UpdateAsync(id, request, cancellationToken);
@@ -68,7 +78,6 @@ public class QrController(IQrService qrService) : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await qrService.DeleteAsync(id, cancellationToken);

@@ -285,27 +285,34 @@ GO
 
 -- ============================================================
 -- 10. QR LOCATIONS
---     [CHANGED] Added DeletedAt for soft-delete sync
+--     QR can target either one POI or one Tour
 -- ============================================================
 CREATE TABLE QRLocations (
     Id        INT           NOT NULL IDENTITY(1,1),
-    POIId     INT           NOT NULL,
-    QRCode    NVARCHAR(200) NOT NULL,
-    Label     NVARCHAR(200) NULL,
+    Code      NVARCHAR(200) NOT NULL,
+    PoiId     INT           NULL,
+    TourId    INT           NULL,
     IsActive  BIT           NOT NULL DEFAULT 1,
-    -- [NEW COL] Soft-delete
-    DeletedAt DATETIME2     NULL,
     CreatedAt DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
-    ExpiresAt DATETIME2     NULL,
+    UpdatedAt DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+    DeletedAt DATETIME2     NULL,
     CONSTRAINT PK_QRLocations      PRIMARY KEY (Id),
-    CONSTRAINT UQ_QRLocations_Code UNIQUE (QRCode),
-    CONSTRAINT FK_QRLocations_POI  FOREIGN KEY (POIId) REFERENCES POIs(Id)
+    CONSTRAINT UQ_QRLocations_Code UNIQUE (Code),
+    CONSTRAINT CK_QRLocations_Target CHECK (
+        (PoiId IS NOT NULL AND TourId IS NULL)
+        OR (PoiId IS NULL AND TourId IS NOT NULL)
+    ),
+    CONSTRAINT FK_QRLocations_POI  FOREIGN KEY (PoiId) REFERENCES POIs(Id),
+    CONSTRAINT FK_QRLocations_Tour FOREIGN KEY (TourId) REFERENCES Tours(Id)
 );
 GO
 
 CREATE INDEX IX_QRLocations_Code
-    ON QRLocations (QRCode)
+    ON QRLocations (Code)
     WHERE IsActive = 1 AND DeletedAt IS NULL;
+GO
+
+CREATE INDEX IX_QRLocations_TourId ON QRLocations (TourId);
 GO
 
 -- ============================================================

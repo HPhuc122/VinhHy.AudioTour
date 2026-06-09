@@ -16,13 +16,15 @@ public interface IUnitOfWork
 
     IAudioTrackRepository AudioTracks { get; }
 
+    IMediaRepository MediaFiles { get; }
+
     ITourRepository Tours { get; }
 
     ITourTranslationRepository TourTranslations { get; }
 
     ITourPoiRepository TourPois { get; }
 
-    IQrLocationRepository QrLocations { get; }
+    IQrRepository QrLocations { get; }
 
     INarrationLogRepository NarrationLogs { get; }
 
