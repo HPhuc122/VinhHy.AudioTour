@@ -14,16 +14,15 @@ VinhHy.AudioTour
 
 ## Project Type
 
-Hệ thống hướng dẫn du lịch thông minh đa ngôn ngữ.
+Hệ thống quản lý và giới thiệu du lịch Vĩnh Hy gồm:
 
-Ứng dụng hoạt động như một hướng dẫn viên ảo:
+* Backend API
+* Web Admin CMS
+* Public Website
 
-* tự động nhận diện vị trí người dùng
-* phát thuyết minh theo vị trí GPS
-* hỗ trợ quét QR
-* hỗ trợ đa ngôn ngữ
-* hoạt động offline
-* đồng bộ dữ liệu khi online
+Mục tiêu là xây dựng nền tảng quản lý nội dung du lịch đa ngôn ngữ và cung cấp trải nghiệm tham quan trực tuyến cho du khách.
+
+**Mobile App hiện đang tạm hoãn và không nằm trong phạm vi MVP hiện tại.**
 
 ---
 
@@ -31,60 +30,41 @@ Hệ thống hướng dẫn du lịch thông minh đa ngôn ngữ.
 
 Mục tiêu của hệ thống:
 
-* hỗ trợ du khách khám phá phố ẩm thực Vĩnh Hy
-* giảm phụ thuộc hướng dẫn viên thủ công
-* cung cấp trải nghiệm du lịch rảnh tay
-* hỗ trợ đa ngôn ngữ cho khách quốc tế
-* tối ưu hoạt động offline tại khu vực sóng yếu
+* hỗ trợ quảng bá du lịch Vĩnh Hy
+* quản lý tập trung POI, Tour và nội dung đa ngôn ngữ
+* cung cấp trải nghiệm tra cứu thông tin du lịch trực tuyến
+* hỗ trợ QR Code cho từng điểm tham quan
+* cung cấp dashboard thống kê quản trị
+* xây dựng nền tảng có thể mở rộng cho Mobile App trong tương lai
 
 ---
 
 # 3. Main Modules
 
-## Mobile App
-
-Nền tảng:
-
-* .NET MAUI
-* Android
-* iOS
-
-Chức năng:
-
-* GPS realtime tracking
-* Geofence narration
-* Audio/TTS playback
-* QR scan activation
-* Offline SQLite
-* Multi-language
-* Offline package download
-* Tour mode
-* Audio queue management
-
----
-
 ## Backend API
 
 Nền tảng:
 
-* ASP.NET Core Web API
-* SQL Server
+* ASP.NET Core 9
 * Entity Framework Core
+* SQL Server
 
 Chức năng:
 
 * Authentication
-* POI management
-* Audio management
-* Translation management
-* QR management
-* Sync API
+* Authorization
+* User Management
+* Role Management
+* POI Management
+* Translation Management
+* Tour Management
+* QR Management
+* Media Management
 * Analytics
-* Tour management
 
 ---
 
-## CMS Admin
+## Web Admin CMS
 
 Nền tảng:
 
@@ -95,28 +75,44 @@ Nền tảng:
 
 Chức năng:
 
-* quản lý POI
-* upload audio/image
-* quản lý bản dịch
-* quản lý tour
-* analytics dashboard
-* quản lý QR code
+* Login / Logout
+* User Management
+* Role Management
+* POI CRUD
+* Translation CRUD
+* Tour CRUD
+* QR CRUD
+* Media Library
+* Analytics Dashboard
+
+---
+
+## Public Website
+
+Nền tảng:
+
+* React
+* Vite
+* TypeScript
+* TailwindCSS
+* Leaflet
+* OpenStreetMap
+
+Chức năng:
+
+* Home Page
+* Tour Listing
+* Tour Detail
+* POI Listing
+* POI Detail
+* Search
+* QR Landing Page
+* Interactive Map
+* Multi-language Content
 
 ---
 
 # 4. Official Tech Stack
-
-## Mobile
-
-* .NET MAUI
-* CommunityToolkit.MVVM
-* SQLite-net-pcl
-* Plugin.Maui.Audio
-* ZXing.Net.MAUI
-* Mapsui hoặc Mapbox
-* Polly
-
----
 
 ## Backend
 
@@ -130,7 +126,7 @@ Chức năng:
 
 ---
 
-## CMS
+## Web Admin
 
 * React
 * Vite
@@ -141,24 +137,40 @@ Chức năng:
 
 ---
 
+## Public Website
+
+* React
+* Vite
+* TypeScript
+* TailwindCSS
+* React Query
+* Axios
+* Leaflet
+* OpenStreetMap
+
+---
+
 # 5. Architecture Style
 
-## Mobile
+## Backend
 
-* MVVM
-* Service Layer
+* Lightweight Clean Architecture
+* Feature-based Structure
 * Repository Pattern
+* Service Layer
+* DTO Pattern
 * Dependency Injection
 
 ---
 
-## Backend
+## Frontend
 
-* Clean Architecture nhẹ
-* Feature-based structure
-* Repository Pattern
-* Service Layer
-* DTO Pattern
+* Feature-based Structure
+* React Query
+* Axios API Layer
+* Reusable Components
+* Protected Routes
+* Layout-based Navigation
 
 ---
 
@@ -167,8 +179,8 @@ Chức năng:
 ```text
 /docs
 /backend
-/mobile
-/cms
+/web-admin
+/web-public
 /infrastructure
 /shared
 ```
@@ -177,49 +189,67 @@ Chức năng:
 
 # 7. Main Features
 
-## GPS Tracking
+## Authentication & Authorization
 
-* foreground tracking
-* background tracking
-* battery optimization
-* realtime location update
-
----
-
-## Geofence Engine
-
-* Haversine distance
-* debounce anti-spam
-* cooldown anti-repeat
-* POI priority resolver
-* queue management
+* JWT Authentication
+* Refresh Token
+* Role-based Authorization
 
 ---
 
-## Audio Narration
+## POI Management
 
-* Text-to-Speech
-* Pre-recorded audio
-* Audio queue
-* Multi-language narration
-
----
-
-## Offline Support
-
-* SQLite local database
-* offline POI
-* cached audio
-* incremental sync
-* retry sync strategy
+* POI CRUD
+* Translation CRUD
+* Language Management
+* Coordinates Management
 
 ---
 
-## QR Activation
+## Tour Management
 
-* QR scan narration
-* direct POI activation
-* fallback when GPS inaccurate
+* Tour CRUD
+* Tour Translation
+* Tour POI Assignment
+* Tour Route Management
+
+---
+
+## QR Management
+
+* QR CRUD
+* QR Resolve
+* POI QR
+* Tour QR
+
+---
+
+## Media Library
+
+* Audio Upload
+* Image Upload
+* Media Storage
+* Media Metadata
+
+---
+
+## Analytics Dashboard
+
+* Visit Statistics
+* QR Statistics
+* Tour Statistics
+* Content Statistics
+
+---
+
+## Public Website
+
+* Tour Pages
+* POI Pages
+* Search
+* Filtering
+* Interactive Map
+* QR Landing Pages
 
 ---
 
@@ -228,15 +258,23 @@ Chức năng:
 ```text
 User
 Role
-POI
-POITranslation
-AudioTrack
+
+Poi
+PoiTranslation
+
 Tour
-TourPOI
-QRLocation
-NarrationLog
-OfflinePackage
-SyncHistory
+TourTranslation
+TourPoi
+
+Language
+
+QrLocation
+
+MediaFile
+
+AnalyticsDaily
+
+RefreshToken
 ```
 
 ---
@@ -250,9 +288,10 @@ PascalCase
 Ví dụ:
 
 ```text
-POIService
-AudioQueueManager
-GeofenceEngine
+TourService
+PoiRepository
+MediaController
+QrService
 ```
 
 ---
@@ -265,8 +304,9 @@ Ví dụ:
 
 ```json
 {
-  "poiId": 1,
-  "audioUrl": "..."
+  "tourId": 1,
+  "poiId": 10,
+  "isActive": true
 }
 ```
 
@@ -281,18 +321,22 @@ Ví dụ:
 * use DTOs
 * use repository pattern
 * use service layer
-* use MVVM for MAUI
+* thin controllers
+* feature-based structure
 
 ---
 
 ## Forbidden
 
+* CQRS
+* MediatR
+* GenericRepository
+* UnitOfWork abstraction
 * business logic in controller
 * static mutable state
 * inline SQL
-* direct API calls in View
 * duplicated business logic
-* massive ViewModel
+* over-engineering
 
 ---
 
@@ -308,92 +352,92 @@ Ví dụ:
 
 ---
 
-# 12. Geofence Rules
+# 12. Security Rules
 
-## Debounce
+## Authentication
 
-POI chỉ được kích hoạt khi:
-
-* người dùng ở ổn định trong vùng 3-5 giây
-
----
-
-## Cooldown
-
-Sau khi phát:
-
-* không phát lại trong 2-5 phút
+* JWT Bearer Token
+* Refresh Token
 
 ---
 
-## Priority
+## Authorization
 
-Nếu nhiều POI chồng vùng:
-
-Ưu tiên:
-
-1. khoảng cách gần hơn
-2. priority cao hơn
-3. chưa phát gần đây
+* SuperAdmin
+* Admin
+* ContentManager
 
 ---
 
-# 13. Offline Sync Strategy
+## Protected Endpoints
 
-## Mobile Local Storage
-
-Lưu:
-
-* POI
-* translation
-* audio metadata
-* user settings
-* downloaded package
+Tất cả endpoint quản trị phải yêu cầu JWT hợp lệ.
 
 ---
 
-## Sync Strategy
-
-* incremental sync
-* lastUpdated strategy
-* retry queue
-* background sync
-* conflict resolution đơn giản
-
----
-
-# 14. Development Phases
+# 13. Development Phases
 
 ## Phase 1
 
 * Authentication
-* POI CRUD
-* SQLite setup
-* API base
+* User Management
+* Role Management
 
 ---
 
 ## Phase 2
 
-* GPS tracking
-* Map integration
-* Geofence engine
+* POI CRUD
+* Translation CRUD
+* Language Management
+* Map Integration
 
 ---
 
 ## Phase 3
 
-* Audio queue
-* TTS
-* Offline sync
+* Tour CRUD
+* QR CRUD
+* Media Management
 
 ---
 
 ## Phase 4
 
-* QR activation
+* Analytics Dashboard
+* Public Website
+* Search & Filtering
+
+---
+
+# 14. Team Assignment
+
+## Member 1
+
+* Authentication
+* Users
+* Roles
+* Authorization
+
+---
+
+## Member 2
+
+* POI
+* Translation
+* Languages
+* Map
+* Public POI Pages
+
+---
+
+## Member 3
+
+* Tours
+* QR
+* Media
 * Analytics
-* Optimization
+* Public Tour Pages
 
 ---
 
@@ -404,28 +448,39 @@ Mọi AI phải đọc file này trước khi generate code.
 AI phải:
 
 * follow architecture hiện tại
+* follow architecture decisions
 * không tự đổi structure
 * không over-engineering
 * không thêm microservice
-* không thêm CQRS phức tạp
-* không thêm DDD nặng
+* không thêm CQRS
+* không thêm MediatR
+* không thêm GenericRepository
+* không thêm UnitOfWork abstraction
+
+---
+
+## Current MVP Scope
+
+Included:
+
+* Backend API
+* Web Admin CMS
+* Public Website
+
+Excluded:
+
+* Mobile App
+* Offline Sync
+* Geofence
+* GPS Tracking
+
+Unless explicitly requested, AI should not generate Mobile App code.
 
 ---
 
 # 16. Recommended Workflow
 
-## Claude
-
-Dùng cho:
-
-* architecture
-* system design
-* geofence logic
-* offline sync
-
----
-
-## Cursor
+## Cursor / Codex
 
 Dùng cho:
 
@@ -441,9 +496,10 @@ Dùng cho:
 Dùng cho:
 
 * debugging
+* architecture review
 * optimization
 * documentation
-* explanation
+* planning
 
 ---
 
@@ -451,11 +507,11 @@ Dùng cho:
 
 Đây là đồ án theo hướng:
 
-* scalable
 * maintainable
+* scalable
 * AI-assisted engineering
 
-Nhưng ưu tiên:
+Ưu tiên:
 
 * simplicity
 * maintainability
@@ -464,9 +520,9 @@ Nhưng ưu tiên:
 Không hướng tới:
 
 * microservice
-* enterprise distributed system
-* overly complex architecture
+* distributed architecture
+* enterprise-scale complexity
 
 ---
 
-Đây là file đầu tiên phải cung cấp khi chuyển sang AI khác.
+Đây là file đầu tiên phải cung cấp cho AI trước khi generate code.
