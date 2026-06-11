@@ -18,6 +18,13 @@ try
         configuration.ReadFrom.Configuration(context.Configuration));
 
     builder.Services.AddApplication();
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("CmsPolicy", policy =>
+            policy.WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod());
+    });
     builder.Services.AddInfrastructure(builder.Configuration);
 
     builder.Services.AddControllers()
@@ -76,7 +83,7 @@ try
     });
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
-
+    app.UseCors("CmsPolicy");
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();

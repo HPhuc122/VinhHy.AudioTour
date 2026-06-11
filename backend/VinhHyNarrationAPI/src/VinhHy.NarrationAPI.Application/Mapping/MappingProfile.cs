@@ -15,6 +15,7 @@ using VinhHy.NarrationAPI.Application.Features.Sync.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Tours.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Users.DTOs;
 using VinhHy.NarrationAPI.Domain.Entities;
+using VinhHy.NarrationAPI.Application.Features.Roles.DTOs;
 
 namespace VinhHy.NarrationAPI.Application.Mapping;
 
@@ -24,6 +25,7 @@ public class MappingProfile : Profile
     {
         CreateMap<User, UserDto>()
             .ForMember(d => d.RoleName, opt => opt.MapFrom(s => s.Role.Name));
+        CreateMap<Role, RoleDto>();
 
         CreateMap<CreateUserRequest, User>()
             .ForMember(d => d.Id, opt => opt.Ignore())
