@@ -112,6 +112,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<ILanguageService, LanguageService>();
         services.AddScoped<IDeviceService, DeviceService>();
+        services.AddScoped<IRoleService, RoleService>();
     }
 
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)
