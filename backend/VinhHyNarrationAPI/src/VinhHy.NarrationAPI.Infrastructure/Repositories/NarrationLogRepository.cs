@@ -62,6 +62,20 @@ public class NarrationLogRepository : INarrationLogRepository
         return (items, total);
     }
 
+    public async Task<int> CountAsync(
+        string? triggerType = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _db.NarrationLogs.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(triggerType))
+        {
+            query = query.Where(l => l.TriggerType == triggerType);
+        }
+
+        return await query.CountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task AddAsync(NarrationLog log, CancellationToken cancellationToken = default) =>
         await _db.NarrationLogs.AddAsync(log, cancellationToken).ConfigureAwait(false);
 

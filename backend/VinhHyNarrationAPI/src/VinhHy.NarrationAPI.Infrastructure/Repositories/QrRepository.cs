@@ -52,6 +52,21 @@ public class QrRepository : IQrRepository
         return await query.FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<int> CountAsync(
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<QrLocation> query = Query(includeDeleted).AsNoTracking();
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(q => q.IsActive == isActive.Value);
+        }
+
+        return await query.CountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<QrLocation>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default) =>

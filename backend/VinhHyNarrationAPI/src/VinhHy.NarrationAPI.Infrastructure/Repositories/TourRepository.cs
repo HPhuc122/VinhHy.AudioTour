@@ -61,6 +61,21 @@ public class TourRepository : ITourRepository
         return (items, total);
     }
 
+    public async Task<int> CountAsync(
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<Tour> query = Query(includeDeleted).AsNoTracking();
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(t => t.IsActive == isActive.Value);
+        }
+
+        return await query.CountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IReadOnlyList<Tour>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default) =>

@@ -14,6 +14,11 @@ public interface IMediaRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
+    Task<int> CountAsync(
+        string? fileType = null,
+        bool? isDeleted = false,
+        CancellationToken cancellationToken = default);
+
     Task<MediaFile?> GetByIdAsync(int id, bool includeDeleted = false, CancellationToken cancellationToken = default);
 
     Task AddAsync(MediaFile mediaFile, CancellationToken cancellationToken = default);

@@ -16,6 +16,11 @@ public interface ITourRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
+    Task<int> CountAsync(
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Tour>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default);

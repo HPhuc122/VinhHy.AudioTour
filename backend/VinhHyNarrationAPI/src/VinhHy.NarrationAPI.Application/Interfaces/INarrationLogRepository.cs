@@ -20,6 +20,10 @@ public interface INarrationLogRepository
         DateTime? to = null,
         CancellationToken cancellationToken = default);
 
+    Task<int> CountAsync(
+        string? triggerType = null,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(NarrationLog log, CancellationToken cancellationToken = default);
 
     Task AddRangeAsync(IEnumerable<NarrationLog> logs, CancellationToken cancellationToken = default);

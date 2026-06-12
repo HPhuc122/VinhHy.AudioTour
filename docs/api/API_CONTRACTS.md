@@ -136,3 +136,36 @@ Authorization: Bearer {accessToken}
   }
 }
 ```
+
+## Analytics dashboard
+
+**Request**
+
+```http
+GET /api/v1/analytics/dashboard
+Authorization: Bearer {accessToken}
+```
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "totalTours": 0,
+    "activeTours": 0,
+    "totalQrCodes": 0,
+    "activeQrCodes": 0,
+    "totalMediaFiles": 0,
+    "totalImages": 0,
+    "totalAudioFiles": 0,
+    "deletedMediaFiles": 0,
+    "totalTourViews": null,
+    "totalQrScans": 0,
+    "totalAudioPlays": 0
+  }
+}
+```
+
+`totalQrScans` uses QR-triggered narration logs as the current proxy. `totalTourViews` is `null` because dedicated tour-view tracking does not exist yet.

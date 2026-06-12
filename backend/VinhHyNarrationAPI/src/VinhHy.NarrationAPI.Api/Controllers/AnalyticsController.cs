@@ -29,4 +29,11 @@ public class AnalyticsController(IAnalyticsService analyticsService) : Controlle
         var result = await analyticsService.GetSummaryAsync(filter, cancellationToken);
         return this.ApiOk(result);
     }
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
+    {
+        var result = await analyticsService.GetDashboardAsync(cancellationToken);
+        return this.ApiOk(result);
+    }
 }

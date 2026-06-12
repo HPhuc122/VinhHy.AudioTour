@@ -11,4 +11,6 @@ public interface IAnalyticsService
     Task<AnalyticsSummaryDto> GetSummaryAsync(
         AnalyticsQueryFilter filter,
         CancellationToken cancellationToken = default);
+
+    Task<DashboardStatsDto> GetDashboardAsync(CancellationToken cancellationToken = default);
 }

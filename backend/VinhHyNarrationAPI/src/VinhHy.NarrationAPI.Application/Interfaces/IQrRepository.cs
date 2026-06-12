@@ -14,6 +14,11 @@ public interface IQrRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
+    Task<int> CountAsync(
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<QrLocation>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default);

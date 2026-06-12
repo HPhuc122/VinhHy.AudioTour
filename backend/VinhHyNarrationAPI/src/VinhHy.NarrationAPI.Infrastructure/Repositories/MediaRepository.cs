@@ -58,6 +58,26 @@ public class MediaRepository : IMediaRepository
         return (items, total);
     }
 
+    public async Task<int> CountAsync(
+        string? fileType = null,
+        bool? isDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<MediaFile> query = _db.MediaFiles.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(fileType))
+        {
+            query = query.Where(m => m.FileType == fileType);
+        }
+
+        if (isDeleted.HasValue)
+        {
+            query = query.Where(m => m.IsDeleted == isDeleted.Value);
+        }
+
+        return await query.CountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<MediaFile?> GetByIdAsync(
         int id,
         bool includeDeleted = false,
