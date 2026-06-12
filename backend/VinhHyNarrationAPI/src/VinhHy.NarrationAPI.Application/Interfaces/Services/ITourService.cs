@@ -27,6 +27,8 @@ public interface ITourService
         UpdateTourTranslationRequest request,
         CancellationToken cancellationToken = default);
 
+    Task DeleteTranslationAsync(int translationId, CancellationToken cancellationToken = default);
+
     Task<TourPoiDto> AddPoiAsync(int tourId, AddTourPoiRequest request, CancellationToken cancellationToken = default);
 
     Task RemovePoiAsync(int tourId, int poiId, CancellationToken cancellationToken = default);

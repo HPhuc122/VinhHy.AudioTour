@@ -3,8 +3,12 @@ import { Spinner } from '@/components/ui/Spinner';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-export function ProtectedRoute() {
-  const { isAuthenticated, isInitializing } = useAuth();
+interface ProtectedRouteProps {
+  allowedRoles?: string[];
+}
+
+export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
+  const { user, isAuthenticated, isInitializing } = useAuth();
   const location = useLocation();
 
   if (isInitializing) {
@@ -13,6 +17,10 @@ export function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to={routes.login} replace state={{ from: location.pathname }} />;
+  }
+
+  if (allowedRoles?.length && !allowedRoles.includes(user?.role ?? '')) {
+    return <Navigate to={routes.dashboard} replace />;
   }
 
   return <Outlet />;

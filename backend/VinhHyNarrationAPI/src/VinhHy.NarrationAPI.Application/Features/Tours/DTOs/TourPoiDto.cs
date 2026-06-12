@@ -10,5 +10,7 @@ public class TourPoiDto
 
     public string? PoiCode { get; set; }
 
+    public string? PoiName { get; set; }
+
     public int OrderIndex { get; set; }
 }

@@ -40,10 +40,12 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                   {tour.code}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  {tour.defaultLanguage}
+                  <span className="inline-flex rounded bg-slate-100 px-2 py-1 text-xs font-medium uppercase text-slate-700">
+                    {tour.defaultLanguage}
+                  </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                  {tour.estimatedMinutes ?? '-'}
+                  {tour.estimatedMinutes == null ? '-' : `${tour.estimatedMinutes} min`}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">{tour.pois.length}</td>
                 <td className="whitespace-nowrap px-4 py-3">

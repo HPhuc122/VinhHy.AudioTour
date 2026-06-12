@@ -17,6 +17,7 @@ export interface TourPoiDto {
   tourId: number;
   poiId: number;
   poiCode?: string | null;
+  poiName?: string | null;
   orderIndex: number;
 }
 
@@ -62,6 +63,29 @@ export interface UpdateTourRequest {
   estimatedMinutes?: number | null;
 }
 
+export interface CreateTourTranslationRequest {
+  languageCode: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface UpdateTourTranslationRequest {
+  name?: string;
+  description?: string | null;
+}
+
+export interface AddTourPoiRequest {
+  poiId: number;
+  orderIndex: number;
+}
+
+export interface ReorderTourPoisRequest {
+  items: Array<{
+    poiId: number;
+    orderIndex: number;
+  }>;
+}
+
 export type TourFormValues = CreateTourRequest;
 
 export function createTourApi(httpClient: AxiosInstance) {
@@ -96,6 +120,58 @@ export function createTourApi(httpClient: AxiosInstance) {
 
     async deleteTour(id: number): Promise<void> {
       const response = await httpClient.delete<ApiResponse<null>>(`${TOUR_BASE}/${id}`);
+      unwrapApiResponse(response.data, true);
+    },
+
+    async addTranslation(
+      tourId: number,
+      request: CreateTourTranslationRequest,
+    ): Promise<TourTranslationDto> {
+      const response = await httpClient.post<ApiResponse<TourTranslationDto>>(
+        `${TOUR_BASE}/${tourId}/translations`,
+        request,
+      );
+      return unwrapApiResponse(response.data);
+    },
+
+    async updateTranslation(
+      translationId: number,
+      request: UpdateTourTranslationRequest,
+    ): Promise<TourTranslationDto> {
+      const response = await httpClient.put<ApiResponse<TourTranslationDto>>(
+        `${TOUR_BASE}/translations/${translationId}`,
+        request,
+      );
+      return unwrapApiResponse(response.data);
+    },
+
+    async deleteTranslation(translationId: number): Promise<void> {
+      const response = await httpClient.delete<ApiResponse<null>>(
+        `${TOUR_BASE}/translations/${translationId}`,
+      );
+      unwrapApiResponse(response.data, true);
+    },
+
+    async addPoi(tourId: number, request: AddTourPoiRequest): Promise<TourPoiDto> {
+      const response = await httpClient.post<ApiResponse<TourPoiDto>>(
+        `${TOUR_BASE}/${tourId}/pois`,
+        { poiId: request.poiId, orderIndex: request.orderIndex },
+      );
+      return unwrapApiResponse(response.data);
+    },
+
+    async removePoi(tourId: number, poiId: number): Promise<void> {
+      const response = await httpClient.delete<ApiResponse<null>>(
+        `${TOUR_BASE}/${tourId}/pois/${poiId}`,
+      );
+      unwrapApiResponse(response.data, true);
+    },
+
+    async reorderPois(tourId: number, request: ReorderTourPoisRequest): Promise<void> {
+      const response = await httpClient.put<ApiResponse<null>>(
+        `${TOUR_BASE}/${tourId}/pois/reorder`,
+        { items: request.items.map((item) => ({ poiId: item.poiId, orderIndex: item.orderIndex })) },
+      );
       unwrapApiResponse(response.data, true);
     },
   };

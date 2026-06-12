@@ -23,7 +23,6 @@ export function QrEditPage() {
     }
 
     return {
-      code: qrQuery.data.code,
       poiId: qrQuery.data.poiId ?? null,
       tourId: qrQuery.data.tourId ?? null,
       isActive: qrQuery.data.isActive,
@@ -60,7 +59,6 @@ export function QrEditPage() {
                 {
                   id: parsedQrId,
                   values: {
-                    code: values.code,
                     poiId: values.poiId,
                     tourId: values.tourId,
                     isActive: values.isActive,

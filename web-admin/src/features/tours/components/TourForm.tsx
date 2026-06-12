@@ -3,6 +3,8 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { useLanguagesQuery } from '@/features/languages/hooks/useLanguagesQuery';
 import type { TourFormValues } from '@/features/tours/api/tourApi';
 
 interface TourFormProps {
@@ -31,6 +33,12 @@ export function TourForm({
 }: TourFormProps) {
   const [values, setValues] = useState<TourFormValues>(initialValues ?? defaultValues);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const languagesQuery = useLanguagesQuery();
+  const languageOptions =
+    languagesQuery.data?.map((language) => ({
+      value: language.code,
+      label: `${language.nativeName || language.name} (${language.code})`,
+    })) ?? [];
 
   useEffect(() => {
     setValues(initialValues ?? defaultValues);
@@ -93,12 +101,14 @@ export function TourForm({
           htmlFor="tour-default-language"
           error={fieldErrors.defaultLanguage}
         >
-          <Input
+          <Select
             id="tour-default-language"
             name="defaultLanguage"
+            options={languageOptions}
+            placeholder="Select language"
             value={values.defaultLanguage}
-            disabled={isSubmitting}
-            hasError={Boolean(fieldErrors.defaultLanguage)}
+            disabled={isSubmitting || languagesQuery.isLoading}
+            error={fieldErrors.defaultLanguage}
             onChange={(event) =>
               setValues((current) => ({ ...current, defaultLanguage: event.target.value }))
             }
@@ -128,20 +138,21 @@ export function TourForm({
           />
         </FormField>
 
-        <div className="flex items-end">
-          <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-sky-800 focus:ring-sky-600"
-              checked={values.isActive}
-              disabled={isSubmitting}
-              onChange={(event) =>
-                setValues((current) => ({ ...current, isActive: event.target.checked }))
-              }
-            />
-            Active
-          </label>
-        </div>
+        <FormField label="Status" htmlFor="tour-status">
+          <Select
+            id="tour-status"
+            name="isActive"
+            options={[
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
+            value={String(values.isActive)}
+            disabled={isSubmitting}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, isActive: event.target.value === 'true' }))
+            }
+          />
+        </FormField>
       </div>
 
       <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">

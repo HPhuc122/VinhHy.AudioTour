@@ -42,7 +42,15 @@ public class MappingProfile : Profile
             .ForMember(d => d.AuditLogs, opt => opt.Ignore())
             .ForMember(d => d.ContentVersions, opt => opt.Ignore());
 
-        CreateMap<Poi, PoiDto>();
+        CreateMap<Poi, PoiDto>()
+            .ForMember(
+                d => d.DisplayName,
+                opt => opt.MapFrom(s =>
+                    s.Translations
+                        .OrderBy(t => t.LanguageCode == "vi" ? 0 : 1)
+                        .ThenBy(t => t.LanguageCode)
+                        .Select(t => t.Name)
+                        .FirstOrDefault() ?? s.Code));
         CreateMap<CreatePoiRequest, Poi>()
             .ForMember(d => d.Id, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
@@ -80,7 +88,9 @@ public class MappingProfile : Profile
             .ForMember(d => d.Poi, opt => opt.Ignore());
         CreateMap<AudioTrack, SyncableAudioTrackDto>();
 
-        CreateMap<MediaFile, MediaFileDto>();
+        CreateMap<MediaFile, MediaFileDto>()
+            .ForMember(d => d.PublicUrl, opt => opt.Ignore())
+            .ForMember(d => d.UploadedByUsername, opt => opt.MapFrom(s => s.UploadedByUser != null ? s.UploadedByUser.Username : null));
 
         CreateMap<Tour, TourDto>()
             .ForMember(d => d.Pois, opt => opt.MapFrom(s => s.TourPois))
@@ -104,7 +114,15 @@ public class MappingProfile : Profile
         CreateMap<TourTranslation, SyncableTourTranslationDto>();
 
         CreateMap<TourPoi, TourPoiDto>()
-            .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi.Code));
+            .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi.Code))
+            .ForMember(
+                d => d.PoiName,
+                opt => opt.MapFrom(s =>
+                    s.Poi.Translations
+                        .OrderBy(t => t.LanguageCode == "vi" ? 0 : 1)
+                        .ThenBy(t => t.LanguageCode)
+                        .Select(t => t.Name)
+                        .FirstOrDefault() ?? s.Poi.Code));
 
         CreateMap<QrLocation, QrDto>()
             .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi != null ? s.Poi.Code : null))

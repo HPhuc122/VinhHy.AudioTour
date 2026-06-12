@@ -18,7 +18,6 @@ export interface QrDto {
 }
 
 export interface CreateQrRequest {
-  code: string;
   poiId?: number | null;
   tourId?: number | null;
   isActive: boolean;

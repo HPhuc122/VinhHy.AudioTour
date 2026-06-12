@@ -31,6 +31,12 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
         var listResponse = await _client.GetAsync("/api/v1/media");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
+        var searchResponse = await _client.GetAsync("/api/v1/media/search?page=1&pageSize=10&search=vinh&fileType=image");
+        Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
+        Assert.Equal(1, await GetDataPropertyAsync<int>(searchResponse, "totalCount"));
+        Assert.Equal("image", await GetFirstItemPropertyAsync<string>(searchResponse, "fileType"));
+        Assert.False(string.IsNullOrWhiteSpace(await GetFirstItemPropertyAsync<string>(searchResponse, "publicUrl")));
+
         var getImageResponse = await _client.GetAsync($"/api/v1/media/{imageId}");
         Assert.Equal(HttpStatusCode.OK, getImageResponse.StatusCode);
         Assert.Equal(imageId, await GetDataPropertyAsync<int>(getImageResponse, "id"));
@@ -40,6 +46,17 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
 
         var getDeletedResponse = await _client.GetAsync($"/api/v1/media/{audioId}");
         Assert.Equal(HttpStatusCode.NotFound, getDeletedResponse.StatusCode);
+
+        var deletedSearchResponse = await _client.GetAsync("/api/v1/media/search?page=1&pageSize=10&fileType=audio&includeDeleted=true");
+        Assert.Equal(HttpStatusCode.OK, deletedSearchResponse.StatusCode);
+        Assert.True(await GetFirstItemPropertyAsync<bool>(deletedSearchResponse, "isDeleted"));
+
+        var restoreResponse = await _client.PostAsync($"/api/v1/media/{audioId}/restore", null);
+        Assert.Equal(HttpStatusCode.OK, restoreResponse.StatusCode);
+
+        var restoredResponse = await _client.GetAsync($"/api/v1/media/{audioId}");
+        Assert.Equal(HttpStatusCode.OK, restoredResponse.StatusCode);
+        Assert.False(await GetDataPropertyAsync<bool>(restoredResponse, "isDeleted"));
     }
 
     private async Task<HttpResponseMessage> UploadAsync(
@@ -72,5 +89,14 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
     {
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return doc.RootElement.GetProperty("data").GetProperty(propertyName).Deserialize<T>()!;
+    }
+
+    private static async Task<T> GetFirstItemPropertyAsync<T>(HttpResponseMessage response, string propertyName)
+    {
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.GetProperty("data")
+            .GetProperty("items")[0]
+            .GetProperty(propertyName)
+            .Deserialize<T>()!;
     }
 }

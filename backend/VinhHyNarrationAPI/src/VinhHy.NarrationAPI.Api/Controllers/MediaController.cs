@@ -21,6 +21,13 @@ public class MediaController(IMediaService mediaService) : ControllerBase
         return this.ApiOk(mediaFiles);
     }
 
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] MediaListRequest request, CancellationToken cancellationToken)
+    {
+        var mediaFiles = await mediaService.SearchAsync(request, BuildPublicUrl, cancellationToken);
+        return this.ApiOk(mediaFiles);
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {
@@ -63,9 +70,22 @@ public class MediaController(IMediaService mediaService) : ControllerBase
         return this.ApiOk("Media file deleted");
     }
 
+    [HttpPost("{id:int}/restore")]
+    public async Task<IActionResult> Restore(int id, CancellationToken cancellationToken)
+    {
+        await mediaService.RestoreAsync(id, cancellationToken);
+        return this.ApiOk("Media file restored");
+    }
+
     private int? GetCurrentUserId()
     {
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private string BuildPublicUrl(string relativePath)
+    {
+        var path = relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
+        return $"{Request.Scheme}://{Request.Host}{path}";
     }
 }

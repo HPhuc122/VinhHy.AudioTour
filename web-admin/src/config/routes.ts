@@ -4,6 +4,7 @@ export const routes = {
   tours: '/tours',
   tourCreate: '/tours/new',
   tourEdit: '/tours/:tourId/edit',
+  media: '/media',
   qr: '/qr',
   qrCreate: '/qr/create',
   qrEdit: '/qr/:id/edit',

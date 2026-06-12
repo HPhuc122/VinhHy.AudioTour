@@ -22,6 +22,7 @@ public class TourRepository : ITourRepository
             .Include(t => t.Translations)
             .Include(t => t.TourPois)
                 .ThenInclude(tp => tp.Poi)
+                    .ThenInclude(p => p.Translations)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
@@ -40,7 +41,8 @@ public class TourRepository : ITourRepository
             .AsNoTracking()
             .Include(t => t.Translations)
             .Include(t => t.TourPois)
-                .ThenInclude(tp => tp.Poi);
+                .ThenInclude(tp => tp.Poi)
+                    .ThenInclude(p => p.Translations);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(t => t.Code.Contains(search));

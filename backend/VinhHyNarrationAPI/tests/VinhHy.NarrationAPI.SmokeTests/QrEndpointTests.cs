@@ -21,20 +21,19 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
     {
         await AuthenticateAsync();
         var (poiId, tourId) = await SeedTargetsAsync();
-        var code = $"QR-{Guid.NewGuid():N}";
-        var updatedCode = $"{code}-TOUR";
+        var updatedCode = $"QR-{Guid.NewGuid():N}-TOUR";
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/qr",
             new CreateQrRequest
             {
-                Code = code,
                 PoiId = poiId,
                 IsActive = true
             });
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         var qrId = await GetDataPropertyAsync<int>(createResponse, "id");
+        var generatedCode = await GetDataPropertyAsync<string>(createResponse, "code");
 
         var listResponse = await _client.GetAsync("/api/v1/qr");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
@@ -43,9 +42,9 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
         Assert.Equal(poiId, await GetDataPropertyAsync<int?>(detailResponse, "poiId"));
 
-        var codeResponse = await _client.GetAsync($"/api/v1/qr/code/{code}");
+        var codeResponse = await _client.GetAsync($"/api/v1/qr/code/{generatedCode}");
         Assert.Equal(HttpStatusCode.OK, codeResponse.StatusCode);
-        Assert.Equal(code, await GetDataPropertyAsync<string>(codeResponse, "code"));
+        Assert.Equal(generatedCode, await GetDataPropertyAsync<string>(codeResponse, "code"));
 
         var updateResponse = await _client.PutAsJsonAsync(
             $"/api/v1/qr/{qrId}",

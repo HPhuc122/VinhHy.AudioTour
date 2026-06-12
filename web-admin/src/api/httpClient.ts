@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 import { env } from '@/config/env';
 import { toApiClientError } from '@/api/apiError';
+import { tokenStorage } from '@/features/auth/services/tokenStorage';
 
 export interface HttpClientAuthHandlers {
   getAccessToken: () => string | null;
@@ -72,9 +73,21 @@ export function createHttpClient(handlers: HttpClientAuthHandlers): AxiosInstanc
       }
     },
   );
+  console.log("BASE URL =", env.apiBaseUrl);
 
   return client;
 }
+
+export const httpClient = createHttpClient({
+  getAccessToken: () => tokenStorage.getSession()?.accessToken ?? null,
+  getRefreshToken: () => tokenStorage.getSession()?.refreshToken ?? null,
+  refreshSession: async () => {
+    throw new Error('Session refresh is only available inside AuthProvider');
+  },
+  onSessionExpired: () => {
+    tokenStorage.clearSession();
+  },
+});
 
 export function withSkipAuthRefresh<T extends { headers?: Record<string, unknown> }>(
   config: T,

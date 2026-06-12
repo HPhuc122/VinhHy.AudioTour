@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.Extensions.Hosting;
+using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Media.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
@@ -36,6 +37,37 @@ public class MediaService : IMediaService
     {
         var items = await _uow.MediaFiles.GetAllAsync(cancellationToken).ConfigureAwait(false);
         return _mapper.Map<IReadOnlyList<MediaFileDto>>(items);
+    }
+
+    public async Task<PagedResult<MediaFileDto>> SearchAsync(
+        MediaListRequest request,
+        Func<string, string>? publicUrlFactory = null,
+        CancellationToken cancellationToken = default)
+    {
+        var fileType = NormalizeFileType(request.FileType);
+        var result = await _uow.MediaFiles.GetPagedAsync(
+                request.NormalizedPage,
+                request.NormalizedPageSize,
+                request.Search,
+                fileType,
+                request.IncludeDeleted,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var items = _mapper.Map<IReadOnlyList<MediaFileDto>>(result.Items);
+        if (publicUrlFactory is not null)
+        {
+            foreach (var item in items)
+            {
+                item.PublicUrl = publicUrlFactory(item.RelativePath);
+            }
+        }
+
+        return PagedResult<MediaFileDto>.Create(
+            items,
+            request.NormalizedPage,
+            request.NormalizedPageSize,
+            result.TotalCount);
     }
 
     public async Task<MediaFileDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -94,6 +126,32 @@ public class MediaService : IMediaService
         mediaFile.IsDeleted = true;
         _uow.MediaFiles.Update(mediaFile);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var mediaFile = await _uow.MediaFiles.GetByIdAsync(id, includeDeleted: true, cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(MediaFile), id);
+
+        mediaFile.IsDeleted = false;
+        _uow.MediaFiles.Update(mediaFile);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string? NormalizeFileType(string? fileType)
+    {
+        if (string.IsNullOrWhiteSpace(fileType))
+        {
+            return null;
+        }
+
+        var normalized = fileType.Trim().ToLowerInvariant();
+        if (normalized is not ("image" or "audio"))
+        {
+            throw new ValidationException(nameof(fileType), "File type must be image or audio.");
+        }
+
+        return normalized;
     }
 
     private static void ValidateUpload(UploadMediaRequest request)

@@ -39,6 +39,9 @@ public class PoiTranslationService : IPoiTranslationService
         _ = await _uow.Pois.GetByIdAsync(request.POIId, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Poi), request.POIId);
 
+        await ValidateLanguageAsync(request.LanguageCode, nameof(request.LanguageCode), cancellationToken)
+            .ConfigureAwait(false);
+
         if (await _uow.PoiTranslations
                 .GetByPoiAndLanguageAsync(request.POIId, request.LanguageCode, cancellationToken)
                 .ConfigureAwait(false) is not null)
@@ -82,5 +85,24 @@ public class PoiTranslationService : IPoiTranslationService
 
         _uow.PoiTranslations.Delete(translation);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ValidateLanguageAsync(
+        string languageCode,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            throw new ValidationException(fieldName, "Language is required.");
+        }
+
+        var language = await _uow.Languages.GetByCodeAsync(languageCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (language is null || !language.IsActive)
+        {
+            throw new ValidationException(fieldName, "Language does not exist or is inactive.");
+        }
     }
 }

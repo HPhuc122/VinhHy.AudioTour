@@ -81,6 +81,14 @@ public class ToursController(ITourService tourService) : ControllerBase
         return this.ApiOk(translation, "Tour translation updated");
     }
 
+    [HttpDelete("translations/{translationId:int}")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> DeleteTranslation(int translationId, CancellationToken cancellationToken)
+    {
+        await tourService.DeleteTranslationAsync(translationId, cancellationToken);
+        return this.ApiOk("Tour translation deleted");
+    }
+
     [HttpPost("{tourId:int}/pois")]
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> AddPoi(

@@ -10,6 +10,10 @@ interface QrTableProps {
 }
 
 export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
+  const copyCode = async (code: string) => {
+    await navigator.clipboard.writeText(code);
+  };
+
   if (qrs.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
@@ -66,7 +70,11 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                     >
                       Edit
                     </Link>
+                    <Button size="sm" variant="secondary" onClick={() => void copyCode(qr.code)}>
+                      Copy
+                    </Button>
                     <Button
+                      size="sm"
                       variant="ghost"
                       className="text-red-700 hover:bg-red-50"
                       isLoading={deletingQrId === qr.id}

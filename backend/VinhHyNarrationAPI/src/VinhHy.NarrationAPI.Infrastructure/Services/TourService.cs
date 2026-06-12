@@ -51,6 +51,11 @@ public class TourService : ITourService
         CreateTourRequest request,
         CancellationToken cancellationToken = default)
     {
+        ValidateCode(request.Code);
+        ValidateEstimatedMinutes(request.EstimatedMinutes);
+        await ValidateLanguageAsync(request.DefaultLanguage, nameof(request.DefaultLanguage), cancellationToken)
+            .ConfigureAwait(false);
+
         if (await _uow.Tours.GetByCodeAsync(request.Code, cancellationToken).ConfigureAwait(false) is not null)
             throw new ValidationException(nameof(request.Code), "Tour code already exists.");
 
@@ -73,7 +78,18 @@ public class TourService : ITourService
         var tour = await _uow.Tours.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Tour), id);
 
-        if (request.DefaultLanguage is not null) tour.DefaultLanguage = request.DefaultLanguage;
+        if (request.DefaultLanguage is not null)
+        {
+            await ValidateLanguageAsync(request.DefaultLanguage, nameof(request.DefaultLanguage), cancellationToken)
+                .ConfigureAwait(false);
+            tour.DefaultLanguage = request.DefaultLanguage;
+        }
+
+        if (request.EstimatedMinutes.HasValue)
+        {
+            ValidateEstimatedMinutes(request.EstimatedMinutes);
+        }
+
         if (request.IsActive.HasValue) tour.IsActive = request.IsActive.Value;
         if (request.EstimatedMinutes.HasValue) tour.EstimatedMinutes = request.EstimatedMinutes;
 
@@ -103,6 +119,9 @@ public class TourService : ITourService
     {
         var tour = await _uow.Tours.GetByIdAsync(tourId, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Tour), tourId);
+
+        await ValidateLanguageAsync(request.LanguageCode, nameof(request.LanguageCode), cancellationToken)
+            .ConfigureAwait(false);
 
         if (await _uow.TourTranslations
                 .GetByTourAndLanguageAsync(tourId, request.LanguageCode, cancellationToken)
@@ -141,6 +160,21 @@ public class TourService : ITourService
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return _mapper.Map<TourTranslationDto>(translation);
+    }
+
+    public async Task DeleteTranslationAsync(int translationId, CancellationToken cancellationToken = default)
+    {
+        var translation = await _uow.TourTranslations.GetByIdAsync(translationId, cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(TourTranslation), translationId);
+
+        var tour = await _uow.Tours.GetByIdAsync(translation.TourId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Tour), translation.TourId);
+
+        _uow.TourTranslations.Delete(translation);
+        TouchTour(tour);
+        _uow.Tours.Update(tour);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<TourPoiDto> AddPoiAsync(
@@ -241,5 +275,40 @@ public class TourService : ITourService
     {
         tour.Version++;
         tour.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void ValidateCode(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new ValidationException(nameof(CreateTourRequest.Code), "Tour code is required.");
+        }
+    }
+
+    private static void ValidateEstimatedMinutes(int? estimatedMinutes)
+    {
+        if (estimatedMinutes.HasValue && estimatedMinutes.Value < 0)
+        {
+            throw new ValidationException(nameof(CreateTourRequest.EstimatedMinutes), "Estimated minutes must be zero or greater.");
+        }
+    }
+
+    private async Task ValidateLanguageAsync(
+        string languageCode,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(languageCode))
+        {
+            throw new ValidationException(fieldName, "Language is required.");
+        }
+
+        var language = await _uow.Languages.GetByCodeAsync(languageCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (language is null || !language.IsActive)
+        {
+            throw new ValidationException(fieldName, "Language does not exist or is inactive.");
+        }
     }
 }

@@ -25,8 +25,10 @@ All responses use the standard API envelope:
   "contentType": "image/jpeg",
   "fileSize": 204800,
   "relativePath": "uploads/images/7f6d2f8b3d6b40c4a4f7dce2b5d19b7d.jpg",
+  "publicUrl": "https://localhost:7022/uploads/images/7f6d2f8b3d6b40c4a4f7dce2b5d19b7d.jpg",
   "uploadedAt": "2026-06-08T10:00:00Z",
   "uploadedByUserId": 1,
+  "uploadedByUsername": "admin",
   "isDeleted": false
 }
 ```
@@ -60,7 +62,53 @@ GET /api/v1/media
 Authorization: Bearer {accessToken}
 ```
 
-Returns non-deleted media files.
+Returns a non-paged list of non-deleted media files. This endpoint is preserved for backward compatibility.
+
+## Search Media
+
+```http
+GET /api/v1/media/search?page=1&pageSize=20&search=vinh&fileType=image&includeDeleted=false
+Authorization: Bearer {accessToken}
+```
+
+Query parameters:
+
+- `page`: page number, defaults to `1`
+- `pageSize`: page size, defaults to `20`, max `100`
+- `search`: optional search over stored file name and original file name
+- `fileType`: optional `image` or `audio`
+- `includeDeleted`: optional `true` or `false`
+
+Returns a paged result:
+
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "fileName": "7f6d2f8b3d6b40c4a4f7dce2b5d19b7d.jpg",
+        "originalFileName": "vinh-hy.jpg",
+        "fileType": "image",
+        "contentType": "image/jpeg",
+        "fileSize": 204800,
+        "relativePath": "uploads/images/7f6d2f8b3d6b40c4a4f7dce2b5d19b7d.jpg",
+        "publicUrl": "https://localhost:7022/uploads/images/7f6d2f8b3d6b40c4a4f7dce2b5d19b7d.jpg",
+        "uploadedAt": "2026-06-08T10:00:00Z",
+        "uploadedByUserId": 1,
+        "uploadedByUsername": "admin",
+        "isDeleted": false
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalCount": 1,
+    "totalPages": 1
+  }
+}
+```
 
 ## Get Media By Id
 
@@ -89,3 +137,16 @@ Authorization: Bearer {accessToken}
 ```
 
 Deletes are logical deletes. The media row is marked with `isDeleted = true`; deleted files are omitted from list and detail responses.
+
+## Restore Media
+
+```http
+POST /api/v1/media/{id}/restore
+Authorization: Bearer {accessToken}
+```
+
+Restores a logically deleted media row by setting `isDeleted = false`.
+
+## Static Media Files
+
+The API serves uploaded files only from the `/uploads` request path. No other server directories are exposed for static file access.

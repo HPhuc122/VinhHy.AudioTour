@@ -56,6 +56,16 @@ export function MainLayout() {
               >
                 QR
               </NavLink>
+              <NavLink
+                to={routes.media}
+                className={({ isActive }) =>
+                  `rounded-lg px-3 py-2 font-medium transition ${
+                    isActive ? 'bg-sky-50 text-sky-900' : 'text-slate-600 hover:bg-slate-100'
+                  }`
+                }
+              >
+                Media
+              </NavLink>
             </nav>
           </div>
           <Button variant="secondary" onClick={handleLogout}>

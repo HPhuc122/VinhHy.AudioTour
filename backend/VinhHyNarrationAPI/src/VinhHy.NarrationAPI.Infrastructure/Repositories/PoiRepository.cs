@@ -19,11 +19,15 @@ public class PoiRepository : IPoiRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default) =>
         await Query(includeDeleted)
+            .Include(p => p.Translations)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
     public async Task<Poi?> GetByCodeAsync(string code, CancellationToken cancellationToken = default) =>
-        await _db.Pois.FirstOrDefaultAsync(p => p.Code == code, cancellationToken).ConfigureAwait(false);
+        await _db.Pois
+            .Include(p => p.Translations)
+            .FirstOrDefaultAsync(p => p.Code == code, cancellationToken)
+            .ConfigureAwait(false);
 
     public async Task<(IReadOnlyList<Poi> Items, int TotalCount)> GetPagedAsync(
         int page,
@@ -34,7 +38,9 @@ public class PoiRepository : IPoiRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var query = Query(includeDeleted).AsNoTracking();
+        IQueryable<Poi> query = Query(includeDeleted)
+            .AsNoTracking()
+            .Include(p => p.Translations);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(p => p.Code.Contains(search));

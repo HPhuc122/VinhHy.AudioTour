@@ -174,3 +174,5 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
+
+export const useAuthContext = useAuth;

@@ -4,7 +4,7 @@ import type {
   CreateUserRequest,
   UpdateUserRequest,
   UserDto,
-} from './types/user';
+} from '../types/user';
 
 export const usersApi = {
   async getAll(page = 1, pageSize = 20): Promise<PagedResult<UserDto>> {
@@ -12,17 +12,17 @@ export const usersApi = {
       '/users',
       { params: { page, pageSize } },
     );
-    return res.data.data;
+    return unwrapApiResponse(res.data);
   },
 
   async getById(id: number): Promise<UserDto> {
     const res = await httpClient.get<ApiResponse<UserDto>>(`/users/${id}`);
-    return res.data.data;
+    return unwrapApiResponse(res.data);
   },
 
   async create(data: CreateUserRequest): Promise<UserDto> {
     const res = await httpClient.post<ApiResponse<UserDto>>('/users', data);
-    return res.data.data;
+    return unwrapApiResponse(res.data);
   },
 
   async update(id: number, data: UpdateUserRequest): Promise<UserDto> {
@@ -30,10 +30,18 @@ export const usersApi = {
       `/users/${id}`,
       data,
     );
-    return res.data.data;
+    return unwrapApiResponse(res.data);
   },
 
   async delete(id: number): Promise<void> {
     await httpClient.delete(`/users/${id}`);
   },
 };
+
+function unwrapApiResponse<T>(body: ApiResponse<T>): T {
+  if (!body.success || body.data === null) {
+    throw new Error(body.message || 'Request failed');
+  }
+
+  return body.data;
+}

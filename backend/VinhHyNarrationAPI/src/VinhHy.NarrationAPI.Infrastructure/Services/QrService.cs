@@ -65,18 +65,12 @@ public class QrService : IQrService
 
     public async Task<QrDto> CreateAsync(CreateQrRequest request, CancellationToken cancellationToken = default)
     {
-        ValidateCode(request.Code);
         await ValidateTargetAsync(request.PoiId, request.TourId, cancellationToken).ConfigureAwait(false);
-
-        if (await _uow.QrLocations
-                .GetByCodeAsync(request.Code, includeDeleted: true, cancellationToken: cancellationToken)
-                .ConfigureAwait(false) is not null)
-        {
-            throw new ValidationException(nameof(request.Code), "QR code already exists.");
-        }
 
         var now = DateTime.UtcNow;
         var qr = _mapper.Map<QrLocation>(request);
+        qr.Code = await GenerateUniqueCodeAsync(request.PoiId.HasValue ? "POI" : "TOUR", cancellationToken)
+            .ConfigureAwait(false);
         qr.CreatedAt = now;
         qr.UpdatedAt = now;
 
@@ -173,5 +167,24 @@ public class QrService : IQrService
         {
             throw new ValidationException(nameof(CreateQrRequest.Code), "QR code is required.");
         }
+    }
+
+    private async Task<string> GenerateUniqueCodeAsync(string prefix, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var code = $"{prefix}-{suffix}";
+            var existing = await _uow.QrLocations
+                .GetByCodeAsync(code, includeDeleted: true, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            if (existing is null)
+            {
+                return code;
+            }
+        }
+
+        throw new ValidationException(nameof(CreateQrRequest.Code), "Unable to generate a unique QR code.");
     }
 }

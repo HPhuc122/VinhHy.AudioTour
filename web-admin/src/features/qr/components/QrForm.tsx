@@ -1,9 +1,13 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
-import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { usePoisQuery } from '@/features/pois/hooks/usePoisQuery';
 import type { QrFormValues } from '@/features/qr/api/qrApi';
+import { useToursQuery } from '@/features/tours/hooks/useToursQuery';
+
+type TargetType = 'poi' | 'tour';
 
 interface QrFormProps {
   mode: 'create' | 'edit';
@@ -15,21 +19,18 @@ interface QrFormProps {
 }
 
 interface QrFormState {
-  code: string;
-  poiId: string;
-  tourId: string;
+  targetType: TargetType;
+  targetId: string;
   isActive: boolean;
 }
 
 const defaultValues: QrFormState = {
-  code: '',
-  poiId: '',
-  tourId: '',
+  targetType: 'poi',
+  targetId: '',
   isActive: true,
 };
 
 export function QrForm({
-  mode,
   initialValues,
   isSubmitting = false,
   errorMessage,
@@ -38,37 +39,39 @@ export function QrForm({
 }: QrFormProps) {
   const [values, setValues] = useState<QrFormState>(() => toFormState(initialValues));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const poisQuery = usePoisQuery({ page: 1, pageSize: 100 });
+  const toursQuery = useToursQuery({ page: 1, pageSize: 100 });
 
   useEffect(() => {
     setValues(toFormState(initialValues));
   }, [initialValues]);
 
+  const targetOptions = useMemo(() => {
+    if (values.targetType === 'poi') {
+      return (
+        poisQuery.data?.items.map((poi) => ({
+          value: poi.id,
+          label: `${poi.code} (#${poi.id})`,
+        })) ?? []
+      );
+    }
+
+    return (
+      toursQuery.data?.items.map((tour) => ({
+        value: tour.id,
+        label: `${tour.code} (#${tour.id})`,
+      })) ?? []
+    );
+  }, [poisQuery.data?.items, toursQuery.data?.items, values.targetType]);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextErrors: Record<string, string> = {};
-    const code = values.code.trim();
-    const poi = parseOptionalId(values.poiId);
-    const tour = parseOptionalId(values.tourId);
+    const targetId = Number(values.targetId);
 
-    if (!code) {
-      nextErrors.code = 'QR code is required.';
-    }
-
-    if (!poi.isValid) {
-      nextErrors.poiId = 'POI ID must be a positive whole number.';
-    }
-
-    if (!tour.isValid) {
-      nextErrors.tourId = 'Tour ID must be a positive whole number.';
-    }
-
-    if (poi.isValid && tour.isValid && !poi.hasInput && !tour.hasInput) {
-      nextErrors.poiId = 'Enter a POI ID or Tour ID.';
-    }
-
-    if (poi.isValid && tour.isValid && poi.hasInput && tour.hasInput) {
-      nextErrors.tourId = 'Use only one target.';
+    if (!values.targetId || !Number.isInteger(targetId) || targetId <= 0) {
+      nextErrors.targetId = 'Select a target.';
     }
 
     setFieldErrors(nextErrors);
@@ -78,9 +81,8 @@ export function QrForm({
     }
 
     onSubmit({
-      code,
-      poiId: poi.id,
-      tourId: tour.id,
+      poiId: values.targetType === 'poi' ? targetId : null,
+      tourId: values.targetType === 'tour' ? targetId : null,
       isActive: values.isActive,
     });
   };
@@ -90,60 +92,53 @@ export function QrForm({
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="QR code" htmlFor="qr-code" error={fieldErrors.code}>
-          <Input
-            id="qr-code"
-            name="code"
-            value={values.code}
+        <FormField label="Target type" htmlFor="qr-target-type">
+          <Select
+            id="qr-target-type"
+            name="targetType"
+            options={[
+              { value: 'poi', label: 'POI' },
+              { value: 'tour', label: 'Tour' },
+            ]}
+            value={values.targetType}
             disabled={isSubmitting}
-            hasError={Boolean(fieldErrors.code)}
-            onChange={(event) => setValues((current) => ({ ...current, code: event.target.value }))}
-          />
-        </FormField>
-
-        <div className="flex items-end">
-          <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-sky-800 focus:ring-sky-600"
-              checked={values.isActive}
-              disabled={isSubmitting}
-              onChange={(event) =>
-                setValues((current) => ({ ...current, isActive: event.target.checked }))
-              }
-            />
-            Active
-          </label>
-        </div>
-
-        <FormField label="POI ID" htmlFor="qr-poi-id" error={fieldErrors.poiId}>
-          <Input
-            id="qr-poi-id"
-            name="poiId"
-            type="number"
-            min="1"
-            step="1"
-            value={values.poiId}
-            disabled={isSubmitting}
-            hasError={Boolean(fieldErrors.poiId)}
             onChange={(event) =>
-              setValues((current) => ({ ...current, poiId: event.target.value }))
+              setValues((current) => ({
+                ...current,
+                targetType: event.target.value as TargetType,
+                targetId: '',
+              }))
             }
           />
         </FormField>
 
-        <FormField label="Tour ID" htmlFor="qr-tour-id" error={fieldErrors.tourId}>
-          <Input
-            id="qr-tour-id"
-            name="tourId"
-            type="number"
-            min="1"
-            step="1"
-            value={values.tourId}
-            disabled={isSubmitting}
-            hasError={Boolean(fieldErrors.tourId)}
+        <FormField label="Target" htmlFor="qr-target-id" error={fieldErrors.targetId}>
+          <Select
+            id="qr-target-id"
+            name="targetId"
+            options={targetOptions}
+            placeholder="Select target"
+            value={values.targetId}
+            disabled={isSubmitting || poisQuery.isLoading || toursQuery.isLoading}
+            error={fieldErrors.targetId}
             onChange={(event) =>
-              setValues((current) => ({ ...current, tourId: event.target.value }))
+              setValues((current) => ({ ...current, targetId: event.target.value }))
+            }
+          />
+        </FormField>
+
+        <FormField label="Status" htmlFor="qr-status">
+          <Select
+            id="qr-status"
+            name="isActive"
+            options={[
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
+            value={String(values.isActive)}
+            disabled={isSubmitting}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, isActive: event.target.value === 'true' }))
             }
           />
         </FormField>
@@ -154,7 +149,7 @@ export function QrForm({
           Cancel
         </Button>
         <Button type="submit" isLoading={isSubmitting}>
-          {mode === 'create' ? 'Create QR code' : 'Save changes'}
+          Save QR record
         </Button>
       </div>
     </form>
@@ -166,28 +161,17 @@ function toFormState(values?: QrFormValues): QrFormState {
     return defaultValues;
   }
 
+  if (values.tourId != null) {
+    return {
+      targetType: 'tour',
+      targetId: String(values.tourId),
+      isActive: values.isActive,
+    };
+  }
+
   return {
-    code: values.code,
-    poiId: values.poiId == null ? '' : String(values.poiId),
-    tourId: values.tourId == null ? '' : String(values.tourId),
+    targetType: 'poi',
+    targetId: values.poiId == null ? '' : String(values.poiId),
     isActive: values.isActive,
   };
-}
-
-function parseOptionalId(rawValue: string): {
-  id: number | null;
-  hasInput: boolean;
-  isValid: boolean;
-} {
-  const value = rawValue.trim();
-  if (!value) {
-    return { id: null, hasInput: false, isValid: true };
-  }
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return { id: null, hasInput: true, isValid: false };
-  }
-
-  return { id: parsed, hasInput: true, isValid: true };
 }

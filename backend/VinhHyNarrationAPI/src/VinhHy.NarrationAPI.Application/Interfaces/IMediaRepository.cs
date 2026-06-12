@@ -6,6 +6,14 @@ public interface IMediaRepository
 {
     Task<IReadOnlyList<MediaFile>> GetAllAsync(CancellationToken cancellationToken = default);
 
+    Task<(IReadOnlyList<MediaFile> Items, int TotalCount)> GetPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        string? fileType = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default);
+
     Task<MediaFile?> GetByIdAsync(int id, bool includeDeleted = false, CancellationToken cancellationToken = default);
 
     Task AddAsync(MediaFile mediaFile, CancellationToken cancellationToken = default);

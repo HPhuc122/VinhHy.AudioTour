@@ -5,6 +5,9 @@ import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { routes } from '@/config/routes';
 import { TourForm } from '@/features/tours/components/TourForm';
+import { TourPoisSection } from '@/features/tours/components/TourPoisSection';
+import { TourRouteOrderSection } from '@/features/tours/components/TourRouteOrderSection';
+import { TourTranslationsSection } from '@/features/tours/components/TourTranslationsSection';
 import { useTourQuery } from '@/features/tours/hooks/useTourQuery';
 import { useUpdateTourMutation } from '@/features/tours/hooks/useUpdateTourMutation';
 
@@ -47,33 +50,36 @@ export function TourEditPage() {
 
       {queryError ? <Alert variant="error" message={queryError} /> : null}
 
-      {initialValues ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <TourForm
-            mode="edit"
-            initialValues={initialValues}
-            isSubmitting={updateTourMutation.isPending}
-            errorMessage={mutationError}
-            onCancel={() => navigate(routes.tours)}
-            onSubmit={(values) => {
-              updateTourMutation.mutate(
-                {
+      {initialValues && tourQuery.data ? (
+        <>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-slate-900">Tour Information</h2>
+              <p className="mt-1 text-sm text-slate-600">Manage core tour metadata.</p>
+            </div>
+            <TourForm
+              mode="edit"
+              initialValues={initialValues}
+              isSubmitting={updateTourMutation.isPending}
+              errorMessage={mutationError}
+              onCancel={() => navigate(routes.tours)}
+              onSubmit={(values) => {
+                updateTourMutation.mutate({
                   id: parsedTourId,
                   values: {
                     defaultLanguage: values.defaultLanguage,
                     estimatedMinutes: values.estimatedMinutes,
                     isActive: values.isActive,
                   },
-                },
-                {
-                  onSuccess: () => {
-                    navigate(routes.tours);
-                  },
-                },
-              );
-            }}
-          />
-        </div>
+                });
+              }}
+            />
+          </section>
+
+          <TourTranslationsSection tour={tourQuery.data} />
+          <TourPoisSection tour={tourQuery.data} />
+          <TourRouteOrderSection tour={tourQuery.data} />
+        </>
       ) : null}
     </section>
   );

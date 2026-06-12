@@ -6,6 +6,8 @@ public class PoiDto
 
     public string Code { get; set; } = null!;
 
+    public string? DisplayName { get; set; }
+
     public decimal Latitude { get; set; }
 
     public decimal Longitude { get; set; }

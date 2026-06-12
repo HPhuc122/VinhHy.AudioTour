@@ -14,6 +14,7 @@ public class TourPoiRepository : ITourPoiRepository
     public async Task<TourPoi?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         await _db.TourPois
             .Include(tp => tp.Poi)
+                .ThenInclude(p => p.Translations)
             .FirstOrDefaultAsync(tp => tp.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
@@ -22,6 +23,7 @@ public class TourPoiRepository : ITourPoiRepository
         CancellationToken cancellationToken = default) =>
         await _db.TourPois
             .Include(tp => tp.Poi)
+                .ThenInclude(p => p.Translations)
             .Where(tp => tp.TourId == tourId)
             .OrderBy(tp => tp.OrderIndex)
             .ToListAsync(cancellationToken)

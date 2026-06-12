@@ -16,9 +16,13 @@ public class MediaFileDto
 
     public string RelativePath { get; set; } = null!;
 
+    public string? PublicUrl { get; set; }
+
     public DateTime UploadedAt { get; set; }
 
     public int? UploadedByUserId { get; set; }
+
+    public string? UploadedByUsername { get; set; }
 
     public bool IsDeleted { get; set; }
 }
