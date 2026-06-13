@@ -15,7 +15,7 @@ export function TourCreatePage() {
         <p className="app-subtitle">Add a tour for CMS and mobile clients.</p>
       </div>
 
-      <div className="app-card p-5">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
         <TourForm
           mode="create"
           isSubmitting={createTourMutation.isPending}

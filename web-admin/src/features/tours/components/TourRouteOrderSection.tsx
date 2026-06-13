@@ -51,10 +51,10 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
   const hasChanges = draftPois.some((tourPoi, index) => tourPoi.id !== persistedPois[index]?.id);
 
   return (
-    <section className="app-card p-5">
+    <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--app-heading)]">Route Order</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Route Order</h2>
           <p className="app-subtitle">Order POIs for the tour route.</p>
         </div>
         <Button
@@ -69,27 +69,27 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
 
       {errorMessage ? <div className="mt-4"><Alert variant="error" message={errorMessage} /></div> : null}
 
-      <div className="mt-4 overflow-hidden rounded-md border border-[var(--app-border)]">
-        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
-          <thead className="app-table-head">
+      <div className="mt-4 overflow-hidden rounded-md border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-100 text-sm">
+          <thead className="bg-gray-50 text-gray-500">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Order</th>
               <th className="px-4 py-3 text-left font-semibold">POI Name</th>
               <th className="px-4 py-3 text-right font-semibold">Controls</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--app-border)] bg-white">
+          <tbody className="divide-y divide-gray-100 bg-white">
             {draftPois.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-sm text-[var(--app-text)]">
+                <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-600">
                   Add POIs before setting route order.
                 </td>
               </tr>
             ) : (
               draftPois.map((tourPoi, index) => (
                 <tr key={tourPoi.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium text-[var(--app-heading)]">
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">{index + 1}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
                     {tourPoi.poiName || tourPoi.poiCode || `POI #${tourPoi.poiId}`}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">

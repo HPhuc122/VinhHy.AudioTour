@@ -82,9 +82,9 @@ export function UsersPage() {
         <Button onClick={() => setFormOpen(true)}>+ Thêm người dùng</Button>
       </div>
 
-      <div className="app-table-shell">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-[var(--app-text)] text-sm">
+          <div className="flex items-center justify-center py-20 text-gray-600 text-sm">
             Đang tải...
           </div>
         ) : isError ? (
@@ -94,7 +94,7 @@ export function UsersPage() {
         ) : (
           <>
             <table className="min-w-full text-sm">
-              <thead className="app-table-head text-xs uppercase tracking-wide">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="px-5 py-3 text-left">Tên đăng nhập</th>
                   <th className="px-5 py-3 text-left">Email</th>
@@ -104,19 +104,19 @@ export function UsersPage() {
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--app-border)]">
+              <tbody className="divide-y divide-gray-100">
                 {data?.items.map((user) => (
-                  <tr key={user.id} className="hover:bg-[var(--app-surface-muted)] transition-colors">
-                    <td className="px-5 py-3 font-medium text-[var(--app-heading)]">
+                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-gray-900">
                       {user.username}
                     </td>
-                    <td className="px-5 py-3 text-[var(--app-text)]">{user.email}</td>
+                    <td className="px-5 py-3 text-gray-600">{user.email}</td>
                     <td className="px-5 py-3">
                       <Badge variant={roleVariant(user.roleName)}>
                         {user.roleName}
                       </Badge>
                     </td>
-                    <td className="px-5 py-3 text-[var(--app-text)] uppercase text-xs">
+                    <td className="px-5 py-3 text-gray-600 uppercase text-xs">
                       {user.preferredLanguage}
                     </td>
                     <td className="px-5 py-3">
@@ -149,7 +149,7 @@ export function UsersPage() {
 
             {/* Pagination */}
             {data && data.totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] text-sm text-[var(--app-text)]">
+              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50 text-sm text-gray-600">
                 <span>
                   Hiển thị {data.items.length} / {data.totalCount} người dùng
                 </span>
@@ -220,9 +220,9 @@ export function UsersPage() {
           </>
         }
       >
-        <p className="text-sm text-[var(--app-text)]">
+        <p className="text-sm text-gray-600">
           Bạn có chắc muốn xoá người dùng{' '}
-          <span className="font-semibold text-[var(--app-heading)]">
+          <span className="font-semibold text-gray-900">
             {deleteTarget?.username}
           </span>
           ? Hành động này không thể hoàn tác.

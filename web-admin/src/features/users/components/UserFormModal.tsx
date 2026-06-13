@@ -140,10 +140,10 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
         />
 
         {isEdit && (
-          <label className="flex items-center gap-2 text-sm text-[var(--app-text)] cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-[var(--app-border)] text-[var(--app-accent)]"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600"
               {...form.register('isActive')}
             />
             Tài khoản đang hoạt động

@@ -85,12 +85,28 @@ interface DashboardCardProps {
 function DashboardCard({ label, value, isLoading }: DashboardCardProps) {
   return (
     <Card className="p-5">
-      <p className="text-sm font-medium text-[var(--app-text)]">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-[var(--app-heading)]">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={`mt-1 inline-block rounded px-2 py-0.5 text-2xl font-bold ${getStatColor(label)}`}>
         {isLoading ? '...' : formatStat(value)}
       </p>
     </Card>
   );
+}
+
+function getStatColor(label: string): string {
+  if (label.includes('Active')) {
+    return 'bg-emerald-50 text-emerald-700';
+  }
+
+  if (label.includes('Audio') || label.includes('Images')) {
+    return 'bg-green-50 text-green-700';
+  }
+
+  if (label.includes('Deleted')) {
+    return 'bg-red-50 text-red-700';
+  }
+
+  return 'bg-blue-50 text-blue-700';
 }
 
 function formatStat(value?: number | null): string {

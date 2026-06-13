@@ -32,11 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 3500);
   }, []);
 
-  const bgColor = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    error: 'border-red-200 bg-red-50 text-red-800',
-    info: 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-heading)]',
-  };
+  const bgColor = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
 
   return (
     <ToastContext.Provider value={{ toast }}>
@@ -45,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm shadow-lg ${bgColor[t.type]}`}
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-white shadow-lg ${bgColor[t.type]}`}
           >
             {t.message}
             <button

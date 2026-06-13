@@ -63,14 +63,14 @@ export function ProfilePage() {
         <p className="app-subtitle">Cập nhật mật khẩu và tuỳ chỉnh của bạn</p>
       </div>
 
-      <div className="app-card p-6">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-6">
         <div className="mb-5 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--app-accent)] text-xl font-bold uppercase text-white">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-xl font-bold uppercase text-white">
             {user?.username?.[0]}
           </div>
           <div>
-            <p className="font-semibold text-[var(--app-heading)]">{user?.username}</p>
-            <p className="text-sm text-[var(--app-text)]">{user?.role}</p>
+            <p className="font-semibold text-gray-900">{user?.username}</p>
+            <p className="text-sm text-gray-600">{user?.role}</p>
           </div>
         </div>
 
@@ -81,7 +81,7 @@ export function ProfilePage() {
             {...register('preferredLanguage')}
           />
 
-          <hr className="border-[var(--app-border)]" />
+          <hr className="border-gray-100" />
 
           <Input
             label="Mật khẩu mới (bỏ trống để giữ nguyên)"

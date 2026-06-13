@@ -131,7 +131,7 @@ export function MediaLibraryPage() {
         </div>
       </div>
 
-      <div className="app-card grid gap-3 p-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 grid gap-3 p-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
         <Input
           id="media-search"
           label="Search"
@@ -156,7 +156,7 @@ export function MediaLibraryPage() {
             { value: 'audio', label: 'Audio' },
           ]}
         />
-        <label className="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-text)]">
+        <label className="flex items-center gap-2 rounded-md border border-gray-100 bg-white px-3 py-2 text-sm text-gray-600">
           <input
             type="checkbox"
             checked={includeDeleted}
@@ -185,7 +185,7 @@ export function MediaLibraryPage() {
         onRestore={handleRestore}
       />
 
-      <div className="flex items-center justify-between text-sm text-[var(--app-text)]">
+      <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
           {mediaQuery.data ? `${mediaQuery.data.totalCount} media files` : 'Loading media files'}
         </span>
@@ -237,10 +237,10 @@ function MediaTable({
   onRestore,
 }: MediaTableProps) {
   return (
-    <div className="app-table-shell">
+    <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
-          <thead className="app-table-head text-left text-xs font-semibold uppercase">
+        <table className="min-w-full divide-y divide-gray-100 text-sm">
+          <thead className="bg-gray-50 text-gray-500 text-left text-xs font-semibold uppercase">
             <tr>
               <th className="px-4 py-3">File Name</th>
               <th className="px-4 py-3">Original Name</th>
@@ -251,31 +251,31 @@ function MediaTable({
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--app-border)]">
+          <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td className="px-4 py-6 text-center text-[var(--app-text)]" colSpan={7}>
+                <td className="px-4 py-6 text-center text-gray-600" colSpan={7}>
                   Loading media files...
                 </td>
               </tr>
             ) : null}
             {!isLoading && mediaItems.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-[var(--app-text)]" colSpan={7}>
+                <td className="px-4 py-6 text-center text-gray-600" colSpan={7}>
                   No media files found.
                 </td>
               </tr>
             ) : null}
             {mediaItems.map((media) => (
               <tr key={media.id} className={media.isDeleted ? 'bg-red-50/40' : undefined}>
-                <td className="max-w-[220px] truncate px-4 py-3 font-medium text-[var(--app-heading)]">
+                <td className="max-w-[220px] truncate px-4 py-3 font-medium text-gray-900">
                   {media.fileName}
                 </td>
-                <td className="max-w-[220px] truncate px-4 py-3 text-[var(--app-text)]">
+                <td className="max-w-[220px] truncate px-4 py-3 text-gray-600">
                   {media.originalFileName}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-[var(--app-surface-muted)] px-2 py-1 text-xs font-medium capitalize text-[var(--app-text)]">
+                  <span className="rounded-full bg-gray-50 px-2 py-1 text-xs font-medium capitalize text-gray-600">
                     {media.fileType}
                   </span>
                   {media.isDeleted ? (
@@ -284,9 +284,9 @@ function MediaTable({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-3 text-[var(--app-text)]">{formatBytes(media.fileSize)}</td>
-                <td className="px-4 py-3 text-[var(--app-text)]">{formatDate(media.uploadedAt)}</td>
-                <td className="px-4 py-3 text-[var(--app-text)]">
+                <td className="px-4 py-3 text-gray-600">{formatBytes(media.fileSize)}</td>
+                <td className="px-4 py-3 text-gray-600">{formatDate(media.uploadedAt)}</td>
+                <td className="px-4 py-3 text-gray-600">
                   {media.uploadedByUsername ?? media.uploadedByUserId ?? '-'}
                 </td>
                 <td className="px-4 py-3">

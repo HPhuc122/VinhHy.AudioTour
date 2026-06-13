@@ -15,7 +15,7 @@ export function QrCreatePage() {
         <p className="app-subtitle">Add a QR entry for a POI or tour.</p>
       </div>
 
-      <div className="app-card p-5">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
         <QrForm
           mode="create"
           isSubmitting={createQrMutation.isPending}

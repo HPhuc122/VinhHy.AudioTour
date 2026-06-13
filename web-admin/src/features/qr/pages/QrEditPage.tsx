@@ -47,7 +47,7 @@ export function QrEditPage() {
       {queryError ? <Alert variant="error" message={queryError} /> : null}
 
       {initialValues ? (
-        <div className="app-card p-5">
+        <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
           <QrForm
             mode="edit"
             initialValues={initialValues}

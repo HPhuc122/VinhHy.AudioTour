@@ -69,9 +69,9 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
   };
 
   return (
-    <section className="app-card p-5">
+    <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
       <div>
-        <h2 className="text-lg font-semibold text-[var(--app-heading)]">POIs In Tour</h2>
+        <h2 className="text-lg font-semibold text-gray-900">POIs In Tour</h2>
         <p className="app-subtitle">Assign POIs that belong to this tour.</p>
       </div>
 
@@ -100,9 +100,9 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
         </Button>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-md border border-[var(--app-border)]">
-        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
-          <thead className="app-table-head">
+      <div className="mt-4 overflow-hidden rounded-md border border-gray-100">
+        <table className="min-w-full divide-y divide-gray-100 text-sm">
+          <thead className="bg-gray-50 text-gray-500">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Order</th>
               <th className="px-4 py-3 text-left font-semibold">POI Name</th>
@@ -110,21 +110,21 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--app-border)] bg-white">
+          <tbody className="divide-y divide-gray-100 bg-white">
             {sortedPois.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-[var(--app-text)]">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-600">
                   No POIs assigned yet.
                 </td>
               </tr>
             ) : (
               sortedPois.map((tourPoi, index) => (
                 <tr key={tourPoi.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium text-[var(--app-heading)]">
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">{index + 1}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
                     {tourPoi.poiName || tourPoi.poiCode || `POI #${tourPoi.poiId}`}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                     {tourPoi.poiCode || '-'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">

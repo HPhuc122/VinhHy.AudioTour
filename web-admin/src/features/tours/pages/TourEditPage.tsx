@@ -52,9 +52,9 @@ export function TourEditPage() {
 
       {initialValues && tourQuery.data ? (
         <>
-          <section className="app-card p-5">
+          <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
             <div className="mb-5">
-              <h2 className="text-lg font-semibold text-[var(--app-heading)]">Tour Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Tour Information</h2>
               <p className="app-subtitle">Manage core tour metadata.</p>
             </div>
             <TourForm

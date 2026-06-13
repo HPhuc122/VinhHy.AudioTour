@@ -7,7 +7,7 @@ interface AlertProps {
 
 const variantClasses: Record<AlertVariant, string> = {
   error: 'border-red-200 bg-red-50 text-red-800',
-  info: 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-heading)]',
+  info: 'border-blue-200 bg-blue-50 text-blue-900',
 };
 
 export function Alert({ variant = 'info', message }: AlertProps) {
