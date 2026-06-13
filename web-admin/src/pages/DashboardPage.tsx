@@ -1,5 +1,6 @@
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
+import { Card } from '@/components/ui/Card';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
 
 export function DashboardPage() {
@@ -8,10 +9,10 @@ export function DashboardPage() {
   const errorMessage = getErrorMessage(dashboardQuery.error);
 
   return (
-    <section className="space-y-5">
+    <section className="app-page">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-600">Member 3 content and asset statistics.</p>
+        <h1 className="app-title">Dashboard</h1>
+        <p className="app-subtitle">Member 3 content and asset statistics.</p>
       </div>
 
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
@@ -83,12 +84,12 @@ interface DashboardCardProps {
 
 function DashboardCard({ label, value, isLoading }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold text-slate-900">
+    <Card className="p-5">
+      <p className="text-sm font-medium text-[var(--app-text)]">{label}</p>
+      <p className="mt-3 text-3xl font-semibold text-[var(--app-heading)]">
         {isLoading ? '...' : formatStat(value)}
       </p>
-    </div>
+    </Card>
   );
 }
 

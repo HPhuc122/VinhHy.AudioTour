@@ -57,18 +57,20 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="max-w-lg">
-      <h1 className="text-2xl font-bold text-gray-900">Thông tin cá nhân</h1>
-      <p className="mt-1 text-sm text-gray-500">Cập nhật mật khẩu và tuỳ chỉnh của bạn</p>
+    <div className="app-page max-w-lg">
+      <div>
+        <h1 className="app-title">Thông tin cá nhân</h1>
+        <p className="app-subtitle">Cập nhật mật khẩu và tuỳ chỉnh của bạn</p>
+      </div>
 
-      <div className="mt-6 rounded-xl bg-white shadow-sm border border-gray-100 p-6">
+      <div className="app-card p-6">
         <div className="mb-5 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-xl font-bold uppercase text-white">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--app-accent)] text-xl font-bold uppercase text-white">
             {user?.username?.[0]}
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{user?.username}</p>
-            <p className="text-sm text-gray-500">{user?.role}</p>
+            <p className="font-semibold text-[var(--app-heading)]">{user?.username}</p>
+            <p className="text-sm text-[var(--app-text)]">{user?.role}</p>
           </div>
         </div>
 
@@ -79,7 +81,7 @@ export function ProfilePage() {
             {...register('preferredLanguage')}
           />
 
-          <hr className="border-gray-100" />
+          <hr className="border-[var(--app-border)]" />
 
           <Input
             label="Mật khẩu mới (bỏ trống để giữ nguyên)"

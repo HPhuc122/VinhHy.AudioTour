@@ -34,10 +34,6 @@ export function toApiClientError(error: unknown): ApiClientError {
   return new ApiClientError('An unexpected error occurred');
 }
 
-export function extractApiError(error: unknown): string {
-  return toApiClientError(error).message;
-}
-
 function isAxiosApiError(
   error: unknown,
 ): error is AxiosError<ApiResponse<unknown>> {

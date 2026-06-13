@@ -97,11 +97,11 @@ export function MediaLibraryPage() {
   const restoreError = getErrorMessage(restoreMutation.error, 'Unable to restore media file.');
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="app-page">
+      <div className="app-page-header">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Media Library</h1>
-          <p className="mt-1 text-sm text-slate-600">Manage reusable image and audio assets.</p>
+          <h1 className="app-title">Media Library</h1>
+          <p className="app-subtitle">Manage reusable image and audio assets.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
@@ -131,7 +131,7 @@ export function MediaLibraryPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+      <div className="app-card grid gap-3 p-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
         <Input
           id="media-search"
           label="Search"
@@ -156,7 +156,7 @@ export function MediaLibraryPage() {
             { value: 'audio', label: 'Audio' },
           ]}
         />
-        <label className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+        <label className="flex items-center gap-2 rounded-md border border-[var(--app-border)] bg-white px-3 py-2 text-sm text-[var(--app-text)]">
           <input
             type="checkbox"
             checked={includeDeleted}
@@ -185,7 +185,7 @@ export function MediaLibraryPage() {
         onRestore={handleRestore}
       />
 
-      <div className="flex items-center justify-between text-sm text-slate-600">
+      <div className="flex items-center justify-between text-sm text-[var(--app-text)]">
         <span>
           {mediaQuery.data ? `${mediaQuery.data.totalCount} media files` : 'Loading media files'}
         </span>
@@ -237,10 +237,10 @@ function MediaTable({
   onRestore,
 }: MediaTableProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="app-table-shell">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
+        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
+          <thead className="app-table-head text-left text-xs font-semibold uppercase">
             <tr>
               <th className="px-4 py-3">File Name</th>
               <th className="px-4 py-3">Original Name</th>
@@ -251,31 +251,31 @@ function MediaTable({
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-[var(--app-border)]">
             {isLoading ? (
               <tr>
-                <td className="px-4 py-6 text-center text-slate-500" colSpan={7}>
+                <td className="px-4 py-6 text-center text-[var(--app-text)]" colSpan={7}>
                   Loading media files...
                 </td>
               </tr>
             ) : null}
             {!isLoading && mediaItems.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-slate-500" colSpan={7}>
+                <td className="px-4 py-6 text-center text-[var(--app-text)]" colSpan={7}>
                   No media files found.
                 </td>
               </tr>
             ) : null}
             {mediaItems.map((media) => (
               <tr key={media.id} className={media.isDeleted ? 'bg-red-50/40' : undefined}>
-                <td className="max-w-[220px] truncate px-4 py-3 font-medium text-slate-900">
+                <td className="max-w-[220px] truncate px-4 py-3 font-medium text-[var(--app-heading)]">
                   {media.fileName}
                 </td>
-                <td className="max-w-[220px] truncate px-4 py-3 text-slate-700">
+                <td className="max-w-[220px] truncate px-4 py-3 text-[var(--app-text)]">
                   {media.originalFileName}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700">
+                  <span className="rounded-full bg-[var(--app-surface-muted)] px-2 py-1 text-xs font-medium capitalize text-[var(--app-text)]">
                     {media.fileType}
                   </span>
                   {media.isDeleted ? (
@@ -284,9 +284,9 @@ function MediaTable({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-3 text-slate-700">{formatBytes(media.fileSize)}</td>
-                <td className="px-4 py-3 text-slate-700">{formatDate(media.uploadedAt)}</td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[var(--app-text)]">{formatBytes(media.fileSize)}</td>
+                <td className="px-4 py-3 text-[var(--app-text)]">{formatDate(media.uploadedAt)}</td>
+                <td className="px-4 py-3 text-[var(--app-text)]">
                   {media.uploadedByUsername ?? media.uploadedByUserId ?? '-'}
                 </td>
                 <td className="px-4 py-3">

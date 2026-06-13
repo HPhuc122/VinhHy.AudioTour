@@ -26,12 +26,12 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      <div className="app-card relative z-10 w-full max-w-md">
+        <div className="flex items-center justify-between border-b border-[var(--app-border)] px-6 py-4">
+          <h2 className="text-base font-semibold text-[var(--app-heading)]">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md p-1 text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-accent)]"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path
@@ -44,7 +44,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         </div>
         <div className="px-6 py-4">{children}</div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t px-6 py-4">
+          <div className="flex justify-end gap-2 border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-6 py-4">
             {footer}
           </div>
         )}

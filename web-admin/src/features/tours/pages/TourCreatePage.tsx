@@ -9,13 +9,13 @@ export function TourCreatePage() {
   const createTourMutation = useCreateTourMutation();
 
   return (
-    <section className="space-y-5">
+    <section className="app-page">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Create tour</h1>
-        <p className="mt-1 text-sm text-slate-600">Add a tour for CMS and mobile clients.</p>
+        <h1 className="app-title">Create tour</h1>
+        <p className="app-subtitle">Add a tour for CMS and mobile clients.</p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="app-card p-5">
         <TourForm
           mode="create"
           isSubmitting={createTourMutation.isPending}

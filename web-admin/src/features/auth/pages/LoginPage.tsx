@@ -12,10 +12,13 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="app-card w-full max-w-md p-8">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold text-slate-900">VinhHy CMS</h1>
-          <p className="mt-1 text-sm text-slate-600">Sign in to manage audio tour content</p>
+          <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-md border border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-lg font-semibold text-[var(--app-accent-strong)]">
+            V
+          </div>
+          <h1 className="text-2xl font-semibold text-[var(--app-heading)]">VinhHy CMS</h1>
+          <p className="mt-1 text-sm text-[var(--app-text)]">Sign in to manage audio tour content</p>
         </div>
         <LoginForm />
       </div>

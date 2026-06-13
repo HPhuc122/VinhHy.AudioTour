@@ -76,11 +76,11 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
   };
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="app-card p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Translations</h2>
-          <p className="mt-1 text-sm text-slate-600">Manage localized tour names and descriptions.</p>
+          <h2 className="text-lg font-semibold text-[var(--app-heading)]">Translations</h2>
+          <p className="app-subtitle">Manage localized tour names and descriptions.</p>
         </div>
         <Button
           type="button"
@@ -93,31 +93,31 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
 
       {activeError ? <div className="mt-4"><Alert variant="error" message={activeError} /></div> : null}
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
+      <div className="mt-4 overflow-hidden rounded-md border border-[var(--app-border)]">
+        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
+          <thead className="app-table-head">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Language</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Name</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Description</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Language</th>
+              <th className="px-4 py-3 text-left font-semibold">Name</th>
+              <th className="px-4 py-3 text-left font-semibold">Description</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-[var(--app-border)] bg-white">
             {tour.translations.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-[var(--app-text)]">
                   No translations yet.
                 </td>
               </tr>
             ) : (
               tour.translations.map((translation) => (
                 <tr key={translation.id}>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-[var(--app-heading)]">
                     {translation.languageCode}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{translation.name}</td>
-                  <td className="max-w-lg px-4 py-3 text-slate-700">
+                  <td className="px-4 py-3 text-[var(--app-text)]">{translation.name}</td>
+                  <td className="max-w-lg px-4 py-3 text-[var(--app-text)]">
                     <span className="line-clamp-2">{translation.description || '-'}</span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">

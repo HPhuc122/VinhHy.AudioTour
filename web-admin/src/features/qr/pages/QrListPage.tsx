@@ -27,15 +27,15 @@ export function QrListPage() {
   const deleteError = getErrorMessage(deleteQrMutation.error);
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="app-page">
+      <div className="app-page-header">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">QR codes</h1>
-          <p className="mt-1 text-sm text-slate-600">Manage QR records for POIs and tours.</p>
+          <h1 className="app-title">QR codes</h1>
+          <p className="app-subtitle">Manage QR records for POIs and tours.</p>
         </div>
         <Link
           to={routes.qrCreate}
-          className="inline-flex items-center justify-center rounded-lg bg-sky-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-900"
+          className="inline-flex items-center justify-center rounded-md border border-[var(--app-accent)] bg-[var(--app-accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:border-[var(--app-accent-strong)] hover:bg-[var(--app-accent-strong)]"
         >
           Create QR code
         </Link>

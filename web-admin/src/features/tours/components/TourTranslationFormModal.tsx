@@ -152,7 +152,7 @@ export function TourTranslationFormModal({
             rows={4}
             value={values.description}
             disabled={isSubmitting}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-600 focus:ring-2 focus:ring-sky-200"
+            className="w-full rounded-md border border-[var(--app-border)] px-3 py-2 text-sm text-[var(--app-heading)] outline-none transition focus:border-[var(--app-accent)] focus:ring-2 focus:ring-[var(--app-accent-soft)]"
             onChange={(event) =>
               setValues((current) => ({ ...current, description: event.target.value }))
             }

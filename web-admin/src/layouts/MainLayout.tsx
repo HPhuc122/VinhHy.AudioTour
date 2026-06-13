@@ -14,13 +14,13 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-3">
+      <header className="border-b border-[var(--app-border)] bg-white/85 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-4">
             <div>
-              <p className="text-lg font-semibold text-slate-900">VinhHy Audio Tour CMS</p>
+              <p className="text-lg font-semibold text-[var(--app-heading)]">VinhHy Audio Tour CMS</p>
               {user ? (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--app-text)]">
                   {user.username} - {user.role}
                 </p>
               ) : null}
@@ -29,8 +29,10 @@ export function MainLayout() {
               <NavLink
                 to={routes.dashboard}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 font-medium transition ${
-                    isActive ? 'bg-sky-50 text-sky-900' : 'text-slate-600 hover:bg-slate-100'
+                  `rounded-md border px-3 py-2 font-medium transition ${
+                    isActive
+                      ? 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-accent-strong)]'
+                      : 'border-transparent text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]'
                   }`
                 }
               >
@@ -39,8 +41,10 @@ export function MainLayout() {
               <NavLink
                 to={routes.tours}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 font-medium transition ${
-                    isActive ? 'bg-sky-50 text-sky-900' : 'text-slate-600 hover:bg-slate-100'
+                  `rounded-md border px-3 py-2 font-medium transition ${
+                    isActive
+                      ? 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-accent-strong)]'
+                      : 'border-transparent text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]'
                   }`
                 }
               >
@@ -49,8 +53,10 @@ export function MainLayout() {
               <NavLink
                 to={routes.qr}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 font-medium transition ${
-                    isActive ? 'bg-sky-50 text-sky-900' : 'text-slate-600 hover:bg-slate-100'
+                  `rounded-md border px-3 py-2 font-medium transition ${
+                    isActive
+                      ? 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-accent-strong)]'
+                      : 'border-transparent text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]'
                   }`
                 }
               >
@@ -59,8 +65,10 @@ export function MainLayout() {
               <NavLink
                 to={routes.media}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 font-medium transition ${
-                    isActive ? 'bg-sky-50 text-sky-900' : 'text-slate-600 hover:bg-slate-100'
+                  `rounded-md border px-3 py-2 font-medium transition ${
+                    isActive
+                      ? 'border-[var(--app-accent-border)] bg-[var(--app-accent-soft)] text-[var(--app-accent-strong)]'
+                      : 'border-transparent text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]'
                   }`
                 }
               >

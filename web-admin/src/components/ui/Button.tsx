@@ -11,10 +11,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-sky-800 text-white hover:bg-sky-900 disabled:bg-sky-400',
-  secondary: 'bg-slate-200 text-slate-900 hover:bg-slate-300 disabled:bg-slate-100',
-  ghost: 'bg-transparent text-slate-700 hover:bg-slate-100',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
+  primary:
+    'border border-[var(--app-accent)] bg-[var(--app-accent)] text-white shadow-sm hover:bg-[var(--app-accent-strong)] hover:border-[var(--app-accent-strong)] disabled:border-[var(--app-accent-border)] disabled:bg-[var(--app-accent-soft)] disabled:text-[var(--app-text)]',
+  secondary:
+    'border border-[var(--app-border)] bg-[var(--app-surface-muted)] text-[var(--app-heading)] hover:border-[var(--app-accent-border)] hover:bg-[var(--app-accent-soft)] disabled:bg-[var(--app-surface-muted)] disabled:text-[var(--app-text)]',
+  ghost:
+    'border border-transparent bg-transparent text-[var(--app-text)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]',
+  danger:
+    'border border-red-600 bg-red-600 text-white shadow-sm hover:border-red-700 hover:bg-red-700 disabled:border-red-200 disabled:bg-red-100 disabled:text-red-500',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -38,7 +42,7 @@ export function Button({
     <button
       type="button"
       disabled={disabled ?? isBusy}
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition disabled:cursor-not-allowed ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-md font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-accent)] disabled:cursor-not-allowed ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
       {...props}
     >
       {isBusy ? 'Please wait...' : children}

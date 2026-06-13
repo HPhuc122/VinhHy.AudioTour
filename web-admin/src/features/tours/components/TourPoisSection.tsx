@@ -69,10 +69,10 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
   };
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="app-card p-5">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">POIs In Tour</h2>
-        <p className="mt-1 text-sm text-slate-600">Assign POIs that belong to this tour.</p>
+        <h2 className="text-lg font-semibold text-[var(--app-heading)]">POIs In Tour</h2>
+        <p className="app-subtitle">Assign POIs that belong to this tour.</p>
       </div>
 
       {errorMessage ? <div className="mt-4"><Alert variant="error" message={errorMessage} /></div> : null}
@@ -100,31 +100,31 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
         </Button>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
+      <div className="mt-4 overflow-hidden rounded-md border border-[var(--app-border)]">
+        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
+          <thead className="app-table-head">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Order</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">POI Name</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Code</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Order</th>
+              <th className="px-4 py-3 text-left font-semibold">POI Name</th>
+              <th className="px-4 py-3 text-left font-semibold">Code</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-[var(--app-border)] bg-white">
             {sortedPois.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-500">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-[var(--app-text)]">
                   No POIs assigned yet.
                 </td>
               </tr>
             ) : (
               sortedPois.map((tourPoi, index) => (
                 <tr key={tourPoi.id}>
-                  <td className="whitespace-nowrap px-4 py-3 text-slate-700">{index + 1}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">
+                  <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">{index + 1}</td>
+                  <td className="px-4 py-3 font-medium text-[var(--app-heading)]">
                     {tourPoi.poiName || tourPoi.poiCode || `POI #${tourPoi.poiId}`}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">
                     {tourPoi.poiCode || '-'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">

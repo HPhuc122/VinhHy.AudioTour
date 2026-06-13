@@ -144,7 +144,7 @@ export function QrForm({
         </FormField>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+      <div className="flex flex-col-reverse gap-3 border-t border-[var(--app-border)] pt-5 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
           Cancel
         </Button>

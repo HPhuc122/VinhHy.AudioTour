@@ -52,23 +52,23 @@ export function RolesPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
+    <div className="app-page">
+      <div className="app-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Phân quyền</h1>
-          <p className="mt-0.5 text-sm text-gray-500">Quản lý vai trò hệ thống</p>
+          <h1 className="app-title">Phân quyền</h1>
+          <p className="app-subtitle">Quản lý vai trò hệ thống</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>+ Thêm vai trò</Button>
       </div>
 
-      <div className="mt-6 rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+      <div className="app-table-shell">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Đang tải...</div>
+          <div className="flex items-center justify-center py-20 text-[var(--app-text)] text-sm">Đang tải...</div>
         ) : isError ? (
           <div className="flex items-center justify-center py-20 text-red-500 text-sm">Không thể tải danh sách vai trò</div>
         ) : (
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <thead className="app-table-head text-xs uppercase tracking-wide">
               <tr>
                 <th className="px-5 py-3 text-left">ID</th>
                 <th className="px-5 py-3 text-left">Tên vai trò</th>
@@ -77,16 +77,16 @@ export function RolesPage() {
                 <th className="px-5 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-[var(--app-border)]">
               {roles.map((role) => {
                 const isSystem = SYSTEM_ROLES.includes(role.name);
                 return (
-                  <tr key={role.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 text-gray-400 font-mono text-xs">{role.id}</td>
-                    <td className="px-5 py-3 font-medium text-gray-900">{role.name}</td>
-                    <td className="px-5 py-3 text-gray-500">{role.description ?? '—'}</td>
+                  <tr key={role.id} className="hover:bg-[var(--app-surface-muted)] transition-colors">
+                    <td className="px-5 py-3 text-[var(--app-text)] font-mono text-xs">{role.id}</td>
+                    <td className="px-5 py-3 font-medium text-[var(--app-heading)]">{role.name}</td>
+                    <td className="px-5 py-3 text-[var(--app-text)]">{role.description ?? '—'}</td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-[var(--app-accent-soft)] text-[var(--app-accent-strong)]' : 'bg-[var(--app-surface-muted)] text-[var(--app-text)]'}`}>
                         {isSystem ? 'Hệ thống' : 'Tuỳ chỉnh'}
                       </span>
                     </td>
@@ -144,9 +144,9 @@ export function RolesPage() {
           </>
         }
       >
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-[var(--app-text)]">
           Bạn có chắc muốn xoá vai trò{' '}
-          <span className="font-semibold text-gray-900">{deleteTarget?.name}</span>?
+          <span className="font-semibold text-[var(--app-heading)]">{deleteTarget?.name}</span>?
           Người dùng đang dùng vai trò này có thể bị ảnh hưởng.
         </p>
       </Modal>

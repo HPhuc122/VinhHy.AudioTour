@@ -16,36 +16,36 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
 
   if (qrs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
+      <div className="rounded-md border border-dashed border-[var(--app-border)] bg-white px-4 py-10 text-center text-sm text-[var(--app-text)]">
         No QR codes found.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="app-table-shell">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
+        <table className="min-w-full divide-y divide-[var(--app-border)] text-sm">
+          <thead className="app-table-head">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Code</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">POI ID</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Tour ID</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Status</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-700">Created</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Code</th>
+              <th className="px-4 py-3 text-left font-semibold">POI ID</th>
+              <th className="px-4 py-3 text-left font-semibold">Tour ID</th>
+              <th className="px-4 py-3 text-left font-semibold">Status</th>
+              <th className="px-4 py-3 text-left font-semibold">Created</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-[var(--app-border)] bg-white">
             {qrs.map((qr) => (
-              <tr key={qr.id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+              <tr key={qr.id} className="hover:bg-[var(--app-surface-muted)]">
+                <td className="whitespace-nowrap px-4 py-3 font-medium text-[var(--app-heading)]">
                   {qr.code}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">
                   <TargetValue id={qr.poiId} code={qr.poiCode} />
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">
                   <TargetValue id={qr.tourId} code={qr.tourCode} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
@@ -53,20 +53,20 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                     className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                       qr.isActive
                         ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-slate-100 text-slate-600'
+                        : 'bg-[var(--app-surface-muted)] text-[var(--app-text)]'
                     }`}
                   >
                     {qr.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                <td className="whitespace-nowrap px-4 py-3 text-[var(--app-text)]">
                   {formatDate(qr.createdAt)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex justify-end gap-2">
                     <Link
                       to={routes.qrEdit.replace(':id', String(qr.id))}
-                      className="inline-flex items-center justify-center rounded-lg bg-transparent px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                      className="inline-flex items-center justify-center rounded-md bg-transparent px-3 py-2 text-sm font-medium text-[var(--app-text)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--app-heading)]"
                     >
                       Edit
                     </Link>
@@ -101,7 +101,7 @@ function TargetValue({ id, code }: { id?: number | null; code?: string | null })
   return (
     <span className="inline-flex flex-col">
       <span>{id}</span>
-      {code ? <span className="text-xs text-slate-500">{code}</span> : null}
+      {code ? <span className="text-xs text-[var(--app-text)]">{code}</span> : null}
     </span>
   );
 }

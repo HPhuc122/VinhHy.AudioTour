@@ -34,10 +34,10 @@ export function QrEditPage() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="app-page">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Edit QR code</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="app-title">Edit QR code</h1>
+        <p className="app-subtitle">
           {qrQuery.data ? qrQuery.data.code : 'Loading QR record.'}
         </p>
       </div>
@@ -47,7 +47,7 @@ export function QrEditPage() {
       {queryError ? <Alert variant="error" message={queryError} /> : null}
 
       {initialValues ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="app-card p-5">
           <QrForm
             mode="edit"
             initialValues={initialValues}

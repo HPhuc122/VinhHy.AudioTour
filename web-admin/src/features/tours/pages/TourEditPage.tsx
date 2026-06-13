@@ -38,10 +38,10 @@ export function TourEditPage() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="app-page">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Edit tour</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="app-title">Edit tour</h1>
+        <p className="app-subtitle">
           {tourQuery.data ? tourQuery.data.code : 'Loading tour record.'}
         </p>
       </div>
@@ -52,10 +52,10 @@ export function TourEditPage() {
 
       {initialValues && tourQuery.data ? (
         <>
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="app-card p-5">
             <div className="mb-5">
-              <h2 className="text-lg font-semibold text-slate-900">Tour Information</h2>
-              <p className="mt-1 text-sm text-slate-600">Manage core tour metadata.</p>
+              <h2 className="text-lg font-semibold text-[var(--app-heading)]">Tour Information</h2>
+              <p className="app-subtitle">Manage core tour metadata.</p>
             </div>
             <TourForm
               mode="edit"

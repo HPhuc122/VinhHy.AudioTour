@@ -9,13 +9,13 @@ export function QrCreatePage() {
   const createQrMutation = useCreateQrMutation();
 
   return (
-    <section className="space-y-5">
+    <section className="app-page">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Create QR code</h1>
-        <p className="mt-1 text-sm text-slate-600">Add a QR entry for a POI or tour.</p>
+        <h1 className="app-title">Create QR code</h1>
+        <p className="app-subtitle">Add a QR entry for a POI or tour.</p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="app-card p-5">
         <QrForm
           mode="create"
           isSubmitting={createQrMutation.isPending}
