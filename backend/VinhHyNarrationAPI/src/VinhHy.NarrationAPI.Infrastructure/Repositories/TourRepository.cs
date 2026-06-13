@@ -14,15 +14,21 @@ public class TourRepository : ITourRepository
     private IQueryable<Tour> Query(bool includeDeleted) =>
         includeDeleted ? _db.Tours.IgnoreQueryFilters() : _db.Tours;
 
-    public async Task<Tour?> GetByIdAsync(
-        int id,
-        bool includeDeleted = false,
-        CancellationToken cancellationToken = default) =>
-        await Query(includeDeleted)
+    private IQueryable<Tour> WithPublicIncludes(IQueryable<Tour> query) =>
+        query
             .Include(t => t.Translations)
             .Include(t => t.TourPois)
                 .ThenInclude(tp => tp.Poi)
                     .ThenInclude(p => p.Translations)
+            .Include(t => t.TourPois)
+                .ThenInclude(tp => tp.Poi)
+                    .ThenInclude(p => p.AudioTracks);
+
+    public async Task<Tour?> GetByIdAsync(
+        int id,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default) =>
+        await WithPublicIncludes(Query(includeDeleted))
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
             .ConfigureAwait(false);
 
@@ -49,6 +55,37 @@ public class TourRepository : ITourRepository
 
         if (isActive.HasValue)
             query = query.Where(t => t.IsActive == isActive.Value);
+
+        var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
+        var items = await query
+            .OrderBy(t => t.Code)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<Tour> Items, int TotalCount)> GetPublicPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<Tour> query = WithPublicIncludes(Query(includeDeleted: false))
+            .AsNoTracking()
+            .Where(t => t.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var keyword = search.Trim();
+            query = query.Where(t =>
+                t.Code.Contains(keyword) ||
+                t.Translations.Any(tr =>
+                    tr.Name.Contains(keyword) ||
+                    (tr.Description != null && tr.Description.Contains(keyword))));
+        }
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
         var items = await query

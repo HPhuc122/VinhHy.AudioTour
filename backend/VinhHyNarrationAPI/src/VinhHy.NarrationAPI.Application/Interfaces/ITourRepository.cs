@@ -16,6 +16,12 @@ public interface ITourRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
+    Task<(IReadOnlyList<Tour> Items, int TotalCount)> GetPublicPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        CancellationToken cancellationToken = default);
+
     Task<int> CountAsync(
         bool? isActive = null,
         bool includeDeleted = false,

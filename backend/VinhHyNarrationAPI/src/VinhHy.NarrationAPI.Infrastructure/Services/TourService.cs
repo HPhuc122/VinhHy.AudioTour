@@ -47,6 +47,36 @@ public class TourService : ITourService
             total);
     }
 
+    public async Task<PublicTourDto?> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var tour = await _uow.Tours.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (tour is null || !tour.IsActive)
+        {
+            return null;
+        }
+
+        return MapPublicTour(tour);
+    }
+
+    public async Task<PagedResult<PublicTourDto>> GetPublicPagedAsync(
+        TourListFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        var page = filter.NormalizedPage;
+        var pageSize = filter.NormalizedPageSize;
+        var (items, total) = await _uow.Tours.GetPublicPagedAsync(
+            page,
+            pageSize,
+            filter.Search,
+            cancellationToken).ConfigureAwait(false);
+
+        return PagedResult<PublicTourDto>.Create(
+            items.Select(MapPublicTour).ToArray(),
+            page,
+            pageSize,
+            total);
+    }
+
     public async Task<TourDto> CreateAsync(
         CreateTourRequest request,
         CancellationToken cancellationToken = default)
@@ -310,5 +340,58 @@ public class TourService : ITourService
         {
             throw new ValidationException(fieldName, "Language does not exist or is inactive.");
         }
+    }
+
+    private static PublicTourDto MapPublicTour(Tour tour)
+    {
+        return new PublicTourDto
+        {
+            Id = tour.Id,
+            Code = tour.Code,
+            DefaultLanguage = tour.DefaultLanguage,
+            EstimatedMinutes = tour.EstimatedMinutes,
+            Translations = tour.Translations
+                .OrderBy(t => t.LanguageCode == tour.DefaultLanguage ? 0 : 1)
+                .ThenBy(t => t.LanguageCode)
+                .Select(t => new TourTranslationDto
+                {
+                    Id = t.Id,
+                    TourId = t.TourId,
+                    LanguageCode = t.LanguageCode,
+                    Name = t.Name,
+                    Description = t.Description
+                })
+                .ToArray(),
+            Pois = tour.TourPois
+                .OrderBy(tp => tp.OrderIndex)
+                .Select(MapPublicTourPoi)
+                .ToArray()
+        };
+    }
+
+    private static PublicTourPoiDto MapPublicTourPoi(TourPoi tourPoi)
+    {
+        var poi = tourPoi.Poi;
+        var translation = poi.Translations
+            .OrderBy(t => t.LanguageCode == "vi" ? 0 : 1)
+            .ThenBy(t => t.LanguageCode)
+            .FirstOrDefault();
+
+        return new PublicTourPoiDto
+        {
+            Id = tourPoi.Id,
+            TourId = tourPoi.TourId,
+            POIId = tourPoi.POIId,
+            PoiCode = poi.Code,
+            PoiName = translation?.Name ?? poi.Code,
+            PoiDescription = translation?.Description,
+            PoiShortDescription = translation?.ShortDescription,
+            Latitude = poi.Latitude,
+            Longitude = poi.Longitude,
+            ImageUrl = poi.ImageUrl,
+            Category = poi.Category,
+            HasAudio = poi.AudioTracks.Any(a => a.DeletedAt == null && a.IsActive),
+            OrderIndex = tourPoi.OrderIndex
+        };
     }
 }

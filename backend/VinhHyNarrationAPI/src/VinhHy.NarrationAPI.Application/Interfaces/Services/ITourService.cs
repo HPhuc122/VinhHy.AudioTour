@@ -11,6 +11,12 @@ public interface ITourService
         TourListFilter filter,
         CancellationToken cancellationToken = default);
 
+    Task<PublicTourDto?> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<PagedResult<PublicTourDto>> GetPublicPagedAsync(
+        TourListFilter filter,
+        CancellationToken cancellationToken = default);
+
     Task<TourDto> CreateAsync(CreateTourRequest request, CancellationToken cancellationToken = default);
 
     Task<TourDto> UpdateAsync(int id, UpdateTourRequest request, CancellationToken cancellationToken = default);
