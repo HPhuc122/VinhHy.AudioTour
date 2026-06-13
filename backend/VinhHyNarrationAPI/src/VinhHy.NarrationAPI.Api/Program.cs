@@ -84,6 +84,9 @@ try
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
     app.UseCors("CmsPolicy");
+
+    app.UseStaticFiles();
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();

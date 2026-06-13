@@ -14,12 +14,15 @@ public class PoiService : IPoiService
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
+    private readonly IFileUploadService _fileUploadService;
+    private const string PoiUploadDirectory = "uploads/pois";
 
-    public PoiService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete)
+    public PoiService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete, IFileUploadService fileUploadService)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
+        _fileUploadService = fileUploadService;
     }
 
     public async Task<PoiDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -61,8 +64,16 @@ public class PoiService : IPoiService
         if (await _uow.Pois.GetByCodeAsync(request.Code, cancellationToken).ConfigureAwait(false) is not null)
             throw new ValidationException(nameof(request.Code), "POI code already exists.");
 
+        // Handle image file upload if provided
+        string? imageUrl = null;
+        if (request.Image is not null && request.Image.Length > 0)
+        {
+            imageUrl = await _fileUploadService.SaveFileAsync(request.Image, PoiUploadDirectory, cancellationToken).ConfigureAwait(false);
+        }
+
         var now = DateTime.UtcNow;
         var poi = _mapper.Map<Poi>(request);
+        poi.ImageUrl = imageUrl;
         poi.CreatedAt = now;
         poi.UpdatedAt = now;
 
@@ -85,7 +96,25 @@ public class PoiService : IPoiService
         if (request.RadiusMeters.HasValue) poi.RadiusMeters = request.RadiusMeters.Value;
         if (request.Priority.HasValue) poi.Priority = request.Priority.Value;
         if (request.IsActive.HasValue) poi.IsActive = request.IsActive.Value;
-        if (request.ImageUrl is not null) poi.ImageUrl = request.ImageUrl;
+
+        // Handle image file update if provided
+        if (request.Image is not null && request.Image.Length > 0)
+        {
+            // Delete old image if it exists
+            if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
+            {
+                _fileUploadService.DeleteFile(poi.ImageUrl);
+            }
+
+            // Upload new image
+            poi.ImageUrl = await _fileUploadService.SaveFileAsync(request.Image, PoiUploadDirectory, cancellationToken).ConfigureAwait(false);
+        }
+        else if (request.ImageUrl is not null)
+        {
+            // Only update if explicitly provided (not null from client)
+            poi.ImageUrl = request.ImageUrl;
+        }
+
         if (request.Category is not null) poi.Category = request.Category;
         if (request.CooldownSeconds.HasValue) poi.CooldownSeconds = request.CooldownSeconds.Value;
         if (request.MinDwellSeconds.HasValue) poi.MinDwellSeconds = request.MinDwellSeconds.Value;

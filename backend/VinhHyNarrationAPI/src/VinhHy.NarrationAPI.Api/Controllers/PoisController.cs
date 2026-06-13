@@ -46,7 +46,8 @@ public class PoisController(IPoiService poiService) : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = RoleGroups.ContentManagement)]
-    public async Task<IActionResult> Create([FromBody] CreatePoiRequest request, CancellationToken cancellationToken)
+    // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
+    public async Task<IActionResult> Create([FromForm] CreatePoiRequest request, CancellationToken cancellationToken)
     {
         var poi = await poiService.CreateAsync(request, cancellationToken);
         return this.ApiOk(poi, "POI created");
@@ -56,7 +57,8 @@ public class PoisController(IPoiService poiService) : ControllerBase
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Update(
         int id,
-        [FromBody] UpdatePoiRequest request,
+        // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
+        [FromForm] UpdatePoiRequest request,
         CancellationToken cancellationToken)
     {
         var poi = await poiService.UpdateAsync(id, request, cancellationToken);

@@ -6,6 +6,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ProfilePage } from '../pages/ProfilePage';
 import { UsersPage } from '../features/users/pages/UsersPage';
 import { RolesPage } from '../features/roles/pages/RolesPage';
+import { PoiPage } from '../features/pois/pages/PoiPage';
 import { ROUTES } from './routeConstants';
 
 export function AppRouter() {
@@ -26,6 +27,11 @@ export function AppRouter() {
           >
             <Route path={ROUTES.USERS} element={<UsersPage />} />
             <Route path={ROUTES.ROLES} element={<RolesPage />} />
+          </Route>
+
+          {/* SuperAdmin + ContentAdmin */}
+          <Route element={<ProtectedRoute allowedRoles={['SuperAdmin', 'ContentAdmin']} />}>
+            <Route path={ROUTES.POIS} element={<PoiPage />} />
           </Route>
         </Route>
       </Route>

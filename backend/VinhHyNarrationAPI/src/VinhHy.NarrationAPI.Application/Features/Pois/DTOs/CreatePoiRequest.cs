@@ -1,5 +1,7 @@
 namespace VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 
+using Microsoft.AspNetCore.Http;
+
 public class CreatePoiRequest
 {
     public string Code { get; set; } = null!;
@@ -14,7 +16,7 @@ public class CreatePoiRequest
 
     public bool IsActive { get; set; } = true;
 
-    public string? ImageUrl { get; set; }
+    public IFormFile? Image { get; set; }
 
     public string? Category { get; set; }
 

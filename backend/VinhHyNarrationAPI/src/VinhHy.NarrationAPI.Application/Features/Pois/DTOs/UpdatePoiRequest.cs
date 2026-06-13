@@ -1,5 +1,7 @@
 namespace VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 
+using Microsoft.AspNetCore.Http;
+
 public class UpdatePoiRequest
 {
     public decimal? Latitude { get; set; }
@@ -13,6 +15,8 @@ public class UpdatePoiRequest
     public bool? IsActive { get; set; }
 
     public string? ImageUrl { get; set; }
+
+    public IFormFile? Image { get; set; }
 
     public string? Category { get; set; }
 
