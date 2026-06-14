@@ -38,9 +38,16 @@ public class PoisController(IPoiService poiService) : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPaged([FromQuery] PoiListFilter filter, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? category = null,
+        [FromQuery] bool? isActive = null,
+        [FromQuery] bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
     {
-        var result = await poiService.GetPagedAsync(filter, cancellationToken);
+        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, includeDeleted, cancellationToken);
         return this.ApiOk(result);
     }
 

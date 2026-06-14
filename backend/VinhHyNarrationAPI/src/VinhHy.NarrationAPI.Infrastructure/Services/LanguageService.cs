@@ -29,4 +29,48 @@ public class LanguageService : ILanguageService
         var language = await _uow.Languages.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
         return language is null ? null : _mapper.Map<LanguageDto>(language);
     }
+
+    public async Task<LanguageDto> CreateAsync(CreateLanguageRequest request, CancellationToken cancellationToken = default)
+    {
+        var entity = new Domain.Entities.Language
+        {
+            Code = request.Code,
+            Name = request.Name,
+            NativeName = request.NativeName,
+            IsActive = request.IsActive,
+            SortOrder = request.SortOrder,
+        };
+
+        await _uow.Languages.AddAsync(entity, cancellationToken).ConfigureAwait(false);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return _mapper.Map<LanguageDto>(entity);
+    }
+
+    public async Task<LanguageDto> UpdateAsync(string code, UpdateLanguageRequest request, CancellationToken cancellationToken = default)
+    {
+        var language = await _uow.Languages.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
+        if (language is null)
+            throw new KeyNotFoundException($"Language not found: {code}");
+
+        language.Name = request.Name;
+        language.NativeName = request.NativeName;
+        language.IsActive = request.IsActive;
+        language.SortOrder = request.SortOrder;
+
+        _uow.Languages.Update(language);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return _mapper.Map<LanguageDto>(language);
+    }
+
+    public async Task DeleteAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var language = await _uow.Languages.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
+        if (language is null)
+            throw new KeyNotFoundException($"Language not found: {code}");
+
+        _uow.Languages.Delete(language);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

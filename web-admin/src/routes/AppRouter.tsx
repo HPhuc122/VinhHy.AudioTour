@@ -7,11 +7,14 @@ import { ProfilePage } from '../pages/ProfilePage';
 import { UsersPage } from '../features/users/pages/UsersPage';
 import { RolesPage } from '../features/roles/pages/RolesPage';
 import { PoiPage } from '../features/pois/pages/PoiPage';
+import { LanguagePage } from '../features/languages/pages/LanguagePage';
 import { ROUTES } from './routeConstants';
+
 
 export function AppRouter() {
   return (
-    <Routes>
+      <Routes>
+      
       {/* Public */}
       <Route path={ROUTES.LOGIN} element={<LoginPage />} />
 
@@ -32,6 +35,7 @@ export function AppRouter() {
           {/* SuperAdmin + ContentAdmin */}
           <Route element={<ProtectedRoute allowedRoles={['SuperAdmin', 'ContentAdmin']} />}>
             <Route path={ROUTES.POIS} element={<PoiPage />} />
+            <Route path={ROUTES.LANGUAGES} element={<LanguagePage />} />
           </Route>
         </Route>
       </Route>

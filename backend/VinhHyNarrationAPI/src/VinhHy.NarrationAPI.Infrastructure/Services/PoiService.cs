@@ -41,19 +41,26 @@ public class PoiService : IPoiService
         PoiListFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var (items, total) = await _uow.Pois.GetPagedAsync(
-            filter.Page,
-            filter.PageSize,
-            filter.Search,
-            filter.Category,
-            filter.IsActive,
-            filter.IncludeDeleted,
-            cancellationToken).ConfigureAwait(false);
+        // Backwards-compatible wrapper that delegates to new signature
+        return await GetPagedAsync(filter.Page, filter.PageSize, filter.Search, filter.Category, filter.IsActive, filter.IncludeDeleted, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PagedResult<PoiDto>> GetPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        string? category = null,
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        // Delegate to repository which already applies filters and supports includeDeleted/IgnoreQueryFilters.
+        var (items, total) = await _uow.Pois.GetPagedAsync(page, pageSize, search, category, isActive, includeDeleted, cancellationToken).ConfigureAwait(false);
 
         return PagedResult<PoiDto>.Create(
             _mapper.Map<IReadOnlyList<PoiDto>>(items),
-            filter.Page,
-            filter.PageSize,
+            page,
+            pageSize,
             total);
     }
 

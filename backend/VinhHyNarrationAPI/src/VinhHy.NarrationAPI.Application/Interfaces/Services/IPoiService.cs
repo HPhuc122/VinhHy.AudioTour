@@ -13,6 +13,15 @@ public interface IPoiService
         PoiListFilter filter,
         CancellationToken cancellationToken = default);
 
+    Task<PagedResult<PoiDto>> GetPagedAsync(
+        int page,
+        int pageSize,
+        string? search = null,
+        string? category = null,
+        bool? isActive = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default);
+
     Task<PoiDto> CreateAsync(CreatePoiRequest request, CancellationToken cancellationToken = default);
 
     Task<PoiDto> UpdateAsync(int id, UpdatePoiRequest request, CancellationToken cancellationToken = default);

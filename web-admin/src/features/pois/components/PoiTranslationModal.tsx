@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { poiTranslationsApi } from '../api/poiTranslationsApi';
+import { languagesApi } from '../../languages/api/languagesApi';
 import { useToast } from '../../../components/ui/Toast';
 
 interface Props {
@@ -27,6 +28,12 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     queryKey: ['poiTranslations', poi?.id],
     queryFn: () => poiTranslationsApi.getByPoiId(poi.id),
     enabled: isOpen && !!poi?.id,
+  });
+
+  const { data: languages } = useQuery({
+    queryKey: ['languages'],
+    queryFn: languagesApi.getAll,
+    enabled: isOpen,
   });
 
   const createMutation = useMutation({
@@ -201,8 +208,12 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
                     onChange={(e) => setEditing((s) => (s ? { ...s, languageCode: e.target.value } : s))}
                     className="mt-1 block w-full border rounded px-2 py-1 text-sm"
                   >
-                    <option value="vi">vi - Tiếng Việt</option>
-                    <option value="en">en - English</option>
+                    <option value="" disabled>-- Chọn ngôn ngữ --</option>
+                    {(languages ?? []).map((language: any) => (
+                      <option key={language.code} value={language.code}>
+                        {language.name} ({language.nativeName})
+                      </option>
+                    ))}
                   </select>
                 </div>
 

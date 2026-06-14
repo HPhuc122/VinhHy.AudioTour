@@ -5,15 +5,17 @@ import { poisApi } from '../api/poisApi';
 
 export const POI_KEYS = {
   all: ['pois'] as const,
-  list: (page: number, pageSize: number) => ['pois', 'list', page, pageSize] as const,
+  list: (page: number, pageSize: number, search?: string, category?: string, isActive?: boolean | string, showDeleted?: boolean) => ['pois', 'list', page, pageSize, search ?? '', category ?? '', String(isActive ?? ''), String(showDeleted ?? false)] as const,
   detail: (id: number) => ['pois', id] as const,
 };
 
-export function usePois(page = 1, pageSize = 20) {
+export function usePois(params: { page?: number; pageSize?: number; search?: string; category?: string; isActive?: boolean | string; includeDeleted?: boolean } = {}) {
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
   return useQuery({
-    queryKey: POI_KEYS.list(page, pageSize),
+    queryKey: POI_KEYS.list(page, pageSize, params.search, params.category, params.isActive, params.includeDeleted),
     queryFn: async () => {
-      return poisApi.getAll(page, pageSize);
+      return poisApi.getAll(params);
     },
   });
 }

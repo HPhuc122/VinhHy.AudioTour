@@ -2,9 +2,10 @@ import { httpClient } from '../../../api/httpClient';
 import type { ApiResponse, PagedResult } from '../../../types/api';
 
 export const poisApi = {
-    async getAll(page = 1, pageSize = 20) {
+    async getAll(params: { page?: number; pageSize?: number; search?: string; category?: string; isActive?: boolean | string; includeDeleted?: boolean } = {}) {
+        const { page = 1, pageSize = 20, ...rest } = params;
         const res = await httpClient.get<ApiResponse<PagedResult<any>>>('/pois', {
-            params: { page, pageSize },
+            params: { page, pageSize, ...rest },
         });
         return res.data.data;
     },

@@ -26,18 +26,27 @@ public class PoiRepository : IPoiRepository
         await _db.Pois.FirstOrDefaultAsync(p => p.Code == code, cancellationToken).ConfigureAwait(false);
 
     public async Task<(IReadOnlyList<Poi> Items, int TotalCount)> GetPagedAsync(
-        int page,
-        int pageSize,
-        string? search = null,
-        string? category = null,
-        bool? isActive = null,
-        bool includeDeleted = false,
-        CancellationToken cancellationToken = default)
+    int page,
+    int pageSize,
+    string? search = null,
+    string? category = null,
+    bool? isActive = null,
+    bool includeDeleted = false,
+    CancellationToken cancellationToken = default)
     {
-        var query = Query(includeDeleted).AsNoTracking();
+        // 1. Dùng .Include để lấy kèm dữ liệu Translation
+        var query = Query(includeDeleted)
+            .Include(p => p.Translations)
+            .AsNoTracking();
 
+        // 2. Tìm kiếm đúng vào thuộc tính Name của Translation
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(p => p.Code.Contains(search));
+        {
+            query = query.Where(p =>
+                p.Code.Contains(search) ||
+                p.Translations.Any(t => t.Name.Contains(search))
+            );
+        }
 
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(p => p.Category == category);
@@ -46,6 +55,7 @@ public class PoiRepository : IPoiRepository
             query = query.Where(p => p.IsActive == isActive.Value);
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
+
         var items = await query
             .OrderBy(p => p.Code)
             .Skip((page - 1) * pageSize)

@@ -18,9 +18,19 @@ public class LanguageRepository : ILanguageRepository
         bool activeOnly = true,
         CancellationToken cancellationToken = default)
     {
-        var query = _db.Languages.AsQueryable();
+        // If caller requests all records (activeOnly == false) we must bypass any global query filters
+        // (e.g., if ApplicationDbContext configured a global filter on IsActive). Use IgnoreQueryFilters()
+        // to ensure inactive records are returned as well.
+        IQueryable<Language> query = activeOnly
+            ? _db.Languages.AsQueryable()
+            : _db.Languages.IgnoreQueryFilters();
+
         if (activeOnly)
+        {
+            // Apply explicit IsActive filter when caller wants active-only results
             query = query.Where(l => l.IsActive);
+        }
+
         return await query.OrderBy(l => l.SortOrder).ToListAsync(cancellationToken).ConfigureAwait(false);
     }
 

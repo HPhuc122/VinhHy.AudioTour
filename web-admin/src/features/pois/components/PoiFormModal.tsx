@@ -19,8 +19,8 @@ const createSchema = z.object({
   category: z.string().optional(),
   audioUrl: z.string().optional(),
   isActive: z.boolean().optional(),
-  latitude: z.coerce.number().optional(),
-  longitude: z.coerce.number().optional(),
+  latitude: z.coerce.number().refine((v) => !Number.isNaN(v), { message: 'Latitude là bắt buộc' }),
+  longitude: z.coerce.number().refine((v) => !Number.isNaN(v), { message: 'Longitude là bắt buộc' }),
 
   // Technical specs (POIs table columns)
   radiusMeters: z.coerce.number().optional(),
@@ -163,6 +163,9 @@ export function PoiFormModal({ open, onClose, onSubmit, loading, editPoi }: Prop
           label="Mã địa điểm"
           error={(form.formState.errors as any).code?.message}
           {...form.register('code')}
+          disabled={isEdit}
+          className={isEdit ? 'bg-gray-100 cursor-not-allowed' : undefined}
+          required
         />
 
         <div className="flex flex-col gap-2">
@@ -207,6 +210,7 @@ export function PoiFormModal({ open, onClose, onSubmit, loading, editPoi }: Prop
               placeholder="Vd: 12.345678"
               error={(form.formState.errors as any).latitude?.message}
               {...form.register('latitude')}
+              required
             />
           </div>
           <div className="flex-1">
@@ -215,6 +219,7 @@ export function PoiFormModal({ open, onClose, onSubmit, loading, editPoi }: Prop
               placeholder="Vd: 109.123456"
               error={(form.formState.errors as any).longitude?.message}
               {...form.register('longitude')}
+              required
             />
           </div>
         </div>
