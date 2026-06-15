@@ -154,3 +154,6 @@ offline-packages/
 *.bak
 *.swp
 *.tmp
+
+**/uploads/
+**/wwwroot/uploads/

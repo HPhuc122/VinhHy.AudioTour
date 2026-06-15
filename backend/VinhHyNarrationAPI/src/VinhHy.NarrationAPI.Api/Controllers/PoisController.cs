@@ -38,15 +38,23 @@ public class PoisController(IPoiService poiService) : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetPaged([FromQuery] PoiListFilter filter, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? category = null,
+        [FromQuery] bool? isActive = null,
+        [FromQuery] bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
     {
-        var result = await poiService.GetPagedAsync(filter, cancellationToken);
+        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, includeDeleted, cancellationToken);
         return this.ApiOk(result);
     }
 
     [HttpPost]
     [Authorize(Roles = RoleGroups.ContentManagement)]
-    public async Task<IActionResult> Create([FromBody] CreatePoiRequest request, CancellationToken cancellationToken)
+    // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
+    public async Task<IActionResult> Create([FromForm] CreatePoiRequest request, CancellationToken cancellationToken)
     {
         var poi = await poiService.CreateAsync(request, cancellationToken);
         return this.ApiOk(poi, "POI created");
@@ -56,7 +64,8 @@ public class PoisController(IPoiService poiService) : ControllerBase
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Update(
         int id,
-        [FromBody] UpdatePoiRequest request,
+        // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
+        [FromForm] UpdatePoiRequest request,
         CancellationToken cancellationToken)
     {
         var poi = await poiService.UpdateAsync(id, request, cancellationToken);
@@ -69,5 +78,13 @@ public class PoisController(IPoiService poiService) : ControllerBase
     {
         await poiService.DeleteAsync(id, cancellationToken);
         return this.ApiOk("POI deleted");
+    }
+
+    [HttpPut("{id:int}/restore")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> Restore(int id, CancellationToken cancellationToken)
+    {
+        await poiService.RestoreAsync(id, cancellationToken);
+        return NoContent();
     }
 }

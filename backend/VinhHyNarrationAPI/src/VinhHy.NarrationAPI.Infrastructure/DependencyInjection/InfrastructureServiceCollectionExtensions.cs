@@ -97,6 +97,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<JwtTokenService>();
         services.AddScoped<SoftDeleteService>();
         services.AddScoped<AuditLogWriter>();
+        services.AddScoped<IFileUploadService, FileUploadService>();
 
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();

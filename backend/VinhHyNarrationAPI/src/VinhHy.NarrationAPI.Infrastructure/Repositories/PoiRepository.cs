@@ -43,7 +43,11 @@ public class PoiRepository : IPoiRepository
             .Include(p => p.Translations);
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(p => p.Code.Contains(search));
+        {
+            query = query.Where(p =>
+                p.Code.Contains(search) ||
+                p.Translations.Any(t => t.Name.Contains(search)));
+        }
 
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(p => p.Category == category);
@@ -52,6 +56,7 @@ public class PoiRepository : IPoiRepository
             query = query.Where(p => p.IsActive == isActive.Value);
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
+
         var items = await query
             .OrderBy(p => p.Code)
             .Skip((page - 1) * pageSize)

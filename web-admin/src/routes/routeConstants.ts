@@ -8,4 +8,7 @@ export const ROUTES = {
   ROLES_NEW: '/roles/new',
   ROLES_EDIT: '/roles/:id/edit',
   PROFILE: '/profile',
+  POIS: '/pois',
+  TRANSLATIONS: '/translations',
+  LANGUAGES: '/languages',
 } as const;

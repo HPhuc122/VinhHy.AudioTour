@@ -13,6 +13,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: '📊' },
   { to: ROUTES.USERS, label: 'Người dùng', icon: '👤', roles: ['SuperAdmin'] },
   { to: ROUTES.ROLES, label: 'Phân quyền', icon: '🔐', roles: ['SuperAdmin'] },
+  { to: ROUTES.POIS, label: 'Địa điểm (POI)', icon: '📍' },
+  { to: ROUTES.LANGUAGES, label: 'Ngôn ngữ', icon: '🗣️', },
+
 ];
 
 export function AdminLayout() {
