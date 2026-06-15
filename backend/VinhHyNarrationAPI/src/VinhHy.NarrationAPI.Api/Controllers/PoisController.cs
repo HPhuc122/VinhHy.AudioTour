@@ -79,4 +79,12 @@ public class PoisController(IPoiService poiService) : ControllerBase
         await poiService.DeleteAsync(id, cancellationToken);
         return this.ApiOk("POI deleted");
     }
+
+    [HttpPut("{id:int}/restore")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> Restore(int id, CancellationToken cancellationToken)
+    {
+        await poiService.RestoreAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

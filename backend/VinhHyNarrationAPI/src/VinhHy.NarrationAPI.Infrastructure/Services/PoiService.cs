@@ -144,4 +144,19 @@ public class PoiService : IPoiService
         _uow.Pois.SoftDelete(poi);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var poi = await _uow.Pois.GetByIdAsync(id, includeDeleted: true, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Poi), id);
+
+        // Restore soft-delete
+        poi.DeletedAt = null;
+        poi.IsActive = true;
+        poi.Version++;
+        poi.UpdatedAt = DateTime.UtcNow;
+
+        _uow.Pois.Update(poi);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

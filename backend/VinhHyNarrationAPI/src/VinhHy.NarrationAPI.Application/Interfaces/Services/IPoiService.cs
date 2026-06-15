@@ -27,4 +27,6 @@ public interface IPoiService
     Task<PoiDto> UpdateAsync(int id, UpdatePoiRequest request, CancellationToken cancellationToken = default);
 
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
+
+    Task RestoreAsync(int id, CancellationToken cancellationToken = default);
 }

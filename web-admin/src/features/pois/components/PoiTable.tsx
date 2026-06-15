@@ -9,15 +9,17 @@ import { buildAssetUrl } from '../../../utils/assetUrl';
 import PoiTranslationModal from './PoiTranslationModal';
 
 interface Props {
+  filters?: any;  
   onEdit?: (poi: any) => void;
   onAddTranslate?: (poi: any) => void;
 }
 
-export function PoiTable({ onEdit, onAddTranslate }: Props) {
-  const { data, isLoading, isError, error } = usePois();
+export function PoiTable({ filters, onEdit, onAddTranslate }: Props) {
+    const { data, isLoading, isError, error } = usePois(filters);
   const qc = useQueryClient();
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [translatingPoi, setTranslatingPoi] = useState<any>(null);
 
@@ -30,6 +32,11 @@ export function PoiTable({ onEdit, onAddTranslate }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => poisApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: number) => poisApi.restore(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
   });
 
@@ -62,77 +69,117 @@ export function PoiTable({ onEdit, onAddTranslate }: Props) {
               </td>
             </tr>
           ) : (
-            data?.items.map((poi: any) => (
-              <tr key={poi.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3 font-medium text-gray-900">{poi.code}</td>
-                <td className="px-4 py-3">
-                  {poi.imageUrl ? (
-                    <img
-                      src={buildAssetUrl(poi.imageUrl) || ''}
-                      alt={`POI ${poi.code ?? ''}`}
-                      className="w-16 h-16 object-cover rounded-md border cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setSelectedImageUrl(buildAssetUrl(poi.imageUrl) || '')}
-                    />
-                  ) : (
-                    <span className="text-gray-400 italic">Trống</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-gray-600">{poi.category}</td>
-                <td className="px-4 py-3 text-gray-500">{poi.latitude}, {poi.longitude}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${poi.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                    {poi.isActive ? 'Hoạt động' : 'Vô hiệu'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => setTranslatingPoi(poi)}
-                    >
-                      + Dịch thuật
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => onEdit?.(poi)}
-                    >
-                      Sửa
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={async () => {
-                        const ok = window.confirm('Bạn có chắc chắn muốn xóa địa điểm này?');
-                        if (!ok) return;
-                        try {
-                          setDeletingId(poi.id);
-                          await deleteMutation.mutateAsync(poi.id);
-                          toast('Đã xoá địa điểm', 'success');
-                        } catch (err: any) {
-                          const msg = err?.response?.data?.message ?? 'Lỗi khi xoá địa điểm';
-                          toast(msg, 'error');
-                        } finally {
-                          setDeletingId(null);
-                        }
-                      }}
-                      disabled={deletingId === poi.id}
-                      loading={deletingId === poi.id}
-                    >
-                      Xoá
-                    </Button>
-                  </div>
-      {translatingPoi && (
-        <PoiTranslationModal
-          isOpen={!!translatingPoi}
-          onClose={() => setTranslatingPoi(null)}
-          poi={translatingPoi}
-        />
-      )}
-                </td>
-              </tr>
-            ))
+            data?.items.map((poi: any) => {
+              const isDeleted = !!poi.deletedAt;
+              return (
+                <tr key={poi.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'bg-red-50 opacity-80' : ''}`}>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <span>{poi.code}</span>
+                      {isDeleted && (
+                        <span className="inline-block text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Đã xóa</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {poi.imageUrl ? (
+                      <img
+                        src={buildAssetUrl(poi.imageUrl) || ''}
+                        alt={`POI ${poi.code ?? ''}`}
+                        className={`w-16 h-16 object-cover rounded-md border cursor-pointer hover:opacity-80 transition-opacity ${isDeleted ? 'filter grayscale' : ''}`}
+                        onClick={() => setSelectedImageUrl(buildAssetUrl(poi.imageUrl) || '')}
+                      />
+                    ) : (
+                      <span className="text-gray-400 italic">Trống</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{poi.category}</td>
+                  <td className="px-4 py-3 text-gray-500">{poi.latitude}, {poi.longitude}</td>
+                  <td className="px-4 py-3">
+                    {isDeleted ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">Đã xóa</span>
+                    ) : (
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${poi.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                        {poi.isActive ? 'Hoạt động' : 'Vô hiệu'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => setTranslatingPoi(poi)}
+                      >
+                        + Dịch thuật
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onEdit?.(poi)}
+                      >
+                        Sửa
+                      </Button>
+                      {isDeleted ? (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={async () => {
+                            const ok = window.confirm('Bạn có chắc chắn muốn khôi phục địa điểm này?');
+                            if (!ok) return;
+                            try {
+                              setRestoringId(poi.id);
+                              await restoreMutation.mutateAsync(poi.id);
+                              toast('Đã khôi phục địa điểm', 'success');
+                            } catch (err: any) {
+                              const msg = err?.response?.data?.message ?? 'Lỗi khi khôi phục địa điểm';
+                              toast(msg, 'error');
+                            } finally {
+                              setRestoringId(null);
+                            }
+                          }}
+                          disabled={restoringId === poi.id}
+                          loading={restoringId === poi.id}
+                        >
+                          Khôi phục
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={async () => {
+                            const ok = window.confirm('Bạn có chắc chắn muốn xóa địa điểm này?');
+                            if (!ok) return;
+                            try {
+                              setDeletingId(poi.id);
+                              await deleteMutation.mutateAsync(poi.id);
+                              toast('Đã xoá địa điểm', 'success');
+                            } catch (err: any) {
+                              const msg = err?.response?.data?.message ?? 'Lỗi khi xoá địa điểm';
+                              toast(msg, 'error');
+                            } finally {
+                              setDeletingId(null);
+                            }
+                          }}
+                          disabled={deletingId === poi.id}
+                          loading={deletingId === poi.id}
+                          className={`${deletingId === poi.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          Xoá
+                        </Button>
+                      )}
+                    </div>
+          {translatingPoi && (
+            <PoiTranslationModal
+              isOpen={!!translatingPoi}
+              onClose={() => setTranslatingPoi(null)}
+              poi={translatingPoi}
+            />
+          )}
+                  </td>
+                </tr>
+              );
+            })
           )}
           {/* Lightbox is rendered after the table to avoid nesting inside tbody */}
         </tbody>

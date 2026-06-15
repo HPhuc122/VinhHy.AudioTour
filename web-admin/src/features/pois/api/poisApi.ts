@@ -34,6 +34,10 @@ export const poisApi = {
     async delete(id: number) {
         await httpClient.delete(`/pois/${id}`);
     },
+    async restore(id: number) {
+        const res = await httpClient.put(`/pois/${id}/restore`);
+        return res.data;
+    },
 };
 
 export default poisApi;
