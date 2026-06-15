@@ -35,4 +35,15 @@ public class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.RegisterDeviceAsync(request, cancellationToken);
         return this.ApiOk(result, "Device registered");
     }
+
+    // [NEW] Đăng ký tài khoản khách public website
+    [AllowAnonymous]
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(
+        [FromBody] RegisterRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.RegisterAsync(request, cancellationToken);
+        return this.ApiOk(result, "Registration successful");
+    }
 }
