@@ -1,6 +1,7 @@
 export const routes = {
   login: '/login',
   dashboard: '/',
+  profile: '/profile',
   tours: '/tours',
   tourCreate: '/tours/new',
   tourEdit: '/tours/:tourId/edit',
@@ -8,4 +9,8 @@ export const routes = {
   qr: '/qr',
   qrCreate: '/qr/create',
   qrEdit: '/qr/:id/edit',
+  pois: '/pois',
+  languages: '/languages',
+  users: '/users',
+  roles: '/roles',
 } as const;

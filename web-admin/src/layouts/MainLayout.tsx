@@ -6,10 +6,15 @@ interface NavItem {
   to: string;
   label: string;
   icon: string;
+  roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: routes.dashboard, label: 'Dashboard', icon: '📊' },
+  { to: routes.users, label: 'Người dùng', icon: '👤', roles: ['SuperAdmin'] },
+  { to: routes.roles, label: 'Phân quyền', icon: '🔐', roles: ['SuperAdmin'] },
+  { to: routes.pois, label: 'Địa điểm (POI)', icon: '📍', roles: ['SuperAdmin', 'ContentAdmin'] },
+  { to: routes.languages, label: 'Ngôn ngữ', icon: '🗣️', roles: ['SuperAdmin', 'ContentAdmin'] },
   { to: routes.tours, label: 'Tours', icon: '🗺️' },
   { to: routes.qr, label: 'QR', icon: '▦' },
   { to: routes.media, label: 'Media', icon: '◉' },
@@ -23,6 +28,10 @@ export function MainLayout() {
     logout();
     navigate(routes.login, { replace: true });
   };
+
+  const visibleNav = NAV_ITEMS.filter(
+    (item) => !item.roles || (user && item.roles.includes(user.role)),
+  );
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -39,16 +48,15 @@ export function MainLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
           <ul className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((item) => (
+            {visibleNav.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   end={item.to === routes.dashboard}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
@@ -61,7 +69,10 @@ export function MainLayout() {
         </nav>
 
         <div className="border-t border-gray-700 p-4">
-          <div className="mb-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400">
+          <NavLink
+            to={routes.profile}
+            className="mb-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-xs font-bold uppercase text-white">
               {user?.username?.[0] ?? 'U'}
             </div>
@@ -69,12 +80,13 @@ export function MainLayout() {
               <p className="truncate text-sm font-medium text-gray-200">{user?.username}</p>
               <p className="truncate text-xs text-gray-500">{user?.role}</p>
             </div>
-          </div>
+          </NavLink>
+
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
           >
-            <span>🚪</span> Logout
+            <span>🚪</span> Đăng xuất
           </button>
         </div>
       </aside>

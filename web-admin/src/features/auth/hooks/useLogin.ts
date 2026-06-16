@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { useAuthContext } from '../context/AuthContext';
-import { extractApiError } from '../../../api/apiError';
-import { ROUTES } from '../../../routes/routeConstants';
+import { extractApiError } from '@/api/apiError';
+import { routes } from '@/config/routes';
+import { useAuthContext } from '@/features/auth/context/AuthContext';
 
 export function useLogin() {
   const { login } = useAuthContext();
@@ -11,7 +11,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: login,
     onSuccess() {
-      navigate(ROUTES.DASHBOARD, { replace: true });
+      navigate(routes.dashboard, { replace: true });
     },
     onError(error) {
       return extractApiError(error);
