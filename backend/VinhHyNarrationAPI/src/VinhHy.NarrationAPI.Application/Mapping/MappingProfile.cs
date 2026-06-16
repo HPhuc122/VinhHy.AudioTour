@@ -53,6 +53,7 @@ public class MappingProfile : Profile
                         .FirstOrDefault() ?? s.Code));
         CreateMap<CreatePoiRequest, Poi>()
             .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.ImageUrl, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
             .ForMember(d => d.Version, opt => opt.Ignore())
             .ForMember(d => d.CreatedAt, opt => opt.Ignore())
