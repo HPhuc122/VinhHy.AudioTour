@@ -53,6 +53,7 @@ public class MappingProfile : Profile
                         .FirstOrDefault() ?? s.Code));
         CreateMap<CreatePoiRequest, Poi>()
             .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.Code, opt => opt.Ignore())
             .ForMember(d => d.ImageUrl, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
             .ForMember(d => d.Version, opt => opt.Ignore())
@@ -98,6 +99,7 @@ public class MappingProfile : Profile
             .ForMember(d => d.Translations, opt => opt.MapFrom(s => s.Translations));
         CreateMap<CreateTourRequest, Tour>()
             .ForMember(d => d.Id, opt => opt.Ignore())
+            .ForMember(d => d.Code, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
             .ForMember(d => d.Version, opt => opt.Ignore())
             .ForMember(d => d.CreatedAt, opt => opt.Ignore())

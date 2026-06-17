@@ -12,15 +12,14 @@ import { Button } from '../../../components/ui/Button';
 import MapPickerOverlay from './MapPickerOverlay';
 
 const createSchema = z.object({
-  code: z.string().min(1, 'Mã địa điểm là bắt buộc'),
   imageFile: z.any().optional(),
   category: z.string().optional(),
   audioUrl: z.string().optional(),
   isActive: z.boolean().optional(),
-  latitude: z.coerce.number().refine((v) => !Number.isNaN(v), {
+  latitude: z.coerce.number().refine((value) => !Number.isNaN(value), {
     message: 'Vĩ độ là bắt buộc',
   }),
-  longitude: z.coerce.number().refine((v) => !Number.isNaN(v), {
+  longitude: z.coerce.number().refine((value) => !Number.isNaN(value), {
     message: 'Kinh độ là bắt buộc',
   }),
   radiusMeters: z.coerce.number().optional(),
@@ -57,27 +56,26 @@ const defaultValues = {
 };
 
 export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
-  const isEdit = !!editPoi;
-  const qc = useQueryClient();
+  const isEdit = Boolean(editPoi);
+  const queryClient = useQueryClient();
   const toast = useToast();
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => poisApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+    mutationFn: (data: FormData) => poisApi.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pois'] }),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: any) => poisApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+    mutationFn: ({ id, data }: { id: number; data: FormData }) => poisApi.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pois'] }),
   });
 
   const form = useForm<CreateForm | EditForm>({
     resolver: zodResolver(isEdit ? editSchema : createSchema) as any,
     defaultValues: isEdit
       ? {
-          code: editPoi?.code ?? '',
           imageFile: undefined,
           category: editPoi?.category ?? '',
           isActive: editPoi?.isActive ?? true,
@@ -99,7 +97,6 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
     form.reset(
       isEdit
         ? {
-            code: editPoi?.code ?? '',
             imageFile: undefined,
             category: editPoi?.category ?? '',
             isActive: editPoi?.isActive ?? true,
@@ -118,19 +115,42 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
   const handleSubmit = async (data: CreateForm | EditForm) => {
     try {
       const formData = new FormData();
-      const d: any = data as any;
-      formData.append('Code', d.code ?? '');
-      formData.append('Category', d.category ?? '');
-      formData.append('Latitude', d.latitude !== undefined && d.latitude !== null ? String(d.latitude) : '');
-      formData.append('Longitude', d.longitude !== undefined && d.longitude !== null ? String(d.longitude) : '');
-      formData.append('RadiusMeters', d.radiusMeters !== undefined && d.radiusMeters !== null ? String(d.radiusMeters) : '30');
-      formData.append('Priority', d.priority !== undefined && d.priority !== null ? String(d.priority) : '1');
-      formData.append('CooldownSeconds', d.cooldownSeconds !== undefined && d.cooldownSeconds !== null ? String(d.cooldownSeconds) : '300');
-      formData.append('MinDwellSeconds', d.minDwellSeconds !== undefined && d.minDwellSeconds !== null ? String(d.minDwellSeconds) : '5');
-      formData.append('IsActive', d.isActive ? 'true' : 'false');
+      const values = data as any;
+      formData.append('Category', values.category ?? '');
+      formData.append(
+        'Latitude',
+        values.latitude !== undefined && values.latitude !== null ? String(values.latitude) : '',
+      );
+      formData.append(
+        'Longitude',
+        values.longitude !== undefined && values.longitude !== null ? String(values.longitude) : '',
+      );
+      formData.append(
+        'RadiusMeters',
+        values.radiusMeters !== undefined && values.radiusMeters !== null
+          ? String(values.radiusMeters)
+          : '30',
+      );
+      formData.append(
+        'Priority',
+        values.priority !== undefined && values.priority !== null ? String(values.priority) : '1',
+      );
+      formData.append(
+        'CooldownSeconds',
+        values.cooldownSeconds !== undefined && values.cooldownSeconds !== null
+          ? String(values.cooldownSeconds)
+          : '300',
+      );
+      formData.append(
+        'MinDwellSeconds',
+        values.minDwellSeconds !== undefined && values.minDwellSeconds !== null
+          ? String(values.minDwellSeconds)
+          : '5',
+      );
+      formData.append('IsActive', values.isActive ? 'true' : 'false');
 
-      if (d.imageFile) {
-        formData.append('Image', d.imageFile);
+      if (values.imageFile) {
+        formData.append('Image', values.imageFile);
       }
 
       if (isEdit && editPoi?.id) {
@@ -143,8 +163,8 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
 
       onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Lỗi khi lưu địa điểm';
-      toast(msg, 'error');
+      const message = err?.response?.data?.message ?? 'Lỗi khi lưu địa điểm';
+      toast(message, 'error');
     }
   };
 
@@ -169,14 +189,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
       }
     >
       <div className="flex flex-col gap-4">
-        <Input
-          label="Mã địa điểm"
-          error={(form.formState.errors as any).code?.message}
-          {...form.register('code')}
-          disabled={isEdit}
-          className={isEdit ? 'cursor-not-allowed bg-gray-100' : undefined}
-          required
-        />
+        {isEdit ? <Input label="Mã địa điểm" value={editPoi?.code ?? ''} disabled /> : null}
 
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-700">Ảnh địa điểm</label>
@@ -184,11 +197,11 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
             type="file"
             accept="image/*"
             className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-lime-400 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-lime-900 hover:file:bg-lime-500"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) {
-                form.setValue('imageFile', f);
-                setPreview(URL.createObjectURL(f));
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                form.setValue('imageFile', file);
+                setPreview(URL.createObjectURL(file));
               }
             }}
           />

@@ -81,16 +81,13 @@ public class TourService : ITourService
         CreateTourRequest request,
         CancellationToken cancellationToken = default)
     {
-        ValidateCode(request.Code);
         ValidateEstimatedMinutes(request.EstimatedMinutes);
         await ValidateLanguageAsync(request.DefaultLanguage, nameof(request.DefaultLanguage), cancellationToken)
             .ConfigureAwait(false);
 
-        if (await _uow.Tours.GetByCodeAsync(request.Code, cancellationToken).ConfigureAwait(false) is not null)
-            throw new ValidationException(nameof(request.Code), "Tour code already exists.");
-
         var now = DateTime.UtcNow;
         var tour = _mapper.Map<Tour>(request);
+        tour.Code = await GenerateUniqueCodeAsync("TOUR", cancellationToken).ConfigureAwait(false);
         tour.CreatedAt = now;
         tour.UpdatedAt = now;
 
@@ -307,14 +304,6 @@ public class TourService : ITourService
         tour.UpdatedAt = DateTime.UtcNow;
     }
 
-    private static void ValidateCode(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new ValidationException(nameof(CreateTourRequest.Code), "Tour code is required.");
-        }
-    }
-
     private static void ValidateEstimatedMinutes(int? estimatedMinutes)
     {
         if (estimatedMinutes.HasValue && estimatedMinutes.Value < 0)
@@ -340,6 +329,23 @@ public class TourService : ITourService
         {
             throw new ValidationException(fieldName, "Language does not exist or is inactive.");
         }
+    }
+
+    private async Task<string> GenerateUniqueCodeAsync(string prefix, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var code = $"{prefix}-{suffix}";
+            var existing = await _uow.Tours.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
+
+            if (existing is null)
+            {
+                return code;
+            }
+        }
+
+        throw new ValidationException(nameof(Tour.Code), "Unable to generate a unique tour code.");
     }
 
     private static PublicTourDto MapPublicTour(Tour tour)

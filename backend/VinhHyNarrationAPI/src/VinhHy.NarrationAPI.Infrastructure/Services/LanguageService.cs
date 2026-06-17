@@ -1,4 +1,5 @@
 using AutoMapper;
+using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Languages.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
@@ -7,6 +8,17 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class LanguageService : ILanguageService
 {
+    private static readonly IReadOnlyDictionary<string, (string Name, string NativeName, int SortOrder)> AllowedLanguages =
+        new Dictionary<string, (string Name, string NativeName, int SortOrder)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["vi"] = ("Vietnamese", "Tiếng Việt", 1),
+            ["en"] = ("English", "English", 2),
+            ["zh"] = ("Chinese", "中文", 3),
+            ["ko"] = ("Korean", "한국어", 4),
+            ["ja"] = ("Japanese", "日本語", 5),
+            ["fr"] = ("French", "Français", 6)
+        };
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
 
@@ -32,13 +44,24 @@ public class LanguageService : ILanguageService
 
     public async Task<LanguageDto> CreateAsync(CreateLanguageRequest request, CancellationToken cancellationToken = default)
     {
+        var code = request.Code.Trim().ToLowerInvariant();
+        if (!AllowedLanguages.TryGetValue(code, out var metadata))
+        {
+            throw new ValidationException(nameof(request.Code), "Language code is not supported.");
+        }
+
+        if (await _uow.Languages.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new ValidationException(nameof(request.Code), "Language already exists.");
+        }
+
         var entity = new Domain.Entities.Language
         {
-            Code = request.Code,
-            Name = request.Name,
-            NativeName = request.NativeName,
+            Code = code,
+            Name = string.IsNullOrWhiteSpace(request.Name) ? metadata.Name : request.Name.Trim(),
+            NativeName = string.IsNullOrWhiteSpace(request.NativeName) ? metadata.NativeName : request.NativeName.Trim(),
             IsActive = request.IsActive,
-            SortOrder = request.SortOrder,
+            SortOrder = request.SortOrder > 0 ? request.SortOrder : metadata.SortOrder,
         };
 
         await _uow.Languages.AddAsync(entity, cancellationToken).ConfigureAwait(false);

@@ -1,14 +1,10 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { usePoisQuery } from '@/features/pois/hooks/usePoisQuery';
 import type { QrFormValues } from '@/features/qr/api/qrApi';
-import { useToursQuery } from '@/features/tours/hooks/useToursQuery';
-
-type TargetType = 'poi' | 'tour';
 
 interface QrFormProps {
   mode: 'create' | 'edit';
@@ -20,8 +16,6 @@ interface QrFormProps {
 }
 
 interface QrFormState {
-  targetType: TargetType;
-  targetId: string;
   isActive: boolean;
   requiresPayment: boolean;
   priceAmount: string;
@@ -29,8 +23,6 @@ interface QrFormState {
 }
 
 const defaultValues: QrFormState = {
-  targetType: 'poi',
-  targetId: '',
   isActive: true,
   requiresPayment: false,
   priceAmount: '0',
@@ -46,51 +38,23 @@ export function QrForm({
 }: QrFormProps) {
   const [values, setValues] = useState<QrFormState>(() => toFormState(initialValues));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const poisQuery = usePoisQuery({ page: 1, pageSize: 100 });
-  const toursQuery = useToursQuery({ page: 1, pageSize: 100 });
 
   useEffect(() => {
     setValues(toFormState(initialValues));
   }, [initialValues]);
 
-  const targetOptions = useMemo(() => {
-    if (values.targetType === 'poi') {
-      return (
-        poisQuery.data?.items.map((poi) => ({
-          value: poi.id,
-          label: `${poi.code} (#${poi.id})`,
-        })) ?? []
-      );
-    }
-
-    return (
-      toursQuery.data?.items.map((tour) => ({
-        value: tour.id,
-        label: `${tour.code} (#${tour.id})`,
-      })) ?? []
-    );
-  }, [poisQuery.data?.items, toursQuery.data?.items, values.targetType]);
-
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextErrors: Record<string, string> = {};
-    const targetId = Number(values.targetId);
     const priceAmount = Number(values.priceAmount);
     const accessDurationMinutes = Number(values.accessDurationMinutes);
-
-    if (!values.targetId || !Number.isInteger(targetId) || targetId <= 0) {
-      nextErrors.targetId = 'Chọn đối tượng.';
-    }
 
     if (!Number.isFinite(priceAmount) || priceAmount < 0) {
       nextErrors.priceAmount = 'Nhập giá hợp lệ.';
     }
 
-    if (
-      !Number.isInteger(accessDurationMinutes) ||
-      accessDurationMinutes <= 0
-    ) {
+    if (!Number.isInteger(accessDurationMinutes) || accessDurationMinutes <= 0) {
       nextErrors.accessDurationMinutes = 'Thời lượng phải lớn hơn 0.';
     }
 
@@ -101,8 +65,8 @@ export function QrForm({
     }
 
     onSubmit({
-      poiId: values.targetType === 'poi' ? targetId : null,
-      tourId: values.targetType === 'tour' ? targetId : null,
+      poiId: null,
+      tourId: null,
       isActive: values.isActive,
       requiresPayment: values.requiresPayment,
       priceAmount,
@@ -114,42 +78,11 @@ export function QrForm({
     <form className="space-y-5" onSubmit={handleSubmit} noValidate>
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
+      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        Mã QR dịch vụ AudioTour mở quyền truy cập toàn khu trong thời lượng cấu hình.
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Loại đối tượng" htmlFor="qr-target-type">
-          <Select
-            id="qr-target-type"
-            name="targetType"
-            options={[
-              { value: 'poi', label: 'POI' },
-              { value: 'tour', label: 'Tour' },
-            ]}
-            value={values.targetType}
-            disabled={isSubmitting}
-            onChange={(event) =>
-              setValues((current) => ({
-                ...current,
-                targetType: event.target.value as TargetType,
-                targetId: '',
-              }))
-            }
-          />
-        </FormField>
-
-        <FormField label="Đối tượng" htmlFor="qr-target-id" error={fieldErrors.targetId}>
-          <Select
-            id="qr-target-id"
-            name="targetId"
-            options={targetOptions}
-            placeholder="Chọn đối tượng"
-            value={values.targetId}
-            disabled={isSubmitting || poisQuery.isLoading || toursQuery.isLoading}
-            error={fieldErrors.targetId}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, targetId: event.target.value }))
-            }
-          />
-        </FormField>
-
         <FormField label="Trạng thái" htmlFor="qr-status">
           <Select
             id="qr-status"
@@ -242,20 +175,7 @@ function toFormState(values?: QrFormValues): QrFormState {
     return defaultValues;
   }
 
-  if (values.tourId != null) {
-    return {
-      targetType: 'tour',
-      targetId: String(values.tourId),
-      isActive: values.isActive,
-      requiresPayment: values.requiresPayment ?? false,
-      priceAmount: String(values.priceAmount ?? 0),
-      accessDurationMinutes: String(values.accessDurationMinutes ?? 60),
-    };
-  }
-
   return {
-    targetType: 'poi',
-    targetId: values.poiId == null ? '' : String(values.poiId),
     isActive: values.isActive,
     requiresPayment: values.requiresPayment ?? false,
     priceAmount: String(values.priceAmount ?? 0),

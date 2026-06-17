@@ -38,7 +38,7 @@ public class QrLocationConfiguration : IEntityTypeConfiguration<QrLocation>
         {
             t.HasCheckConstraint(
                 "CK_QRLocations_Target",
-                "([PoiId] IS NOT NULL AND [TourId] IS NULL) OR ([PoiId] IS NULL AND [TourId] IS NOT NULL)");
+                "NOT ([PoiId] IS NOT NULL AND [TourId] IS NOT NULL)");
             t.HasCheckConstraint(
                 "CK_QRLocations_PaymentConfig",
                 "[PriceAmount] >= 0 AND [AccessDurationMinutes] > 0");

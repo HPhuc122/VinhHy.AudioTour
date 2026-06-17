@@ -26,7 +26,6 @@ export function TourEditPage() {
     }
 
     return {
-      code: tourQuery.data.code,
       defaultLanguage: tourQuery.data.defaultLanguage,
       estimatedMinutes: tourQuery.data.estimatedMinutes ?? null,
       isActive: tourQuery.data.isActive,
@@ -60,6 +59,7 @@ export function TourEditPage() {
             <TourForm
               mode="edit"
               initialValues={initialValues}
+              generatedCode={tourQuery.data.code}
               isSubmitting={updateTourMutation.isPending}
               errorMessage={mutationError}
               onCancel={() => navigate(routes.tours)}

@@ -21,7 +21,6 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
     {
         await AuthenticateAsync();
         var (poiId, tourId) = await SeedTargetsAsync();
-        var updatedCode = $"QR-{Guid.NewGuid():N}-TOUR";
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/qr",
@@ -50,7 +49,6 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
             $"/api/v1/qr/{qrId}",
             new UpdateQrRequest
             {
-                Code = updatedCode,
                 TourId = tourId,
                 IsActive = true
             });
@@ -59,19 +57,19 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Null(await GetDataPropertyAsync<int?>(updateResponse, "poiId"));
         Assert.Equal(tourId, await GetDataPropertyAsync<int?>(updateResponse, "tourId"));
 
-        var tourCodeResponse = await _client.GetAsync($"/api/v1/qr/code/{updatedCode}");
+        var tourCodeResponse = await _client.GetAsync($"/api/v1/qr/code/{generatedCode}");
         Assert.Equal(HttpStatusCode.OK, tourCodeResponse.StatusCode);
         Assert.Equal(tourId, await GetDataPropertyAsync<int?>(tourCodeResponse, "tourId"));
 
         var deleteResponse = await _client.DeleteAsync($"/api/v1/qr/{qrId}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
-        var deletedCodeResponse = await _client.GetAsync($"/api/v1/qr/code/{updatedCode}");
+        var deletedCodeResponse = await _client.GetAsync($"/api/v1/qr/code/{generatedCode}");
         Assert.Equal(HttpStatusCode.NotFound, deletedCodeResponse.StatusCode);
     }
 
     [Fact]
-    public async Task CreateQr_WithoutTarget_ReturnsValidationError()
+    public async Task CreateQr_WithoutTarget_CreatesServiceLevelQr()
     {
         await AuthenticateAsync();
 
@@ -79,10 +77,17 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
             "/api/v1/qr",
             new CreateQrRequest
             {
-                Code = $"QR-{Guid.NewGuid():N}"
+                IsActive = true,
+                RequiresPayment = true,
+                PriceAmount = 25000m,
+                AccessDurationMinutes = 90
             });
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(await GetDataPropertyAsync<int?>(response, "poiId"));
+        Assert.Null(await GetDataPropertyAsync<int?>(response, "tourId"));
+        Assert.Equal(25000m, await GetDataPropertyAsync<decimal>(response, "priceAmount"));
+        Assert.Equal(90, await GetDataPropertyAsync<int>(response, "accessDurationMinutes"));
     }
 
     private async Task AuthenticateAsync()

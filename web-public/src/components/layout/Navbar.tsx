@@ -14,8 +14,8 @@ export function Navbar({ lang, setLang }: Props) {
   const [searchQ, setSearchQ] = useState('');
   const navigate = useNavigate();
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
     if (searchQ.trim()) {
       navigate(`${ROUTES.SEARCH}?q=${encodeURIComponent(searchQ.trim())}`);
       setSearchOpen(false);
@@ -27,87 +27,118 @@ export function Navbar({ lang, setLang }: Props) {
     `text-sm font-medium transition-colors ${isActive ? 'text-emerald-400' : 'text-gray-300 hover:text-white'}`;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur border-b border-gray-800">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-        <Link to={ROUTES.HOME} className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm">V</div>
-          <span className="font-bold text-white text-sm hidden sm:block">VinhHy AudioTour</span>
+    <nav className="fixed left-0 right-0 top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+        <Link to={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">
+            V
+          </div>
+          <span className="hidden text-sm font-bold text-white sm:block">VinhHy AudioTour</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6">
-          <NavLink to={ROUTES.HOME} className={navLinkClass} end>Trang chủ</NavLink>
-          <NavLink to={ROUTES.POIS} className={navLinkClass}>Địa điểm</NavLink>
-          <NavLink to={ROUTES.TOURS} className={navLinkClass}>Tour</NavLink>
-          <NavLink to={ROUTES.MAP} className={navLinkClass}>Bản đồ</NavLink>
+        <div className="hidden items-center gap-6 md:flex">
+          <NavLink to={ROUTES.HOME} className={navLinkClass} end>
+            Trang chủ
+          </NavLink>
+          <NavLink to={ROUTES.POIS} className={navLinkClass}>
+            Địa điểm
+          </NavLink>
+          <NavLink to={ROUTES.TOURS} className={navLinkClass}>
+            Tour
+          </NavLink>
+          <NavLink to={ROUTES.PACKAGES} className={navLinkClass}>
+            Gói AudioTour
+          </NavLink>
+          <NavLink to={ROUTES.MAP} className={navLinkClass}>
+            Bản đồ
+          </NavLink>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setSearchOpen(!searchOpen)}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
+            className="p-2 text-gray-400 transition-colors hover:text-white"
             aria-label="Tìm kiếm"
           >
-            🔍
+            Tìm
           </button>
 
           <select
             value={lang}
-            onChange={(e) => setLang(e.target.value as Lang)}
-            className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1 border border-gray-700 focus:outline-none hidden sm:block"
+            onChange={(event) => setLang(event.target.value as Lang)}
+            className="hidden rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 focus:outline-none sm:block"
             aria-label="Chọn ngôn ngữ"
           >
             {(Object.entries(LANG_LABELS) as [Lang, string][]).map(([code, label]) => (
-              <option key={code} value={code}>{label}</option>
+              <option key={code} value={code}>
+                {label}
+              </option>
             ))}
           </select>
 
           <button
             type="button"
             onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-2 text-gray-400 hover:text-white"
+            className="p-2 text-gray-400 hover:text-white md:hidden"
             aria-label="Mở menu"
           >
-            {menuOpen ? '×' : '☰'}
+            {menuOpen ? 'Đóng' : 'Menu'}
           </button>
         </div>
       </div>
 
-      {searchOpen && (
-        <div className="border-t border-gray-800 px-4 py-3 bg-gray-900">
-          <form onSubmit={handleSearch} className="max-w-xl mx-auto flex gap-2">
+      {searchOpen ? (
+        <div className="border-t border-gray-800 bg-gray-900 px-4 py-3">
+          <form onSubmit={handleSearch} className="mx-auto flex max-w-xl gap-2">
             <input
               autoFocus
               value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
+              onChange={(event) => setSearchQ(event.target.value)}
               placeholder="Tìm kiếm địa điểm..."
-              className="flex-1 bg-gray-800 text-white text-sm rounded-lg px-4 py-2 border border-gray-700 focus:outline-none focus:border-emerald-500"
+              className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
             />
-            <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+            <button
+              type="submit"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white transition-colors hover:bg-emerald-700"
+            >
               Tìm
             </button>
           </form>
         </div>
-      )}
+      ) : null}
 
-      {menuOpen && (
-        <div className="md:hidden border-t border-gray-800 bg-gray-900 px-4 py-4 flex flex-col gap-3">
-          <NavLink to={ROUTES.HOME} className={navLinkClass} end onClick={() => setMenuOpen(false)}>Trang chủ</NavLink>
-          <NavLink to={ROUTES.POIS} className={navLinkClass} onClick={() => setMenuOpen(false)}>Địa điểm</NavLink>
-          <NavLink to={ROUTES.TOURS} className={navLinkClass} onClick={() => setMenuOpen(false)}>Tour</NavLink>
-          <NavLink to={ROUTES.MAP} className={navLinkClass} onClick={() => setMenuOpen(false)}>Bản đồ</NavLink>
+      {menuOpen ? (
+        <div className="flex flex-col gap-3 border-t border-gray-800 bg-gray-900 px-4 py-4 md:hidden">
+          <NavLink to={ROUTES.HOME} className={navLinkClass} end onClick={() => setMenuOpen(false)}>
+            Trang chủ
+          </NavLink>
+          <NavLink to={ROUTES.POIS} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Địa điểm
+          </NavLink>
+          <NavLink to={ROUTES.TOURS} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Tour
+          </NavLink>
+          <NavLink to={ROUTES.PACKAGES} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Gói AudioTour
+          </NavLink>
+          <NavLink to={ROUTES.MAP} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Bản đồ
+          </NavLink>
           <select
             value={lang}
-            onChange={(e) => setLang(e.target.value as Lang)}
-            className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-2 border border-gray-700 focus:outline-none sm:hidden"
+            onChange={(event) => setLang(event.target.value as Lang)}
+            className="rounded border border-gray-700 bg-gray-800 px-2 py-2 text-xs text-gray-300 focus:outline-none sm:hidden"
             aria-label="Chọn ngôn ngữ"
           >
             {(Object.entries(LANG_LABELS) as [Lang, string][]).map(([code, label]) => (
-              <option key={code} value={code}>{label}</option>
+              <option key={code} value={code}>
+                {label}
+              </option>
             ))}
           </select>
         </div>
-      )}
+      ) : null}
     </nav>
   );
 }

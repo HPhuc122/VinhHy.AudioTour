@@ -68,9 +68,6 @@ public class PoiService : IPoiService
         CreatePoiRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (await _uow.Pois.GetByCodeAsync(request.Code, cancellationToken).ConfigureAwait(false) is not null)
-            throw new ValidationException(nameof(request.Code), "POI code already exists.");
-
         // Handle image file upload if provided
         string? imageUrl = null;
         if (request.Image is not null && request.Image.Length > 0)
@@ -80,6 +77,7 @@ public class PoiService : IPoiService
 
         var now = DateTime.UtcNow;
         var poi = _mapper.Map<Poi>(request);
+        poi.Code = await GenerateUniqueCodeAsync("POI", cancellationToken).ConfigureAwait(false);
         poi.ImageUrl = imageUrl;
         poi.CreatedAt = now;
         poi.UpdatedAt = now;
@@ -158,5 +156,22 @@ public class PoiService : IPoiService
 
         _uow.Pois.Update(poi);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string> GenerateUniqueCodeAsync(string prefix, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var code = $"{prefix}-{suffix}";
+            var existing = await _uow.Pois.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
+
+            if (existing is null)
+            {
+                return code;
+            }
+        }
+
+        throw new ValidationException(nameof(Poi.Code), "Unable to generate a unique POI code.");
     }
 }

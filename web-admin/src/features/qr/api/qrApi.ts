@@ -30,7 +30,6 @@ export interface CreateQrRequest {
 }
 
 export interface UpdateQrRequest {
-  code?: string;
   poiId?: number | null;
   tourId?: number | null;
   isActive?: boolean;

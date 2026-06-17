@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { toursApi } from '../../api/toursApi';
+import { publicAudioTourApi } from '../../api/publicAudioTourApi';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
 import { ROUTES } from '../../routes/routeConstants';
+import { AccessCountdown } from '../access/AccessCountdown';
+import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
+import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
+import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 
 interface Props {
   lang: Lang;
@@ -11,26 +16,70 @@ interface Props {
 
 export function TourRoutePage({ lang }: Props) {
   const { id } = useParams<{ id: string }>();
+  const tourId = Number(id);
+  const [accessRecord, setAccessRecord] = useState<GuestAccessRecord | null>(() =>
+    Number.isInteger(tourId) ? guestAccessStore.getForTour(tourId) ?? guestAccessStore.getAnyActive() : null,
+  );
+  const [clientExpired, setClientExpired] = useState(false);
 
-  const { data: tour, isLoading, isError } = useQuery({
-    queryKey: ['tour-route', id, lang],
-    queryFn: () => toursApi.getById(Number(id), lang),
-    enabled: !!id,
+  const audioTourQuery = useQuery({
+    queryKey: ['public-audio-tour', 'tour', tourId, lang, accessRecord?.accessToken],
+    queryFn: () => publicAudioTourApi.getTour(tourId, accessRecord!.accessToken, lang),
+    enabled: Number.isInteger(tourId) && tourId > 0 && !!accessRecord?.accessToken && !clientExpired,
+    retry: false,
   });
 
-  if (isLoading) return <Spinner />;
+  const handleExpired = () => {
+    if (accessRecord) {
+      guestAccessStore.remove(accessRecord.qrCode);
+    }
+    setAccessRecord(null);
+    setClientExpired(true);
+  };
 
-  if (isError || !tour) {
+  if (!Number.isInteger(tourId) || tourId <= 0) {
     return (
       <div className="py-32 text-center text-gray-500">
-        <div className="mb-4 text-5xl">?</div>
-        <p>Khong tim thay lo trinh tour nay</p>
+        <p>Không tìm thấy lộ trình tour này.</p>
         <Link to={ROUTES.TOURS} className="mt-4 inline-block text-emerald-400">
-          Back to tours
+          Quay lại danh sách tour
         </Link>
       </div>
     );
   }
+
+  if (clientExpired) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24">
+        <AccessExpiredPanel />
+      </div>
+    );
+  }
+
+  if (!accessRecord?.accessToken) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24">
+        <AccessRequiredPanel
+          title="Cần vé để mở lộ trình AudioTour"
+          message="Lộ trình phát thuyết minh chỉ mở sau khi quét QR và nhận GuestAccessPass còn hiệu lực."
+        />
+      </div>
+    );
+  }
+
+  if (audioTourQuery.isLoading) {
+    return <Spinner />;
+  }
+
+  if (audioTourQuery.isError || !audioTourQuery.data) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-24">
+        <AccessExpiredPanel message="GuestAccessPass không hợp lệ, đã hết hạn hoặc không thuộc tour này. Vui lòng quét lại mã QR phù hợp." />
+      </div>
+    );
+  }
+
+  const tour = audioTourQuery.data;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
@@ -38,15 +87,19 @@ export function TourRoutePage({ lang }: Props) {
         to={ROUTES.TOUR_DETAIL.replace(':id', String(tour.id))}
         className="mb-6 inline-flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300"
       >
-        Back to tour detail
+        Quay lại chi tiết tour
       </Link>
+
+      <div className="mb-4">
+        <AccessCountdown expiresAt={accessRecord.expiresAt} onExpired={handleExpired} />
+      </div>
 
       <div className="mb-8 rounded-2xl border border-gray-700 bg-gradient-to-br from-emerald-900/40 to-gray-800 p-8">
         <p className="mb-2 text-sm font-medium uppercase tracking-wide text-emerald-400">
           {tour.code}
         </p>
         <h1 className="text-3xl font-bold text-white">{tour.name}</h1>
-        <p className="mt-3 text-gray-300">Route includes {tour.pois.length} stops.</p>
+        <p className="mt-3 text-gray-300">Lộ trình gồm {tour.pois.length} điểm dừng.</p>
       </div>
 
       <div className="relative">
@@ -76,13 +129,13 @@ export function TourRoutePage({ lang }: Props) {
                       <p className="mt-1 text-xs text-emerald-500">{poi.category}</p>
                     ) : null}
                     <p className="mt-2 text-sm leading-relaxed text-gray-400">
-                      {poi.description || poi.shortDescription || 'Stop details are being updated.'}
+                      {poi.narrationText || poi.shortDescription || 'Nội dung thuyết minh đang được cập nhật.'}
                     </p>
                     <div className="mt-3 grid gap-2 text-xs text-gray-500 sm:grid-cols-2">
-                      <span>Code: {poi.code}</span>
-                      <span>Latitude: {poi.latitude}</span>
-                      <span>Longitude: {poi.longitude}</span>
-                      <span>Audio: {poi.audioUrl ? 'Available' : 'Coming soon'}</span>
+                      <span>Mã: {poi.code}</span>
+                      <span>Vĩ độ: {poi.latitude}</span>
+                      <span>Kinh độ: {poi.longitude}</span>
+                      <span>Audio: {poi.audioTracks.some((track) => track.isAvailable) ? 'Có metadata' : 'Đang cập nhật'}</span>
                     </div>
                   </div>
                 </div>

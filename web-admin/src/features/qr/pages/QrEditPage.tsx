@@ -22,14 +22,14 @@ export function QrEditPage() {
       return undefined;
     }
 
-      return {
-        poiId: qrQuery.data.poiId ?? null,
-        tourId: qrQuery.data.tourId ?? null,
-        isActive: qrQuery.data.isActive,
-        requiresPayment: qrQuery.data.requiresPayment,
-        priceAmount: qrQuery.data.priceAmount,
-        accessDurationMinutes: qrQuery.data.accessDurationMinutes,
-      };
+    return {
+      poiId: qrQuery.data.poiId ?? null,
+      tourId: qrQuery.data.tourId ?? null,
+      isActive: qrQuery.data.isActive,
+      requiresPayment: qrQuery.data.requiresPayment,
+      priceAmount: qrQuery.data.priceAmount,
+      accessDurationMinutes: qrQuery.data.accessDurationMinutes,
+    };
   }, [qrQuery.data]);
 
   if (parsedQrId === null) {
@@ -39,7 +39,7 @@ export function QrEditPage() {
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Chỉnh sửa mã QR</h1>
+        <h1 className="app-title">Chỉnh sửa mã QR dịch vụ</h1>
         <p className="app-subtitle">
           {qrQuery.data ? qrQuery.data.code : 'Đang tải mã QR.'}
         </p>

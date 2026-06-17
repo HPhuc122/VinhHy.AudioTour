@@ -67,6 +67,16 @@ public class QrRepository : IQrRepository
         return await query.CountAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<QrLocation>> GetActiveServiceLevelAsync(CancellationToken cancellationToken = default) =>
+        await Query(includeDeleted: false)
+            .AsNoTracking()
+            .Where(q => q.IsActive && q.PoiId == null && q.TourId == null)
+            .OrderBy(q => q.PriceAmount)
+            .ThenBy(q => q.AccessDurationMinutes)
+            .ThenBy(q => q.Code)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
     public async Task<IReadOnlyList<QrLocation>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default) =>

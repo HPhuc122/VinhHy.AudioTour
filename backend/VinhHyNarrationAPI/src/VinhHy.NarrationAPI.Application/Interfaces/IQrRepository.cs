@@ -19,6 +19,8 @@ public interface IQrRepository
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<QrLocation>> GetActiveServiceLevelAsync(CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<QrLocation>> GetChangedSinceAsync(
         DateTime since,
         CancellationToken cancellationToken = default);

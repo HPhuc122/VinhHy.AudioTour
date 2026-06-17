@@ -110,6 +110,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ITourService, TourService>();
         services.AddScoped<IQrService, QrService>();
         services.AddScoped<IPublicAccessService, PublicAccessService>();
+        services.AddScoped<IPublicAudioTourService, PublicAudioTourService>();
         services.AddScoped<ISyncService, SyncService>();
         services.AddScoped<IOfflinePackageService, OfflinePackageService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();

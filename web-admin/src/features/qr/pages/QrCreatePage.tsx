@@ -11,8 +11,8 @@ export function QrCreatePage() {
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Thêm mã QR</h1>
-        <p className="app-subtitle">Tạo mã QR cho địa điểm hoặc tour.</p>
+        <h1 className="app-title">Thêm mã QR dịch vụ</h1>
+        <p className="app-subtitle">Tạo mã QR kích hoạt vé thuyết minh toàn khu.</p>
       </div>
 
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">

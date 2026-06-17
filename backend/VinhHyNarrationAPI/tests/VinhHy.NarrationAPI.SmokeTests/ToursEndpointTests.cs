@@ -46,13 +46,11 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
     {
         await AuthenticateAsync();
         var poiId = await SeedPoiAsync();
-        var code = $"TOUR-{Guid.NewGuid():N}";
 
         var createResponse = await _client.PostAsJsonAsync(
             "/api/v1/tours",
             new CreateTourRequest
             {
-                Code = code,
                 DefaultLanguage = "vi",
                 EstimatedMinutes = 45,
                 IsActive = true
@@ -60,6 +58,8 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         var createdTourId = await GetDataPropertyAsync<int>(createResponse, "id");
+        var generatedCode = await GetDataPropertyAsync<string>(createResponse, "code");
+        Assert.StartsWith("TOUR-", generatedCode);
 
         var updateResponse = await _client.PutAsJsonAsync(
             $"/api/v1/tours/{createdTourId}",
@@ -117,7 +117,7 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.OK, reorderResponse.StatusCode);
 
-        var listResponse = await _client.GetAsync($"/api/v1/tours?search={code}");
+        var listResponse = await _client.GetAsync($"/api/v1/tours?search={generatedCode}");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         using (var listDoc = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync()))
         {

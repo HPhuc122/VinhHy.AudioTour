@@ -61,6 +61,8 @@ export function QrLandingPage({ lang }: Props) {
       qrCode: code,
       accessToken: startAccessQuery.data.accessToken,
       expiresAt: startAccessQuery.data.expiresAt,
+      poiId: startAccessQuery.data.qr.poiId,
+      tourId: startAccessQuery.data.qr.tourId,
     };
     guestAccessStore.set(nextAccess);
     setStoredAccess(nextAccess);
@@ -77,6 +79,8 @@ export function QrLandingPage({ lang }: Props) {
         qrCode: code,
         accessToken: data.accessToken,
         expiresAt: data.expiresAt,
+        poiId: data.poiId,
+        tourId: data.tourId,
       };
       guestAccessStore.set(nextAccess);
       setStoredAccess(nextAccess);
@@ -132,7 +136,7 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-sm text-gray-400">Preparing access...</p>
+          <p className="mt-4 text-sm text-gray-400">Đang chuẩn bị vé thuyết minh toàn khu...</p>
         </div>
       </div>
     );
@@ -162,7 +166,7 @@ export function QrLandingPage({ lang }: Props) {
         <div className="w-full max-w-md">
           <div className="mb-6 text-center">
             <span className="inline-block rounded-full border border-pink-500/30 bg-pink-500/20 px-3 py-1 text-xs font-medium text-pink-300">
-              Payment required
+              Vé thuyết minh toàn khu
             </span>
           </div>
           <PaymentRequiredPanel
@@ -175,7 +179,7 @@ export function QrLandingPage({ lang }: Props) {
           />
           <div className="mt-6 text-center">
             <Link to={ROUTES.HOME} className="text-xs text-gray-500 transition-colors hover:text-gray-300">
-              Back to VinhHy AudioTour
+              Về VinhHy AudioTour
             </Link>
           </div>
         </div>
@@ -188,7 +192,7 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-sm text-gray-400">Loading QR details...</p>
+          <p className="mt-4 text-sm text-gray-400">Đang tải quyền truy cập AudioTour...</p>
         </div>
       </div>
     );
@@ -221,13 +225,36 @@ export function QrLandingPage({ lang }: Props) {
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <span className="inline-block rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400">
-            QR resolved
+            Vé thuyết minh toàn khu đang hoạt động
           </span>
         </div>
 
         <div className="mb-4">
           <AccessCountdown expiresAt={visibleAccess.expiresAt} onExpired={handleExpired} />
         </div>
+
+        {!tour && !poi ? (
+          <div className="overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 p-6 text-center shadow-2xl">
+            <h1 className="mb-3 text-2xl font-bold text-white">Sử dụng AudioTour trong toàn khu</h1>
+            <p className="mb-6 text-sm leading-relaxed text-gray-400">
+              Vé của bạn có hiệu lực với mọi nội dung thuyết minh trong khu vực cho đến khi hết thời gian.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Link
+                to={ROUTES.TOURS}
+                className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              >
+                Xem danh sách tour
+              </Link>
+              <Link
+                to={ROUTES.MAP}
+                className="block rounded-xl bg-gray-700 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-gray-600"
+              >
+                Mở bản đồ
+              </Link>
+            </div>
+          </div>
+        ) : null}
 
         {tour ? (
           <div className="overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 shadow-2xl">
@@ -293,7 +320,7 @@ export function QrLandingPage({ lang }: Props) {
 
         <div className="mt-6 text-center">
           <Link to={ROUTES.HOME} className="text-xs text-gray-500 transition-colors hover:text-gray-300">
-            Back to VinhHy AudioTour
+            Về VinhHy AudioTour
           </Link>
         </div>
       </div>

@@ -11,4 +11,14 @@ public interface IPublicAccessService
         CancellationToken cancellationToken = default);
 
     Task<ValidateAccessResponse> ValidateAsync(string? accessToken, CancellationToken cancellationToken = default);
+
+    Task<ValidateAccessResponse> ValidateAccessForTourAsync(
+        string? accessToken,
+        int tourId,
+        CancellationToken cancellationToken = default);
+
+    Task<ValidateAccessResponse> ValidateAccessForPoiAsync(
+        string? accessToken,
+        int poiId,
+        CancellationToken cancellationToken = default);
 }

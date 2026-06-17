@@ -4,8 +4,6 @@ using Microsoft.AspNetCore.Http;
 
 public class CreatePoiRequest
 {
-    public string Code { get; set; } = null!;
-
     public decimal Latitude { get; set; }
 
     public decimal Longitude { get; set; }

@@ -10,6 +10,7 @@ import type { TourFormValues } from '@/features/tours/api/tourApi';
 interface TourFormProps {
   mode: 'create' | 'edit';
   initialValues?: TourFormValues;
+  generatedCode?: string | null;
   isSubmitting?: boolean;
   errorMessage?: string | null;
   onSubmit: (values: TourFormValues) => void;
@@ -17,7 +18,6 @@ interface TourFormProps {
 }
 
 const defaultValues: TourFormValues = {
-  code: '',
   defaultLanguage: 'vi',
   estimatedMinutes: null,
   isActive: true,
@@ -26,6 +26,7 @@ const defaultValues: TourFormValues = {
 export function TourForm({
   mode,
   initialValues,
+  generatedCode,
   isSubmitting = false,
   errorMessage,
   onSubmit,
@@ -48,12 +49,7 @@ export function TourForm({
     event.preventDefault();
 
     const nextErrors: Record<string, string> = {};
-    const code = values.code.trim();
     const defaultLanguage = values.defaultLanguage.trim();
-
-    if (!code) {
-      nextErrors.code = 'Mã tour là bắt buộc.';
-    }
 
     if (!defaultLanguage) {
       nextErrors.defaultLanguage = 'Ngôn ngữ mặc định là bắt buộc.';
@@ -71,7 +67,6 @@ export function TourForm({
 
     onSubmit({
       ...values,
-      code,
       defaultLanguage,
       estimatedMinutes:
         values.estimatedMinutes === null || Number.isNaN(values.estimatedMinutes)
@@ -85,16 +80,11 @@ export function TourForm({
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Mã tour" htmlFor="tour-code" error={fieldErrors.code}>
-          <Input
-            id="tour-code"
-            name="code"
-            value={values.code}
-            disabled={mode === 'edit' || isSubmitting}
-            hasError={Boolean(fieldErrors.code)}
-            onChange={(event) => setValues((current) => ({ ...current, code: event.target.value }))}
-          />
-        </FormField>
+        {mode === 'edit' ? (
+          <FormField label="Mã tour" htmlFor="tour-code">
+            <Input id="tour-code" name="code" value={generatedCode ?? ''} disabled />
+          </FormField>
+        ) : null}
 
         <FormField
           label="Ngôn ngữ mặc định"

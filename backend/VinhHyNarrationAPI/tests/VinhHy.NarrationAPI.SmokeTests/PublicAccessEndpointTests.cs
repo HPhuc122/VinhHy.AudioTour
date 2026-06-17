@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VinhHy.NarrationAPI.Application.Features.PublicAccess.DTOs;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 using Xunit;
@@ -83,6 +84,48 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
         Assert.Equal("Expired", await GetDataPropertyAsync<string>(validateResponse, "status"));
     }
 
+    [Fact]
+    public async Task ServiceQrPass_AllowsAnyTourAudioTourEndpoint_AndRejectsMissingInvalidOrExpiredPass()
+    {
+        var tourId = await SeedAudioTourAsync();
+        var qrCode = await SeedQrAsync(requiresPayment: false, priceAmount: 0m, durationMinutes: 60);
+
+        var startResponse = await _client.PostAsJsonAsync(
+            "/api/v1/public/access/start",
+            new StartAccessRequest { QrCode = qrCode });
+
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+        var accessToken = await GetDataPropertyAsync<string>(startResponse, "accessToken");
+
+        var validRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/audio-tour/tours/{tourId}");
+        validRequest.Headers.Add("X-Guest-Access-Token", accessToken);
+        var validResponse = await _client.SendAsync(validRequest);
+
+        Assert.Equal(HttpStatusCode.OK, validResponse.StatusCode);
+        Assert.Equal(tourId, await GetDataPropertyAsync<int>(validResponse, "id"));
+
+        var missingResponse = await _client.GetAsync($"/api/v1/public/audio-tour/tours/{tourId}");
+        Assert.Equal(HttpStatusCode.Unauthorized, missingResponse.StatusCode);
+
+        var invalidRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/audio-tour/tours/{tourId}");
+        invalidRequest.Headers.Add("X-Guest-Access-Token", "invalid-token");
+        var invalidResponse = await _client.SendAsync(invalidRequest);
+        Assert.Equal(HttpStatusCode.Unauthorized, invalidResponse.StatusCode);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var pass = await db.GuestAccessPasses.SingleAsync(p => p.QrLocation.Code == qrCode);
+            pass.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+        }
+
+        var expiredRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/audio-tour/tours/{tourId}");
+        expiredRequest.Headers.Add("X-Guest-Access-Token", accessToken);
+        var expiredResponse = await _client.SendAsync(expiredRequest);
+        Assert.Equal(HttpStatusCode.Unauthorized, expiredResponse.StatusCode);
+    }
+
     private async Task<string> SeedQrAsync(bool requiresPayment, decimal priceAmount, int durationMinutes)
     {
         using var scope = factory.Services.CreateScope();
@@ -90,23 +133,9 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
         var suffix = Guid.NewGuid().ToString("N");
         var now = DateTime.UtcNow;
 
-        var poi = new Poi
-        {
-            Code = $"POI-ACCESS-{suffix}",
-            Latitude = 11.750000m,
-            Longitude = 109.180000m,
-            RadiusMeters = 30,
-            Priority = 1,
-            IsActive = true,
-            Category = "smoke-test",
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
         var qr = new QrLocation
         {
             Code = $"QR-ACCESS-{suffix}",
-            Poi = poi,
             IsActive = true,
             RequiresPayment = requiresPayment,
             PriceAmount = priceAmount,
@@ -115,11 +144,85 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
             UpdatedAt = now
         };
 
-        await db.Pois.AddAsync(poi);
         await db.QrLocations.AddAsync(qr);
         await db.SaveChangesAsync();
 
         return qr.Code;
+    }
+
+    private async Task<int> SeedAudioTourAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var suffix = Guid.NewGuid().ToString("N");
+        var now = DateTime.UtcNow;
+
+        var tour = new Tour
+        {
+            Code = $"TOUR-AUDIO-{suffix}",
+            DefaultLanguage = "vi",
+            EstimatedMinutes = 45,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var poi = new Poi
+        {
+            Code = $"POI-AUDIO-{suffix}",
+            Latitude = 11.750000m,
+            Longitude = 109.180000m,
+            RadiusMeters = 30,
+            Priority = 1,
+            IsActive = true,
+            Category = "audio-smoke",
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await db.Tours.AddAsync(tour);
+        await db.Pois.AddAsync(poi);
+        await db.SaveChangesAsync();
+
+        await db.TourTranslations.AddAsync(new TourTranslation
+        {
+            TourId = tour.Id,
+            LanguageCode = "vi",
+            Name = "AudioTour Smoke",
+            Description = "AudioTour smoke description"
+        });
+
+        await db.PoiTranslations.AddAsync(new PoiTranslation
+        {
+            POIId = poi.Id,
+            LanguageCode = "vi",
+            Name = "Audio POI",
+            Description = "Narration text",
+            ShortDescription = "Short narration",
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        await db.TourPois.AddAsync(new TourPoi
+        {
+            TourId = tour.Id,
+            POIId = poi.Id,
+            OrderIndex = 1
+        });
+
+        await db.AudioTracks.AddAsync(new AudioTrack
+        {
+            POIId = poi.Id,
+            LanguageCode = "vi",
+            AudioType = AudioTypes.Prerecorded,
+            FileUrl = "uploads/audio/audio-tour-smoke.mp3",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        await db.SaveChangesAsync();
+        return tour.Id;
     }
 
     private static async Task<T> GetDataPropertyAsync<T>(HttpResponseMessage response, string propertyName)

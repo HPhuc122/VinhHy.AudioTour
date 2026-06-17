@@ -176,37 +176,35 @@ public class PublicAccessService : IPublicAccessService
         string? accessToken,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(accessToken))
-        {
-            return Invalid("MissingToken");
-        }
-
-        var tokenHash = HashToken(accessToken.Trim());
-        var pass = await _uow.GuestAccessPasses
-            .GetByTokenHashAsync(tokenHash, cancellationToken)
-            .ConfigureAwait(false);
-
+        var pass = await TryGetPassAsync(accessToken, cancellationToken).ConfigureAwait(false);
         if (pass is null)
         {
-            return Invalid("InvalidToken");
+            return Invalid(string.IsNullOrWhiteSpace(accessToken) ? "MissingToken" : "InvalidToken");
         }
 
-        var now = DateTime.UtcNow;
-        if (pass.Status != PassActive)
-        {
-            return ToValidateResponse(pass, isValid: false, now);
-        }
+        return await ValidatePassAsync(pass, cancellationToken).ConfigureAwait(false);
+    }
 
-        if (pass.ExpiresAt <= now)
-        {
-            pass.Status = PassExpired;
-            pass.UpdatedAt = now;
-            _uow.GuestAccessPasses.Update(pass);
-            await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return ToValidateResponse(pass, isValid: false, now);
-        }
+    public async Task<ValidateAccessResponse> ValidateAccessForTourAsync(
+        string? accessToken,
+        int tourId,
+        CancellationToken cancellationToken = default)
+    {
+        var (_, response) = await RequireActivePassAsync(accessToken, cancellationToken)
+            .ConfigureAwait(false);
 
-        return ToValidateResponse(pass, isValid: true, now);
+        return response;
+    }
+
+    public async Task<ValidateAccessResponse> ValidateAccessForPoiAsync(
+        string? accessToken,
+        int poiId,
+        CancellationToken cancellationToken = default)
+    {
+        var (_, response) = await RequireActivePassAsync(accessToken, cancellationToken)
+            .ConfigureAwait(false);
+
+        return response;
     }
 
     private static void ValidateQrPaymentConfig(QrLocation qr)
@@ -254,6 +252,64 @@ public class PublicAccessService : IPublicAccessService
             IsValid = false,
             Status = status
         };
+
+    private async Task<(GuestAccessPass Pass, ValidateAccessResponse Response)> RequireActivePassAsync(
+        string? accessToken,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            throw new UnauthorizedException("Guest access token is required.");
+        }
+
+        var pass = await TryGetPassAsync(accessToken, cancellationToken).ConfigureAwait(false)
+            ?? throw new UnauthorizedException("Guest access token is invalid.");
+
+        var response = await ValidatePassAsync(pass, cancellationToken).ConfigureAwait(false);
+        if (!response.IsValid)
+        {
+            throw new UnauthorizedException("Guest access pass is not active.");
+        }
+
+        return (pass, response);
+    }
+
+    private async Task<GuestAccessPass?> TryGetPassAsync(
+        string? accessToken,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return null;
+        }
+
+        var tokenHash = HashToken(accessToken.Trim());
+        return await _uow.GuestAccessPasses
+            .GetByTokenHashAsync(tokenHash, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<ValidateAccessResponse> ValidatePassAsync(
+        GuestAccessPass pass,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        if (pass.Status != PassActive)
+        {
+            return ToValidateResponse(pass, isValid: false, now);
+        }
+
+        if (pass.ExpiresAt <= now)
+        {
+            pass.Status = PassExpired;
+            pass.UpdatedAt = now;
+            _uow.GuestAccessPasses.Update(pass);
+            await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return ToValidateResponse(pass, isValid: false, now);
+        }
+
+        return ToValidateResponse(pass, isValid: true, now);
+    }
 
     private static string GenerateToken()
     {

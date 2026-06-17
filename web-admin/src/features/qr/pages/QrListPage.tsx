@@ -30,8 +30,8 @@ export function QrListPage() {
     <section className="app-page">
       <div className="app-page-header">
         <div>
-          <h1 className="app-title">Mã QR</h1>
-          <p className="app-subtitle">Quản lý mã QR cho địa điểm và tour.</p>
+          <h1 className="app-title">Mã QR dịch vụ AudioTour</h1>
+          <p className="app-subtitle">Quản lý mã QR thanh toán và kích hoạt vé thuyết minh toàn khu.</p>
         </div>
         <Link
           to={routes.qrCreate}

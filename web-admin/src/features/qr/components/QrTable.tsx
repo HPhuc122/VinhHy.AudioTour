@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { routes } from '@/config/routes';
 import type { QrDto } from '@/features/qr/api/qrApi';
+import { drawQrCode } from '@/utils/qrCodeCanvas';
 
 interface QrTableProps {
   qrs: QrDto[];
@@ -9,11 +11,11 @@ interface QrTableProps {
   onDelete: (qr: QrDto) => void;
 }
 
-export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
-  const copyCode = async (code: string) => {
-    await navigator.clipboard.writeText(code);
-  };
+const PUBLIC_WEB_BASE_URL = (
+  import.meta.env.VITE_PUBLIC_WEB_BASE_URL ?? 'http://localhost:5174'
+).replace(/\/$/, '');
 
+export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
   if (qrs.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-gray-100 bg-white px-4 py-10 text-center text-sm text-gray-600">
@@ -23,80 +25,93 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
   }
 
   return (
-    <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
+              <th className="px-4 py-3 text-left font-semibold">QR</th>
               <th className="px-4 py-3 text-left font-semibold">Mã</th>
-              <th className="px-4 py-3 text-left font-semibold">POI ID</th>
-              <th className="px-4 py-3 text-left font-semibold">Tour ID</th>
-              <th className="px-4 py-3 text-left font-semibold">Thanh toán</th>
+              <th className="px-4 py-3 text-left font-semibold">Loại</th>
+              <th className="px-4 py-3 text-left font-semibold">Giá</th>
+              <th className="px-4 py-3 text-left font-semibold">Thời lượng</th>
               <th className="px-4 py-3 text-left font-semibold">Trạng thái</th>
               <th className="px-4 py-3 text-left font-semibold">Ngày tạo</th>
               <th className="px-4 py-3 text-right font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
-            {qrs.map((qr) => (
-              <tr key={qr.id} className="hover:bg-gray-50">
-                <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
-                  {qr.code}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  <TargetValue id={qr.poiId} code={qr.poiCode} />
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  <TargetValue id={qr.tourId} code={qr.tourCode} />
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  {qr.requiresPayment ? (
-                    <span className="inline-flex flex-col">
-                      <span>{formatCurrency(qr.priceAmount)}</span>
-                      <span className="text-xs text-gray-500">{qr.accessDurationMinutes} phút</span>
+            {qrs.map((qr) => {
+              const publicUrl = buildQrUrl(qr.code);
+
+              return (
+                <tr key={qr.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <QrCanvas value={publicUrl} code={qr.code} />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
+                    <div>{qr.code}</div>
+                    <button
+                      type="button"
+                      className="mt-1 max-w-[220px] truncate text-xs text-blue-700 underline"
+                      onClick={() => void navigator.clipboard.writeText(publicUrl)}
+                      title={publicUrl}
+                    >
+                      {publicUrl}
+                    </button>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    <QrType qr={qr} />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    {qr.requiresPayment ? formatCurrency(qr.priceAmount) : 'Miễn phí'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    {qr.accessDurationMinutes} phút
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        qr.isActive
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-gray-50 text-gray-600'
+                      }`}
+                    >
+                      {qr.isActive ? 'Hoạt động' : 'Tạm tắt'}
                     </span>
-                  ) : (
-                    <span className="text-gray-500">Miễn phí</span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      qr.isActive
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    {qr.isActive ? 'Hoạt động' : 'Tạm tắt'}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  {formatDate(qr.createdAt)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  <div className="flex justify-end gap-2">
-                    <Link
-                      to={routes.qrEdit.replace(':id', String(qr.id))}
-                      className="inline-flex items-center justify-center rounded-md bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                    >
-                      Sửa
-                    </Link>
-                    <Button size="sm" variant="secondary" onClick={() => void copyCode(qr.code)}>
-                      Sao chép
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-700 hover:bg-red-50"
-                      isLoading={deletingQrId === qr.id}
-                      onClick={() => onDelete(qr)}
-                    >
-                      Xóa
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    {formatDate(qr.createdAt)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        to={routes.qrEdit.replace(':id', String(qr.id))}
+                        className="inline-flex items-center justify-center rounded-md bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        Sửa
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void navigator.clipboard.writeText(publicUrl)}
+                      >
+                        Sao chép link
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-700 hover:bg-red-50"
+                        isLoading={deletingQrId === qr.id}
+                        onClick={() => onDelete(qr)}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -104,17 +119,55 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
   );
 }
 
-function TargetValue({ id, code }: { id?: number | null; code?: string | null }) {
-  if (id == null) {
-    return <span>-</span>;
+function QrCanvas({ value, code }: { value: string; code: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileName = useMemo(() => `qr-${code}.png`, [code]);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      drawQrCode(canvasRef.current, value, 3);
+    }
+  }, [value]);
+
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = fileName;
+    link.click();
+  };
+
+  return (
+    <div className="flex w-24 flex-col items-center gap-2">
+      <canvas ref={canvasRef} className="h-20 w-20 rounded border border-gray-200 bg-white" />
+      <button type="button" className="text-xs text-blue-700 underline" onClick={handleDownload}>
+        Tải PNG
+      </button>
+    </div>
+  );
+}
+
+function QrType({ qr }: { qr: QrDto }) {
+  if (qr.poiId == null && qr.tourId == null) {
+    return <span>Mã QR dịch vụ</span>;
   }
 
   return (
     <span className="inline-flex flex-col">
-      <span>{id}</span>
-      {code ? <span className="text-xs text-gray-600">{code}</span> : null}
+      <span>Loại cũ</span>
+      <span className="text-xs text-gray-500">
+        {qr.poiId != null ? `POI ${qr.poiCode ?? qr.poiId}` : `Tour ${qr.tourCode ?? qr.tourId}`}
+      </span>
     </span>
   );
+}
+
+function buildQrUrl(code: string): string {
+  return `${PUBLIC_WEB_BASE_URL}/qr/${encodeURIComponent(code)}`;
 }
 
 function formatDate(value: string): string {

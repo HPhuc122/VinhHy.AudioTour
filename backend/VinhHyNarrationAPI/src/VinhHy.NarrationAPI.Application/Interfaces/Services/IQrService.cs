@@ -12,6 +12,8 @@ public interface IQrService
 
     Task<QrResolveResponse?> ResolveAsync(string code, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<QrDto>> GetPublicPackagesAsync(CancellationToken cancellationToken = default);
+
     Task<QrDto> CreateAsync(CreateQrRequest request, CancellationToken cancellationToken = default);
 
     Task<QrDto> UpdateAsync(int id, UpdateQrRequest request, CancellationToken cancellationToken = default);

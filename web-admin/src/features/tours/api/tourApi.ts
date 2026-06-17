@@ -51,7 +51,6 @@ export interface PagedResult<T> {
 }
 
 export interface CreateTourRequest {
-  code: string;
   defaultLanguage: string;
   isActive: boolean;
   estimatedMinutes?: number | null;
