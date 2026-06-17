@@ -11,7 +11,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/users")]
-[Authorize(Roles = RoleGroups.SuperAdmin)]
+[Authorize(Roles = RoleGroups.AdminOnly)]
 public class UsersController(IUserService userService) : ControllerBase
 {
     [HttpGet("{id:int}")]

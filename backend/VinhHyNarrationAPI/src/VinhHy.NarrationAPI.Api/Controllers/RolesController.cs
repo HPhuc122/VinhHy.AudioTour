@@ -10,7 +10,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/roles")]
-[Authorize(Roles = RoleGroups.SuperAdmin)]
+[Authorize(Roles = RoleGroups.AdminOnly)]
 public class RolesController(IRoleService roleService) : ControllerBase
 {
     /// <summary>GET /api/v1/roles — list all roles</summary>

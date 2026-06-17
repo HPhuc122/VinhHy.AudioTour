@@ -2,6 +2,8 @@ namespace VinhHy.NarrationAPI.Domain.Constants;
 
 public static class RoleNames
 {
+    public const string Admin = "Admin";
+    public const string Vendor = "Vendor";
     public const string SuperAdmin = "SuperAdmin";
     public const string ContentAdmin = "ContentAdmin";
     public const string TourOperator = "TourOperator";

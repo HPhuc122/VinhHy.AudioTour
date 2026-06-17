@@ -11,6 +11,7 @@ import { Badge } from '../../../components/ui/Badge';
 import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
 import { extractApiError } from '../../../api/apiError';
+import { displayRoleName } from '../../auth/roleAccess';
 import type { UserDto } from '../types/user';
 
 export function UsersPage() {
@@ -65,6 +66,8 @@ export function UsersPage() {
 
   const roleVariant = (role: string): 'info' | 'warning' | 'danger' | 'default' => {
     if (role === 'SuperAdmin') return 'danger';
+    if (role === 'Admin') return 'danger';
+    if (role === 'Vendor') return 'warning';
     if (role === 'ContentAdmin') return 'info';
     if (role === 'TourOperator') return 'warning';
     return 'default';
@@ -113,7 +116,7 @@ export function UsersPage() {
                     <td className="px-5 py-3 text-gray-600">{user.email}</td>
                     <td className="px-5 py-3">
                       <Badge variant={roleVariant(user.roleName)}>
-                        {user.roleName}
+                        {displayRoleName(user.roleName)}
                       </Badge>
                     </td>
                     <td className="px-5 py-3 text-gray-600 uppercase text-xs">

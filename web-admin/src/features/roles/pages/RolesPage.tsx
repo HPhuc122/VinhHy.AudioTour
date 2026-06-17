@@ -5,9 +5,8 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
 import { extractApiError } from '../../../api/apiError';
+import { displayRoleName, isSystemRole } from '../../auth/roleAccess';
 import type { RoleDto } from '../types/role';
-
-const SYSTEM_ROLES = ['SuperAdmin', 'ContentAdmin', 'TourOperator', 'AnalyticsViewer', 'Guest'];
 
 export function RolesPage() {
   const { data: roles = [], isLoading, isError } = useRoles();
@@ -79,11 +78,13 @@ export function RolesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {roles.map((role) => {
-                const isSystem = SYSTEM_ROLES.includes(role.name);
+                const isSystem = isSystemRole(role.name);
                 return (
                   <tr key={role.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-5 py-3 text-gray-600 font-mono text-xs">{role.id}</td>
-                    <td className="px-5 py-3 font-medium text-gray-900">{role.name}</td>
+                    <td className="px-5 py-3 font-medium text-gray-900">
+                      {displayRoleName(role.name)}
+                    </td>
                     <td className="px-5 py-3 text-gray-600">{role.description ?? '—'}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>

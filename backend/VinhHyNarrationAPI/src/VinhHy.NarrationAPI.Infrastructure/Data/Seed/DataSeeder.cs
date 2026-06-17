@@ -26,6 +26,8 @@ public static class DataSeeder
     {
         var roles = new[]
         {
+            (RoleNames.Admin, "System administrator"),
+            (RoleNames.Vendor, "Vendor / stall owner access"),
             (RoleNames.SuperAdmin, "Full system access"),
             (RoleNames.ContentAdmin, "Manage POIs, audio, tours, QR"),
             (RoleNames.TourOperator, "Manage tours and offline packages"),

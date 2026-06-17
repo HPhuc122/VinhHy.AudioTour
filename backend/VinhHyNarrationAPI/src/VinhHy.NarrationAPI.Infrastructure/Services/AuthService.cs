@@ -94,42 +94,10 @@ public class AuthService : IAuthService
         RegisterRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Kiểm tra username đã tồn tại chưa
-        var existingByUsername = await _uow.Users.GetByUsernameAsync(request.Username, cancellationToken)
-            .ConfigureAwait(false);
-        if (existingByUsername is not null)
-            throw new ValidationException(nameof(request.Username), "Tên đăng nhập đã được sử dụng.");
-
-        // Kiểm tra email đã tồn tại chưa
-        var existingByEmail = await _uow.Users.GetByEmailAsync(request.Email, cancellationToken)
-            .ConfigureAwait(false);
-        if (existingByEmail is not null)
-            throw new ValidationException(nameof(request.Email), "Email đã được sử dụng.");
-
-        // Lấy role Guest (mặc định cho khách đăng ký)
-        var guestRole = await _uow.Roles.GetByNameAsync("Guest", cancellationToken)
-            .ConfigureAwait(false)
-            ?? throw new NotFoundException("Role", "Guest");
-
-        var user = new User
-        {
-            Username = request.Username,
-            Email = request.Email,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            RoleId = guestRole.Id,
-            PreferredLanguage = request.PreferredLanguage,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-        };
-
-        await _uow.Users.AddAsync(user, cancellationToken).ConfigureAwait(false);
-        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-        // Load role navigation để IssueTokensAsync có Role.Name
-        user.Role = guestRole;
-
-        return await IssueTokensAsync(user, cancellationToken).ConfigureAwait(false);
+        await Task.CompletedTask.ConfigureAwait(false);
+        throw new ValidationException(
+            nameof(request.Username),
+            "Public guest registration is disabled. Guests must use QR access passes; admin/vendor accounts are created in web-admin.");
     }
 
     private Task<User?> FindUserByRefreshTokenAsync(

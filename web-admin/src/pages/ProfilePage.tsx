@@ -9,6 +9,7 @@ import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { extractApiError } from '../api/apiError';
+import { displayRoleName } from '../features/auth/roleAccess';
 
 const schema = z
   .object({
@@ -70,7 +71,7 @@ export function ProfilePage() {
           </div>
           <div>
             <p className="font-semibold text-gray-900">{user?.username}</p>
-            <p className="text-sm text-gray-600">{user?.role}</p>
+            <p className="text-sm text-gray-600">{displayRoleName(user?.role)}</p>
           </div>
         </div>
 

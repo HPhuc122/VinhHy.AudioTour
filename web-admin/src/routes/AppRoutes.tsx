@@ -17,6 +17,9 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 
+const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
+const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
+
 export function AppRoutes() {
   return (
     <BrowserRouter>
@@ -26,18 +29,22 @@ export function AppRoutes() {
           <Route element={<MainLayout />}>
             <Route path={routes.dashboard} element={<DashboardPage />} />
             <Route path={routes.profile} element={<ProfilePage />} />
-            <Route path={routes.tours} element={<TourListPage />} />
-            <Route path={routes.tourCreate} element={<TourCreatePage />} />
-            <Route path={routes.tourEdit} element={<TourEditPage />} />
-            <Route path={routes.media} element={<MediaLibraryPage />} />
-            <Route path={routes.qr} element={<QrListPage />} />
-            <Route path={routes.qrCreate} element={<QrCreatePage />} />
-            <Route path={routes.qrEdit} element={<QrEditPage />} />
-            <Route element={<ProtectedRoute allowedRoles={['SuperAdmin', 'ContentAdmin']} />}>
+            <Route element={<ProtectedRoute allowedRoles={CONTENT_ROLES} />}>
+              <Route path={routes.tours} element={<TourListPage />} />
+              <Route path={routes.tourCreate} element={<TourCreatePage />} />
+              <Route path={routes.tourEdit} element={<TourEditPage />} />
+              <Route path={routes.media} element={<MediaLibraryPage />} />
+              <Route path={routes.qr} element={<QrListPage />} />
+              <Route path={routes.qrCreate} element={<QrCreatePage />} />
+              <Route path={routes.qrEdit} element={<QrEditPage />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={CONTENT_ROLES} />}>
               <Route path={routes.pois} element={<PoiPage />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_ROLES} />}>
               <Route path={routes.languages} element={<LanguagePage />} />
             </Route>
-            <Route element={<ProtectedRoute allowedRoles={['SuperAdmin']} />}>
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_ROLES} />}>
               <Route path={routes.users} element={<UsersPage />} />
               <Route path={routes.roles} element={<RolesPage />} />
             </Route>

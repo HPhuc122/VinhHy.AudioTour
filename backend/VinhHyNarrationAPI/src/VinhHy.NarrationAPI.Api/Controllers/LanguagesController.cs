@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VinhHy.NarrationAPI.Api.Authorization;
 using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Languages.DTOs;
@@ -36,7 +37,7 @@ public class LanguagesController(ILanguageService languageService) : ControllerB
     }
 
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = RoleGroups.AdminOnly)]
     public async Task<IActionResult> Create([FromBody] CreateLanguageRequest request, CancellationToken cancellationToken)
     {
         var created = await languageService.CreateAsync(request, cancellationToken);
@@ -44,7 +45,7 @@ public class LanguagesController(ILanguageService languageService) : ControllerB
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = RoleGroups.AdminOnly)]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateLanguageRequest request, CancellationToken cancellationToken)
     {
         var updated = await languageService.UpdateAsync(id, request, cancellationToken);
@@ -52,7 +53,7 @@ public class LanguagesController(ILanguageService languageService) : ControllerB
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize(Roles = RoleGroups.AdminOnly)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         await languageService.DeleteAsync(id, cancellationToken);

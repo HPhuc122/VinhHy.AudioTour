@@ -7,6 +7,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
 import { useRoles } from '../../roles/hooks/useRoles';
+import { displayRoleName, getAssignableRoles } from '../../auth/roleAccess';
 import type { UserDto } from '../types/user';
 
 const createSchema = z.object({
@@ -78,7 +79,10 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
     }
   }, [open, editUser]);
 
-  const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const roleOptions = getAssignableRoles(roles).map((r) => ({
+    value: r.id,
+    label: displayRoleName(r.name),
+  }));
 
   return (
     <Modal

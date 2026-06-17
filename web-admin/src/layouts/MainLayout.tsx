@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { displayRoleName, roleMatches } from '@/features/auth/roleAccess';
 
 interface NavItem {
   to: string;
@@ -9,15 +10,18 @@ interface NavItem {
   roles?: string[];
 }
 
+const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
+const VENDOR_CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
+
 const NAV_ITEMS: NavItem[] = [
-  { to: routes.dashboard, label: 'Dashboard', icon: '📊' },
-  { to: routes.users, label: 'Người dùng', icon: '👤', roles: ['SuperAdmin'] },
-  { to: routes.roles, label: 'Phân quyền', icon: '🔐', roles: ['SuperAdmin'] },
-  { to: routes.pois, label: 'Địa điểm (POI)', icon: '📍', roles: ['SuperAdmin', 'ContentAdmin'] },
-  { to: routes.languages, label: 'Ngôn ngữ', icon: '🗣️', roles: ['SuperAdmin', 'ContentAdmin'] },
-  { to: routes.tours, label: 'Tours', icon: '🗺️' },
-  { to: routes.qr, label: 'QR', icon: '▦' },
-  { to: routes.media, label: 'Media', icon: '◉' },
+  { to: routes.dashboard, label: 'Dashboard', icon: 'D' },
+  { to: routes.users, label: 'Nguoi dung', icon: 'U', roles: ADMIN_ROLES },
+  { to: routes.roles, label: 'Phan quyen', icon: 'R', roles: ADMIN_ROLES },
+  { to: routes.pois, label: 'Dia diem (POI)', icon: 'P', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.languages, label: 'Ngon ngu', icon: 'L', roles: ADMIN_ROLES },
+  { to: routes.tours, label: 'Tours', icon: 'T', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.qr, label: 'QR', icon: 'Q', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.media, label: 'Media', icon: 'M', roles: VENDOR_CONTENT_ROLES },
 ];
 
 export function MainLayout() {
@@ -29,9 +33,7 @@ export function MainLayout() {
     navigate(routes.login, { replace: true });
   };
 
-  const visibleNav = NAV_ITEMS.filter(
-    (item) => !item.roles || (user && item.roles.includes(user.role)),
-  );
+  const visibleNav = NAV_ITEMS.filter((item) => roleMatches(user?.role, item.roles));
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -54,13 +56,16 @@ export function MainLayout() {
                   to={item.to}
                   end={item.to === routes.dashboard}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
-                  <span>{item.icon}</span>
+                  <span className="flex h-5 w-5 items-center justify-center text-xs font-semibold">
+                    {item.icon}
+                  </span>
                   {item.label}
                 </NavLink>
               </li>
@@ -78,7 +83,7 @@ export function MainLayout() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-gray-200">{user?.username}</p>
-              <p className="truncate text-xs text-gray-500">{user?.role}</p>
+              <p className="truncate text-xs text-gray-500">{displayRoleName(user?.role)}</p>
             </div>
           </NavLink>
 
@@ -86,7 +91,8 @@ export function MainLayout() {
             onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
           >
-            <span>🚪</span> Đăng xuất
+            <span className="flex h-5 w-5 items-center justify-center text-xs font-semibold">X</span>
+            Dang xuat
           </button>
         </div>
       </aside>

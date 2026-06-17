@@ -53,7 +53,7 @@ export function RoleFormModal({ open, onClose, onSubmit, loading, editRole }: Pr
       <div className="flex flex-col gap-4">
         <Input
           label="Tên vai trò"
-          placeholder="vd: ContentAdmin"
+          placeholder="vd: Vendor"
           error={errors.name?.message}
           {...register('name')}
         />

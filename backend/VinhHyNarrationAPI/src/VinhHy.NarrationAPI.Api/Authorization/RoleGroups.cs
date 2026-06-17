@@ -4,20 +4,21 @@ namespace VinhHy.NarrationAPI.Api.Authorization;
 
 public static class RoleGroups
 {
-    public const string SuperAdmin = RoleNames.SuperAdmin;
+    public const string AdminOnly =
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin}";
 
     public const string ContentManagement =
-        $"{RoleNames.SuperAdmin},{RoleNames.ContentAdmin}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin}";
 
     public const string TourOperations =
-        $"{RoleNames.SuperAdmin},{RoleNames.TourOperator}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.TourOperator}";
 
     public const string Analytics =
-        $"{RoleNames.SuperAdmin},{RoleNames.AnalyticsViewer}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.AnalyticsViewer}";
 
     public const string AdminOrTourOrContent =
-        $"{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.TourOperator}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin},{RoleNames.TourOperator}";
 
     public const string AuthenticatedStaff =
-        $"{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.TourOperator},{RoleNames.AnalyticsViewer}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin},{RoleNames.TourOperator},{RoleNames.AnalyticsViewer}";
 }
