@@ -69,6 +69,7 @@ public class QrService : IQrService
 
         var now = DateTime.UtcNow;
         var qr = _mapper.Map<QrLocation>(request);
+        ApplyPaymentConfig(qr, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
         qr.Code = await GenerateUniqueCodeAsync(request.PoiId.HasValue ? "POI" : "TOUR", cancellationToken)
             .ConfigureAwait(false);
         qr.CreatedAt = now;
@@ -114,6 +115,8 @@ public class QrService : IQrService
         {
             qr.IsActive = request.IsActive.Value;
         }
+
+        ApplyPaymentConfig(qr, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
 
         qr.UpdatedAt = DateTime.UtcNow;
 
@@ -166,6 +169,40 @@ public class QrService : IQrService
         if (string.IsNullOrWhiteSpace(code))
         {
             throw new ValidationException(nameof(CreateQrRequest.Code), "QR code is required.");
+        }
+    }
+
+    private static void ApplyPaymentConfig(
+        QrLocation qr,
+        bool? requiresPayment,
+        decimal? priceAmount,
+        int? accessDurationMinutes)
+    {
+        if (requiresPayment.HasValue)
+        {
+            qr.RequiresPayment = requiresPayment.Value;
+        }
+
+        if (priceAmount.HasValue)
+        {
+            if (priceAmount.Value < 0)
+            {
+                throw new ValidationException(nameof(UpdateQrRequest.PriceAmount), "Price amount cannot be negative.");
+            }
+
+            qr.PriceAmount = priceAmount.Value;
+        }
+
+        if (accessDurationMinutes.HasValue)
+        {
+            if (accessDurationMinutes.Value <= 0)
+            {
+                throw new ValidationException(
+                    nameof(UpdateQrRequest.AccessDurationMinutes),
+                    "Access duration must be greater than 0.");
+            }
+
+            qr.AccessDurationMinutes = accessDurationMinutes.Value;
         }
     }
 

@@ -1,7 +1,12 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { publicAccessApi } from '../../api/publicAccessApi';
 import { qrApi } from '../../api/qrApi';
 import { Spinner } from '../../components/ui/Spinner';
+import { AccessCountdown } from '../access/AccessCountdown';
+import { guestAccessStore } from '../access/guestAccessStore';
+import { PaymentRequiredPanel } from '../access/PaymentRequiredPanel';
 import { ROUTES } from '../../routes/routeConstants';
 import type { Lang } from '../../hooks/useLanguage';
 
@@ -11,26 +16,129 @@ interface Props {
 
 export function QrLandingPage({ lang }: Props) {
   const { code } = useParams<{ code: string }>();
+  const [clientExpired, setClientExpired] = useState(false);
+  const [storedAccess, setStoredAccess] = useState(() =>
+    code ? guestAccessStore.get(code) : null,
+  );
 
-  const { data: result, isLoading, isError } = useQuery({
-    queryKey: ['qr', code, lang],
-    queryFn: () => qrApi.scan(code!, lang),
-    enabled: !!code,
+  useEffect(() => {
+    setClientExpired(false);
+    setStoredAccess(code ? guestAccessStore.get(code) : null);
+  }, [code]);
+
+  const validateQuery = useQuery({
+    queryKey: ['guest-access-validate', code, storedAccess?.accessToken],
+    queryFn: () => publicAccessApi.validate(storedAccess!.accessToken),
+    enabled: !!code && !!storedAccess?.accessToken,
     retry: false,
   });
 
-  if (isLoading) {
+  useEffect(() => {
+    if (code && validateQuery.data && !validateQuery.data.isValid) {
+      guestAccessStore.remove(code);
+      setStoredAccess(null);
+    }
+  }, [code, validateQuery.data]);
+
+  const shouldStartAccess =
+    !!code &&
+    (!storedAccess?.accessToken ||
+      (validateQuery.isSuccess && validateQuery.data?.isValid === false));
+
+  const startAccessQuery = useQuery({
+    queryKey: ['guest-access-start', code],
+    queryFn: () => publicAccessApi.start(code!),
+    enabled: shouldStartAccess,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!code || !startAccessQuery.data?.accessToken || !startAccessQuery.data.expiresAt) {
+      return;
+    }
+
+    const nextAccess = {
+      qrCode: code,
+      accessToken: startAccessQuery.data.accessToken,
+      expiresAt: startAccessQuery.data.expiresAt,
+    };
+    guestAccessStore.set(nextAccess);
+    setStoredAccess(nextAccess);
+  }, [code, startAccessQuery.data]);
+
+  const paymentMutation = useMutation({
+    mutationFn: () => publicAccessApi.simulatePayment(startAccessQuery.data!.paymentSessionId!, true),
+    onSuccess: (data) => {
+      if (!code || !data.accessToken || !data.expiresAt) {
+        return;
+      }
+
+      const nextAccess = {
+        qrCode: code,
+        accessToken: data.accessToken,
+        expiresAt: data.expiresAt,
+      };
+      guestAccessStore.set(nextAccess);
+      setStoredAccess(nextAccess);
+    },
+  });
+
+  const activeAccess = useMemo(() => {
+    if (validateQuery.data?.isValid && storedAccess) {
+      return {
+        token: storedAccess.accessToken,
+        expiresAt: validateQuery.data.expiresAt ?? storedAccess.expiresAt,
+      };
+    }
+
+    if (startAccessQuery.data?.accessToken && startAccessQuery.data.expiresAt) {
+      return {
+        token: startAccessQuery.data.accessToken,
+        expiresAt: startAccessQuery.data.expiresAt,
+      };
+    }
+
+    if (paymentMutation.data?.accessToken && paymentMutation.data.expiresAt) {
+      return {
+        token: paymentMutation.data.accessToken,
+        expiresAt: paymentMutation.data.expiresAt,
+      };
+    }
+
+    return null;
+  }, [paymentMutation.data, startAccessQuery.data, storedAccess, validateQuery.data]);
+
+  const visibleAccess = clientExpired ? null : activeAccess;
+
+  const contentQuery = useQuery({
+    queryKey: ['qr', code, lang, visibleAccess?.token],
+    queryFn: () => qrApi.scan(code!, lang),
+    enabled: !!code && !!visibleAccess,
+    retry: false,
+  });
+
+  const handleExpired = () => {
+    if (!code) {
+      return;
+    }
+
+    guestAccessStore.remove(code);
+    setStoredAccess(null);
+    setClientExpired(true);
+  };
+
+  if (validateQuery.isLoading || startAccessQuery.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-sm text-gray-400">Loading QR details...</p>
+          <p className="mt-4 text-sm text-gray-400">Preparing access...</p>
         </div>
       </div>
     );
   }
 
-  if (isError || !result) {
+  if (!code || startAccessQuery.isError) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-sm text-center">
@@ -48,6 +156,63 @@ export function QrLandingPage({ lang }: Props) {
     );
   }
 
+  if (!visibleAccess && !clientExpired && startAccessQuery.data?.requiresPayment) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-6 text-center">
+            <span className="inline-block rounded-full border border-pink-500/30 bg-pink-500/20 px-3 py-1 text-xs font-medium text-pink-300">
+              Payment required
+            </span>
+          </div>
+          <PaymentRequiredPanel
+            amount={startAccessQuery.data.amount}
+            currency={startAccessQuery.data.currency}
+            durationMinutes={startAccessQuery.data.accessDurationMinutes}
+            isPaying={paymentMutation.isPending}
+            errorMessage={paymentMutation.isError ? 'Simulated payment failed.' : null}
+            onPay={() => paymentMutation.mutate()}
+          />
+          <div className="mt-6 text-center">
+            <Link to={ROUTES.HOME} className="text-xs text-gray-500 transition-colors hover:text-gray-300">
+              Back to VinhHy AudioTour
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (contentQuery.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Spinner />
+          <p className="mt-4 text-sm text-gray-400">Loading QR details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (contentQuery.isError || !contentQuery.data || !visibleAccess) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="max-w-sm text-center">
+          <div className="mb-4 text-6xl">!</div>
+          <h1 className="mb-2 text-xl font-bold text-white">Access unavailable</h1>
+          <p className="mb-6 text-sm text-gray-400">This access pass is expired or invalid.</p>
+          <Link
+            to={ROUTES.HOME}
+            className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm text-white transition-colors hover:bg-emerald-700"
+          >
+            Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const result = contentQuery.data;
   const poi = result.poi;
   const tour = result.tour;
 
@@ -58,6 +223,10 @@ export function QrLandingPage({ lang }: Props) {
           <span className="inline-block rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-400">
             QR resolved
           </span>
+        </div>
+
+        <div className="mb-4">
+          <AccessCountdown expiresAt={visibleAccess.expiresAt} onExpired={handleExpired} />
         </div>
 
         {tour ? (

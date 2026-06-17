@@ -83,6 +83,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ITourTranslationRepository, TourTranslationRepository>();
         services.AddScoped<ITourPoiRepository, TourPoiRepository>();
         services.AddScoped<IQrRepository, QrRepository>();
+        services.AddScoped<IGuestAccessPassRepository, GuestAccessPassRepository>();
+        services.AddScoped<IAccessPaymentSessionRepository, AccessPaymentSessionRepository>();
         services.AddScoped<INarrationLogRepository, NarrationLogRepository>();
         services.AddScoped<IOfflinePackageRepository, OfflinePackageRepository>();
         services.AddScoped<ISyncRepository, SyncRepository>();
@@ -107,6 +109,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITourService, TourService>();
         services.AddScoped<IQrService, QrService>();
+        services.AddScoped<IPublicAccessService, PublicAccessService>();
         services.AddScoped<ISyncService, SyncService>();
         services.AddScoped<IOfflinePackageService, OfflinePackageService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();

@@ -31,6 +31,7 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
               <th className="px-4 py-3 text-left font-semibold">Code</th>
               <th className="px-4 py-3 text-left font-semibold">POI ID</th>
               <th className="px-4 py-3 text-left font-semibold">Tour ID</th>
+              <th className="px-4 py-3 text-left font-semibold">Payment</th>
               <th className="px-4 py-3 text-left font-semibold">Status</th>
               <th className="px-4 py-3 text-left font-semibold">Created</th>
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
@@ -47,6 +48,16 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                   <TargetValue id={qr.tourId} code={qr.tourCode} />
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                  {qr.requiresPayment ? (
+                    <span className="inline-flex flex-col">
+                      <span>{formatCurrency(qr.priceAmount)}</span>
+                      <span className="text-xs text-gray-500">{qr.accessDurationMinutes} min</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Free</span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <span
@@ -117,4 +128,12 @@ function formatDate(value: string): string {
     month: 'short',
     day: '2-digit',
   }).format(date);
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value);
 }

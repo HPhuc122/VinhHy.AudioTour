@@ -9,4 +9,10 @@ public class UpdateQrRequest
     public int? TourId { get; set; }
 
     public bool? IsActive { get; set; }
+
+    public bool? RequiresPayment { get; set; }
+
+    public decimal? PriceAmount { get; set; }
+
+    public int? AccessDurationMinutes { get; set; }
 }

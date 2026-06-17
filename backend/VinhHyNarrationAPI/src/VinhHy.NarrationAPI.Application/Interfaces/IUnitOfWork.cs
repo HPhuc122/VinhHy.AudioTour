@@ -26,6 +26,10 @@ public interface IUnitOfWork
 
     IQrRepository QrLocations { get; }
 
+    IGuestAccessPassRepository GuestAccessPasses { get; }
+
+    IAccessPaymentSessionRepository AccessPaymentSessions { get; }
+
     INarrationLogRepository NarrationLogs { get; }
 
     IOfflinePackageRepository OfflinePackages { get; }

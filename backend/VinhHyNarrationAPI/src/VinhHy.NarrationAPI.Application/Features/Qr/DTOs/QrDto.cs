@@ -16,6 +16,12 @@ public class QrDto
 
     public bool IsActive { get; set; }
 
+    public bool RequiresPayment { get; set; }
+
+    public decimal PriceAmount { get; set; }
+
+    public int AccessDurationMinutes { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

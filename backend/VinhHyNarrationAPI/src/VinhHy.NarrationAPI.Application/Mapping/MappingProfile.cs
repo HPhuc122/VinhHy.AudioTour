@@ -134,7 +134,8 @@ public class MappingProfile : Profile
             .ForMember(d => d.CreatedAt, opt => opt.Ignore())
             .ForMember(d => d.UpdatedAt, opt => opt.Ignore())
             .ForMember(d => d.Poi, opt => opt.Ignore())
-            .ForMember(d => d.Tour, opt => opt.Ignore());
+            .ForMember(d => d.Tour, opt => opt.Ignore())
+            .ForMember(d => d.GuestAccessPasses, opt => opt.Ignore());
         CreateMap<QrLocation, SyncableQrLocationDto>();
 
         CreateMap<Language, LanguageDto>();

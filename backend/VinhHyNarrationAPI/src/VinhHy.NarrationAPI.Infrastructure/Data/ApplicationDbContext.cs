@@ -34,6 +34,10 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<QrLocation> QrLocations => Set<QrLocation>();
 
+    public DbSet<GuestAccessPass> GuestAccessPasses => Set<GuestAccessPass>();
+
+    public DbSet<AccessPaymentSession> AccessPaymentSessions => Set<AccessPaymentSession>();
+
     public DbSet<NarrationLog> NarrationLogs => Set<NarrationLog>();
 
     public DbSet<OfflinePackage> OfflinePackages => Set<OfflinePackage>();

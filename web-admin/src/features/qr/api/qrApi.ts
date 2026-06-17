@@ -12,6 +12,9 @@ export interface QrDto {
   tourId?: number | null;
   tourCode?: string | null;
   isActive: boolean;
+  requiresPayment: boolean;
+  priceAmount: number;
+  accessDurationMinutes: number;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -21,6 +24,9 @@ export interface CreateQrRequest {
   poiId?: number | null;
   tourId?: number | null;
   isActive: boolean;
+  requiresPayment?: boolean;
+  priceAmount?: number;
+  accessDurationMinutes?: number;
 }
 
 export interface UpdateQrRequest {
@@ -28,6 +34,9 @@ export interface UpdateQrRequest {
   poiId?: number | null;
   tourId?: number | null;
   isActive?: boolean;
+  requiresPayment?: boolean;
+  priceAmount?: number;
+  accessDurationMinutes?: number;
 }
 
 export type QrFormValues = CreateQrRequest;

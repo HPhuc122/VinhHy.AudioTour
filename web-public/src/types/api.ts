@@ -83,6 +83,9 @@ export interface QrDto {
   tourId?: number | null;
   tourCode?: string | null;
   isActive: boolean;
+  requiresPayment: boolean;
+  priceAmount: number;
+  accessDurationMinutes: number;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;

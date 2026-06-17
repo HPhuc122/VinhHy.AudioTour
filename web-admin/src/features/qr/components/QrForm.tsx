@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
+import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { usePoisQuery } from '@/features/pois/hooks/usePoisQuery';
 import type { QrFormValues } from '@/features/qr/api/qrApi';
@@ -22,12 +23,18 @@ interface QrFormState {
   targetType: TargetType;
   targetId: string;
   isActive: boolean;
+  requiresPayment: boolean;
+  priceAmount: string;
+  accessDurationMinutes: string;
 }
 
 const defaultValues: QrFormState = {
   targetType: 'poi',
   targetId: '',
   isActive: true,
+  requiresPayment: false,
+  priceAmount: '0',
+  accessDurationMinutes: '60',
 };
 
 export function QrForm({
@@ -69,9 +76,22 @@ export function QrForm({
 
     const nextErrors: Record<string, string> = {};
     const targetId = Number(values.targetId);
+    const priceAmount = Number(values.priceAmount);
+    const accessDurationMinutes = Number(values.accessDurationMinutes);
 
     if (!values.targetId || !Number.isInteger(targetId) || targetId <= 0) {
       nextErrors.targetId = 'Select a target.';
+    }
+
+    if (!Number.isFinite(priceAmount) || priceAmount < 0) {
+      nextErrors.priceAmount = 'Enter a valid price.';
+    }
+
+    if (
+      !Number.isInteger(accessDurationMinutes) ||
+      accessDurationMinutes <= 0
+    ) {
+      nextErrors.accessDurationMinutes = 'Enter a duration greater than 0.';
     }
 
     setFieldErrors(nextErrors);
@@ -84,6 +104,9 @@ export function QrForm({
       poiId: values.targetType === 'poi' ? targetId : null,
       tourId: values.targetType === 'tour' ? targetId : null,
       isActive: values.isActive,
+      requiresPayment: values.requiresPayment,
+      priceAmount,
+      accessDurationMinutes,
     });
   };
 
@@ -142,6 +165,64 @@ export function QrForm({
             }
           />
         </FormField>
+
+        <FormField label="Payment" htmlFor="qr-requires-payment">
+          <label className="flex min-h-[38px] items-center gap-3 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm">
+            <input
+              id="qr-requires-payment"
+              name="requiresPayment"
+              type="checkbox"
+              checked={values.requiresPayment}
+              disabled={isSubmitting}
+              onChange={(event) =>
+                setValues((current) => ({
+                  ...current,
+                  requiresPayment: event.target.checked,
+                }))
+              }
+            />
+            Require simulated payment
+          </label>
+        </FormField>
+
+        <FormField label="Price amount" htmlFor="qr-price-amount" error={fieldErrors.priceAmount}>
+          <Input
+            id="qr-price-amount"
+            name="priceAmount"
+            type="number"
+            min="0"
+            step="1000"
+            value={values.priceAmount}
+            disabled={isSubmitting}
+            error={fieldErrors.priceAmount}
+            onChange={(event) =>
+              setValues((current) => ({ ...current, priceAmount: event.target.value }))
+            }
+          />
+        </FormField>
+
+        <FormField
+          label="Access duration (minutes)"
+          htmlFor="qr-access-duration"
+          error={fieldErrors.accessDurationMinutes}
+        >
+          <Input
+            id="qr-access-duration"
+            name="accessDurationMinutes"
+            type="number"
+            min="1"
+            step="1"
+            value={values.accessDurationMinutes}
+            disabled={isSubmitting}
+            error={fieldErrors.accessDurationMinutes}
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                accessDurationMinutes: event.target.value,
+              }))
+            }
+          />
+        </FormField>
       </div>
 
       <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
@@ -166,6 +247,9 @@ function toFormState(values?: QrFormValues): QrFormState {
       targetType: 'tour',
       targetId: String(values.tourId),
       isActive: values.isActive,
+      requiresPayment: values.requiresPayment ?? false,
+      priceAmount: String(values.priceAmount ?? 0),
+      accessDurationMinutes: String(values.accessDurationMinutes ?? 60),
     };
   }
 
@@ -173,5 +257,8 @@ function toFormState(values?: QrFormValues): QrFormState {
     targetType: 'poi',
     targetId: values.poiId == null ? '' : String(values.poiId),
     isActive: values.isActive,
+    requiresPayment: values.requiresPayment ?? false,
+    priceAmount: String(values.priceAmount ?? 0),
+    accessDurationMinutes: String(values.accessDurationMinutes ?? 60),
   };
 }

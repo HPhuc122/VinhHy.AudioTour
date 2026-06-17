@@ -22,11 +22,14 @@ export function QrEditPage() {
       return undefined;
     }
 
-    return {
-      poiId: qrQuery.data.poiId ?? null,
-      tourId: qrQuery.data.tourId ?? null,
-      isActive: qrQuery.data.isActive,
-    };
+      return {
+        poiId: qrQuery.data.poiId ?? null,
+        tourId: qrQuery.data.tourId ?? null,
+        isActive: qrQuery.data.isActive,
+        requiresPayment: qrQuery.data.requiresPayment,
+        priceAmount: qrQuery.data.priceAmount,
+        accessDurationMinutes: qrQuery.data.accessDurationMinutes,
+      };
   }, [qrQuery.data]);
 
   if (parsedQrId === null) {
@@ -62,6 +65,9 @@ export function QrEditPage() {
                     poiId: values.poiId,
                     tourId: values.tourId,
                     isActive: values.isActive,
+                    requiresPayment: values.requiresPayment,
+                    priceAmount: values.priceAmount,
+                    accessDurationMinutes: values.accessDurationMinutes,
                   },
                 },
                 {

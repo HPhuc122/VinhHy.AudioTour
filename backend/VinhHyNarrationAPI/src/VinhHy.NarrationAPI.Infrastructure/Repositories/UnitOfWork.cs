@@ -21,6 +21,8 @@ public class UnitOfWork : IUnitOfWork
         ITourTranslationRepository tourTranslations,
         ITourPoiRepository tourPois,
         IQrRepository qrLocations,
+        IGuestAccessPassRepository guestAccessPasses,
+        IAccessPaymentSessionRepository accessPaymentSessions,
         INarrationLogRepository narrationLogs,
         IOfflinePackageRepository offlinePackages,
         ISyncRepository sync,
@@ -41,6 +43,8 @@ public class UnitOfWork : IUnitOfWork
         TourTranslations = tourTranslations;
         TourPois = tourPois;
         QrLocations = qrLocations;
+        GuestAccessPasses = guestAccessPasses;
+        AccessPaymentSessions = accessPaymentSessions;
         NarrationLogs = narrationLogs;
         OfflinePackages = offlinePackages;
         Sync = sync;
@@ -72,6 +76,10 @@ public class UnitOfWork : IUnitOfWork
     public ITourPoiRepository TourPois { get; }
 
     public IQrRepository QrLocations { get; }
+
+    public IGuestAccessPassRepository GuestAccessPasses { get; }
+
+    public IAccessPaymentSessionRepository AccessPaymentSessions { get; }
 
     public INarrationLogRepository NarrationLogs { get; }
 
