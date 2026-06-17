@@ -1,33 +1,19 @@
 import { useState } from 'react';
-import { useCreateRole, useDeleteRole, useRoles, useUpdateRole } from '../hooks/useRoles';
+import { useRoles, useUpdateRole } from '../hooks/useRoles';
 import { RoleFormModal } from '../components/RoleFormModal';
 import { Button } from '../../../components/ui/Button';
-import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
 import { extractApiError } from '../../../api/apiError';
-import { displayRoleName, isSystemRole } from '../../auth/roleAccess';
+import { displayRoleName, getCmsVisibleRoles, isSystemRole } from '../../auth/roleAccess';
 import type { RoleDto } from '../types/role';
 
 export function RolesPage() {
   const { data: roles = [], isLoading, isError } = useRoles();
-  const createRole = useCreateRole();
-  const deleteRole = useDeleteRole();
-  const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<RoleDto | undefined>();
-  const [deleteTarget, setDeleteTarget] = useState<RoleDto | undefined>();
   const [editId, setEditId] = useState(0);
   const updateRole = useUpdateRole(editId);
   const toast = useToast();
-
-  const handleCreate = async (data: any) => {
-    try {
-      await createRole.mutateAsync(data);
-      toast('Tạo vai trò thành công', 'success');
-      setFormOpen(false);
-    } catch (err) {
-      toast(extractApiError(err), 'error');
-    }
-  };
+  const visibleRoles = getCmsVisibleRoles(roles);
 
   const handleUpdate = async (data: any) => {
     try {
@@ -39,25 +25,13 @@ export function RolesPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteRole.mutateAsync(deleteTarget.id);
-      toast('Đã xóa vai trò', 'success');
-      setDeleteTarget(undefined);
-    } catch (err) {
-      toast(extractApiError(err), 'error');
-    }
-  };
-
   return (
     <div className="app-page">
       <div className="app-page-header">
         <div>
           <h1 className="app-title">Phân quyền</h1>
-          <p className="app-subtitle">Quản lý vai trò truy cập hệ thống</p>
+          <p className="app-subtitle">Chỉ hiển thị vai trò CMS hiện hành: Admin và Vendor.</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>+ Thêm vai trò</Button>
       </div>
 
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
@@ -77,22 +51,28 @@ export function RolesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {roles.map((role) => {
-                const isSystem = isSystemRole(role.name);
-                return (
-                  <tr key={role.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 text-gray-600 font-mono text-xs">{role.id}</td>
-                    <td className="px-5 py-3 font-medium text-gray-900">
-                      {displayRoleName(role.name)}
-                    </td>
-                    <td className="px-5 py-3 text-gray-600">{role.description ?? '-'}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {isSystem ? 'Hệ thống' : 'Tùy chỉnh'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex justify-end gap-2">
+              {visibleRoles.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-gray-500">
+                    Chưa có vai trò Admin hoặc Vendor.
+                  </td>
+                </tr>
+              ) : (
+                visibleRoles.map((role) => {
+                  const isSystem = isSystemRole(role.name);
+                  return (
+                    <tr key={role.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3 text-gray-600 font-mono text-xs">{role.id}</td>
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        {displayRoleName(role.name)}
+                      </td>
+                      <td className="px-5 py-3 text-gray-600">{role.description ?? '-'}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {isSystem ? 'Hệ thống' : 'Tùy chỉnh'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
                         <Button
                           size="sm"
                           variant="secondary"
@@ -100,31 +80,15 @@ export function RolesPage() {
                         >
                           Sửa
                         </Button>
-                        {!isSystem && (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => setDeleteTarget(role)}
-                          >
-                            Xóa
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         )}
       </div>
-
-      <RoleFormModal
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSubmit={handleCreate}
-        loading={createRole.isPending}
-      />
 
       <RoleFormModal
         open={!!editTarget}
@@ -133,24 +97,6 @@ export function RolesPage() {
         loading={updateRole.isPending}
         editRole={editTarget}
       />
-
-      <Modal
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(undefined)}
-        title="Xác nhận xóa vai trò"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDeleteTarget(undefined)}>Hủy</Button>
-            <Button variant="danger" onClick={handleDelete} loading={deleteRole.isPending}>Xóa</Button>
-          </>
-        }
-      >
-        <p className="text-sm text-gray-600">
-          Bạn có chắc muốn xóa vai trò{' '}
-          <span className="font-semibold text-gray-900">{displayRoleName(deleteTarget?.name ?? '')}</span>?
-          Người dùng đang dùng vai trò này có thể bị ảnh hưởng.
-        </p>
-      </Modal>
     </div>
   );
 }

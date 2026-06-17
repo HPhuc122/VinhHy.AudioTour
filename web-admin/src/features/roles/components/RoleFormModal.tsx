@@ -55,6 +55,8 @@ export function RoleFormModal({ open, onClose, onSubmit, loading, editRole }: Pr
           label="Tên vai trò"
           placeholder="vd: Vendor"
           error={errors.name?.message}
+          readOnly={isEdit}
+          className={isEdit ? 'cursor-not-allowed bg-gray-100' : undefined}
           {...register('name')}
         />
         <div className="flex flex-col gap-1">
