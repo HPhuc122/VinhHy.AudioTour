@@ -34,19 +34,19 @@ export function TourEditPage() {
   }, [tourQuery.data]);
 
   if (parsedTourId === null) {
-    return <Alert variant="error" message="Invalid tour id." />;
+    return <Alert variant="error" message="Tour không hợp lệ." />;
   }
 
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Edit tour</h1>
+        <h1 className="app-title">Chỉnh sửa tour</h1>
         <p className="app-subtitle">
-          {tourQuery.data ? tourQuery.data.code : 'Loading tour record.'}
+          {tourQuery.data ? tourQuery.data.code : 'Đang tải tour.'}
         </p>
       </div>
 
-      {tourQuery.isLoading ? <Spinner label="Loading tour..." /> : null}
+      {tourQuery.isLoading ? <Spinner label="Đang tải tour..." /> : null}
 
       {queryError ? <Alert variant="error" message={queryError} /> : null}
 
@@ -54,8 +54,8 @@ export function TourEditPage() {
         <>
           <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
             <div className="mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">Tour Information</h2>
-              <p className="app-subtitle">Manage core tour metadata.</p>
+              <h2 className="text-lg font-semibold text-gray-900">Thông tin tour</h2>
+              <p className="app-subtitle">Quản lý thông tin chính của tour.</p>
             </div>
             <TourForm
               mode="edit"
@@ -103,5 +103,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to save tour.';
+  return 'Không thể lưu tour.';
 }

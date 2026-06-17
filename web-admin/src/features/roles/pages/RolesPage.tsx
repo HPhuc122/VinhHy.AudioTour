@@ -32,7 +32,7 @@ export function RolesPage() {
   const handleUpdate = async (data: any) => {
     try {
       await updateRole.mutateAsync(data);
-      toast('Cập nhật thành công', 'success');
+      toast('Cập nhật vai trò thành công', 'success');
       setEditTarget(undefined);
     } catch (err) {
       toast(extractApiError(err), 'error');
@@ -43,7 +43,7 @@ export function RolesPage() {
     if (!deleteTarget) return;
     try {
       await deleteRole.mutateAsync(deleteTarget.id);
-      toast('Đã xoá vai trò', 'success');
+      toast('Đã xóa vai trò', 'success');
       setDeleteTarget(undefined);
     } catch (err) {
       toast(extractApiError(err), 'error');
@@ -55,7 +55,7 @@ export function RolesPage() {
       <div className="app-page-header">
         <div>
           <h1 className="app-title">Phân quyền</h1>
-          <p className="app-subtitle">Quản lý vai trò hệ thống</p>
+          <p className="app-subtitle">Quản lý vai trò truy cập hệ thống</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>+ Thêm vai trò</Button>
       </div>
@@ -85,10 +85,10 @@ export function RolesPage() {
                     <td className="px-5 py-3 font-medium text-gray-900">
                       {displayRoleName(role.name)}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{role.description ?? '—'}</td>
+                    <td className="px-5 py-3 text-gray-600">{role.description ?? '-'}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${isSystem ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {isSystem ? 'Hệ thống' : 'Tuỳ chỉnh'}
+                        {isSystem ? 'Hệ thống' : 'Tùy chỉnh'}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
@@ -106,7 +106,7 @@ export function RolesPage() {
                             variant="danger"
                             onClick={() => setDeleteTarget(role)}
                           >
-                            Xoá
+                            Xóa
                           </Button>
                         )}
                       </div>
@@ -137,17 +137,17 @@ export function RolesPage() {
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(undefined)}
-        title="Xác nhận xoá vai trò"
+        title="Xác nhận xóa vai trò"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setDeleteTarget(undefined)}>Huỷ</Button>
-            <Button variant="danger" onClick={handleDelete} loading={deleteRole.isPending}>Xoá</Button>
+            <Button variant="secondary" onClick={() => setDeleteTarget(undefined)}>Hủy</Button>
+            <Button variant="danger" onClick={handleDelete} loading={deleteRole.isPending}>Xóa</Button>
           </>
         }
       >
         <p className="text-sm text-gray-600">
-          Bạn có chắc muốn xoá vai trò{' '}
-          <span className="font-semibold text-gray-900">{deleteTarget?.name}</span>?
+          Bạn có chắc muốn xóa vai trò{' '}
+          <span className="font-semibold text-gray-900">{displayRoleName(deleteTarget?.name ?? '')}</span>?
           Người dùng đang dùng vai trò này có thể bị ảnh hưởng.
         </p>
       </Modal>

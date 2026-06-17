@@ -14,14 +14,14 @@ const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
 const VENDOR_CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
 
 const NAV_ITEMS: NavItem[] = [
-  { to: routes.dashboard, label: 'Dashboard', icon: 'D' },
-  { to: routes.users, label: 'Nguoi dung', icon: 'U', roles: ADMIN_ROLES },
-  { to: routes.roles, label: 'Phan quyen', icon: 'R', roles: ADMIN_ROLES },
-  { to: routes.pois, label: 'Dia diem (POI)', icon: 'P', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.languages, label: 'Ngon ngu', icon: 'L', roles: ADMIN_ROLES },
-  { to: routes.tours, label: 'Tours', icon: 'T', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.qr, label: 'QR', icon: 'Q', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.media, label: 'Media', icon: 'M', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.dashboard, label: 'Bảng điều khiển', icon: 'D' },
+  { to: routes.users, label: 'Người dùng', icon: 'U', roles: ADMIN_ROLES },
+  { to: routes.roles, label: 'Phân quyền', icon: 'R', roles: ADMIN_ROLES },
+  { to: routes.pois, label: 'Địa điểm (POI)', icon: 'P', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.languages, label: 'Ngôn ngữ', icon: 'L', roles: ADMIN_ROLES },
+  { to: routes.tours, label: 'Tour', icon: 'T', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.media, label: 'Thư viện', icon: 'M', roles: VENDOR_CONTENT_ROLES },
 ];
 
 export function MainLayout() {
@@ -92,7 +92,7 @@ export function MainLayout() {
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
           >
             <span className="flex h-5 w-5 items-center justify-center text-xs font-semibold">X</span>
-            Dang xuat
+            Đăng xuất
           </button>
         </div>
       </aside>

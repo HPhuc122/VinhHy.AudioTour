@@ -17,7 +17,22 @@ import { useUploadMediaMutation } from '@/features/media/hooks/useUploadMediaMut
 
 const PAGE_SIZE = 20;
 const imageAccept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
-const audioAccept = '.mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/x-wav,audio/mp4';
+
+const languageOptions = [
+  { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'en', label: 'English' },
+  { value: 'zh', label: '中文' },
+  { value: 'ko', label: '한국어' },
+  { value: 'ja', label: '日本語' },
+  { value: 'fr', label: 'Français' },
+];
+
+const voiceOptions = [
+  { value: 'female-north', label: 'Nữ miền Bắc' },
+  { value: 'female-south', label: 'Nữ miền Nam' },
+  { value: 'male-north', label: 'Nam miền Bắc' },
+  { value: 'male-south', label: 'Nam miền Nam' },
+];
 
 export function MediaLibraryPage() {
   const [search, setSearch] = useState('');
@@ -26,9 +41,12 @@ export function MediaLibraryPage() {
   const [page, setPage] = useState(1);
   const [previewMedia, setPreviewMedia] = useState<MediaFileDto | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [narrationTitle, setNarrationTitle] = useState('');
+  const [narrationLanguage, setNarrationLanguage] = useState('vi');
+  const [narrationText, setNarrationText] = useState('');
+  const [narrationVoice, setNarrationVoice] = useState('female-south');
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const audioInputRef = useRef<HTMLInputElement | null>(null);
 
   const filter = useMemo(
     () => ({
@@ -50,92 +68,137 @@ export function MediaLibraryPage() {
   const totalPages = mediaQuery.data?.totalPages ?? 0;
   const busyMutationId = getBusyMutationId(deleteMutation.variables, restoreMutation.variables);
 
-  const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleUploadImages = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
     event.target.value = '';
 
-    if (!file) {
+    if (files.length === 0) {
       return;
     }
 
     setNotice(null);
-    uploadMutation.mutate(file, {
-      onSuccess: () => {
-        setPage(1);
-        setNotice('Media file uploaded.');
-      },
-    });
+
+    try {
+      for (const file of files) {
+        await uploadMutation.mutateAsync(file);
+      }
+
+      setPage(1);
+      setNotice(`Đã tải lên ${files.length} ảnh.`);
+    } catch {
+      setNotice(null);
+    }
   };
 
   const handleDelete = (media: MediaFileDto) => {
-    const confirmed = window.confirm(`Delete ${media.originalFileName}?`);
+    const confirmed = window.confirm(`Xóa ${media.originalFileName}?`);
     if (!confirmed) {
       return;
     }
 
     setNotice(null);
     deleteMutation.mutate(media.id, {
-      onSuccess: () => setNotice('Media file deleted.'),
+      onSuccess: () => setNotice('Đã xóa media.'),
     });
   };
 
   const handleRestore = (media: MediaFileDto) => {
     setNotice(null);
     restoreMutation.mutate(media.id, {
-      onSuccess: () => setNotice('Media file restored.'),
+      onSuccess: () => setNotice('Đã khôi phục media.'),
     });
   };
 
   const handleCopy = async (media: MediaFileDto) => {
     await navigator.clipboard.writeText(getMediaUrl(media));
-    setNotice('Media URL copied.');
+    setNotice('Đã sao chép URL media.');
   };
 
-  const queryError = getErrorMessage(mediaQuery.error, 'Unable to load media files.');
-  const uploadError = getErrorMessage(uploadMutation.error, 'Unable to upload media file.');
-  const deleteError = getErrorMessage(deleteMutation.error, 'Unable to delete media file.');
-  const restoreError = getErrorMessage(restoreMutation.error, 'Unable to restore media file.');
+  const queryError = getErrorMessage(mediaQuery.error, 'Không thể tải thư viện media.');
+  const uploadError = getErrorMessage(uploadMutation.error, 'Không thể tải ảnh lên.');
+  const deleteError = getErrorMessage(deleteMutation.error, 'Không thể xóa media.');
+  const restoreError = getErrorMessage(restoreMutation.error, 'Không thể khôi phục media.');
 
   return (
     <section className="app-page">
       <div className="app-page-header">
         <div>
-          <h1 className="app-title">Media Library</h1>
-          <p className="app-subtitle">Manage reusable image and audio assets.</p>
+          <h1 className="app-title">Thư viện media</h1>
+          <p className="app-subtitle">Quản lý hình ảnh và chuẩn bị nội dung thuyết minh.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input
             ref={imageInputRef}
             type="file"
             accept={imageAccept}
+            multiple
             className="hidden"
-            onChange={handleUpload}
-          />
-          <input
-            ref={audioInputRef}
-            type="file"
-            accept={audioAccept}
-            className="hidden"
-            onChange={handleUpload}
+            onChange={handleUploadImages}
           />
           <Button
             variant="secondary"
             onClick={() => imageInputRef.current?.click()}
             isLoading={uploadMutation.isPending}
           >
-            Upload image
+            Tải nhiều ảnh
           </Button>
-          <Button onClick={() => audioInputRef.current?.click()} isLoading={uploadMutation.isPending}>
-            Upload audio
-          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-gray-900">Bản nháp thuyết minh</h2>
+          <p className="text-sm text-gray-500">
+            Chuẩn bị nội dung để kết nối quy trình Text-to-Speech ở bước sau.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Input
+            id="narration-title"
+            label="Tiêu đề"
+            value={narrationTitle}
+            onChange={(event) => setNarrationTitle(event.target.value)}
+          />
+          <Select
+            id="narration-language"
+            label="Ngôn ngữ"
+            value={narrationLanguage}
+            options={languageOptions}
+            onChange={(event) => setNarrationLanguage(event.target.value)}
+          />
+          <div className="lg:col-span-2">
+            <label htmlFor="narration-text" className="mb-1 block text-sm font-medium text-gray-700">
+              Nội dung thuyết minh
+            </label>
+            <textarea
+              id="narration-text"
+              rows={5}
+              value={narrationText}
+              onChange={(event) => setNarrationText(event.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <Select
+            id="narration-voice"
+            label="Giọng đọc"
+            value={narrationVoice}
+            options={voiceOptions}
+            onChange={(event) => setNarrationVoice(event.target.value)}
+          />
+          <div className="flex items-end">
+            <Button type="button" disabled title="Chưa kết nối TTS">
+              Tạo âm thanh
+            </Button>
+            <span className="ml-3 text-sm text-gray-500">Chưa kết nối TTS</span>
+          </div>
         </div>
       </div>
 
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 grid gap-3 p-4 sm:grid-cols-[1fr_180px_auto] sm:items-end">
         <Input
           id="media-search"
-          label="Search"
-          placeholder="File name or original name"
+          label="Tìm kiếm"
+          placeholder="Tên file hoặc tên gốc"
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
@@ -144,16 +207,16 @@ export function MediaLibraryPage() {
         />
         <Select
           id="media-type-filter"
-          label="Type"
+          label="Loại"
           value={fileType}
           onChange={(event) => {
             setFileType(event.target.value as MediaFilterType);
             setPage(1);
           }}
           options={[
-            { value: 'all', label: 'All' },
-            { value: 'image', label: 'Images' },
-            { value: 'audio', label: 'Audio' },
+            { value: 'all', label: 'Tất cả' },
+            { value: 'image', label: 'Hình ảnh' },
+            { value: 'audio', label: 'Âm thanh đã có' },
           ]}
         />
         <label className="flex items-center gap-2 rounded-md border border-gray-100 bg-white px-3 py-2 text-sm text-gray-600">
@@ -165,7 +228,7 @@ export function MediaLibraryPage() {
               setPage(1);
             }}
           />
-          Include deleted
+          Bao gồm đã xóa
         </label>
       </div>
 
@@ -187,7 +250,7 @@ export function MediaLibraryPage() {
 
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
-          {mediaQuery.data ? `${mediaQuery.data.totalCount} media files` : 'Loading media files'}
+          {mediaQuery.data ? `${mediaQuery.data.totalCount} media` : 'Đang tải media'}
         </span>
         <div className="flex items-center gap-2">
           <Button
@@ -196,10 +259,10 @@ export function MediaLibraryPage() {
             disabled={page <= 1}
             onClick={() => setPage((current) => Math.max(1, current - 1))}
           >
-            Previous
+            Trước
           </Button>
           <span>
-            Page {page} of {Math.max(1, totalPages)}
+            Trang {page} / {Math.max(1, totalPages)}
           </span>
           <Button
             variant="secondary"
@@ -207,7 +270,7 @@ export function MediaLibraryPage() {
             disabled={totalPages === 0 || page >= totalPages}
             onClick={() => setPage((current) => current + 1)}
           >
-            Next
+            Sau
           </Button>
         </div>
       </div>
@@ -242,27 +305,27 @@ function MediaTable({
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left text-xs font-semibold uppercase">
             <tr>
-              <th className="px-4 py-3">File Name</th>
-              <th className="px-4 py-3">Original Name</th>
-              <th className="px-4 py-3">File Type</th>
-              <th className="px-4 py-3">Size</th>
-              <th className="px-4 py-3">Uploaded Date</th>
-              <th className="px-4 py-3">Uploaded By</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3">Tên file</th>
+              <th className="px-4 py-3">Tên gốc</th>
+              <th className="px-4 py-3">Loại</th>
+              <th className="px-4 py-3">Dung lượng</th>
+              <th className="px-4 py-3">Ngày tải lên</th>
+              <th className="px-4 py-3">Người tải</th>
+              <th className="px-4 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
                 <td className="px-4 py-6 text-center text-gray-600" colSpan={7}>
-                  Loading media files...
+                  Đang tải media...
                 </td>
               </tr>
             ) : null}
             {!isLoading && mediaItems.length === 0 ? (
               <tr>
                 <td className="px-4 py-6 text-center text-gray-600" colSpan={7}>
-                  No media files found.
+                  Không có media nào.
                 </td>
               </tr>
             ) : null}
@@ -280,7 +343,7 @@ function MediaTable({
                   </span>
                   {media.isDeleted ? (
                     <span className="ml-2 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
-                      Deleted
+                      Đã xóa
                     </span>
                   ) : null}
                 </td>
@@ -292,10 +355,10 @@ function MediaTable({
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => onPreview(media)}>
-                      Preview
+                      Xem
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => onCopy(media)}>
-                      Copy URL
+                      Sao chép URL
                     </Button>
                     {media.isDeleted ? (
                       <Button
@@ -304,7 +367,7 @@ function MediaTable({
                         isLoading={busyMutationId === media.id}
                         onClick={() => onRestore(media)}
                       >
-                        Restore
+                        Khôi phục
                       </Button>
                     ) : (
                       <Button
@@ -313,7 +376,7 @@ function MediaTable({
                         isLoading={busyMutationId === media.id}
                         onClick={() => onDelete(media)}
                       >
-                        Delete
+                        Xóa
                       </Button>
                     )}
                   </div>
@@ -335,7 +398,7 @@ function MediaPreviewModal({
   onClose: () => void;
 }) {
   return (
-    <Modal open={Boolean(media)} onClose={onClose} title={media?.originalFileName ?? 'Preview'}>
+    <Modal open={Boolean(media)} onClose={onClose} title={media?.originalFileName ?? 'Xem trước'}>
       {media?.fileType === 'image' ? (
         <img
           src={getMediaUrl(media)}
@@ -345,7 +408,7 @@ function MediaPreviewModal({
       ) : null}
       {media?.fileType === 'audio' ? (
         <audio src={getMediaUrl(media)} controls className="w-full">
-          Audio preview is not supported by this browser.
+          Trình duyệt không hỗ trợ xem trước âm thanh.
         </audio>
       ) : null}
     </Modal>

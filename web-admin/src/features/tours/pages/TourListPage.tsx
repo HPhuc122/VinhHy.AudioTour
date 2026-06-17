@@ -15,7 +15,7 @@ export function TourListPage() {
     typeof deleteTourMutation.variables === 'number' ? deleteTourMutation.variables : null;
 
   const handleDelete = (tour: TourDto) => {
-    const confirmed = window.confirm(`Delete tour ${tour.code}?`);
+    const confirmed = window.confirm(`Xóa tour ${tour.code}?`);
     if (!confirmed) {
       return;
     }
@@ -30,21 +30,21 @@ export function TourListPage() {
     <section className="app-page">
       <div className="app-page-header">
         <div>
-          <h1 className="app-title">Tours</h1>
-          <p className="app-subtitle">Manage CMS tour records.</p>
+          <h1 className="app-title">Tour</h1>
+          <p className="app-subtitle">Quản lý danh sách tour trong CMS.</p>
         </div>
         <Link
           to={routes.tourCreate}
           className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
-          Create tour
+          Thêm tour
         </Link>
       </div>
 
       {queryError ? <Alert variant="error" message={queryError} /> : null}
       {deleteError ? <Alert variant="error" message={deleteError} /> : null}
 
-      {toursQuery.isLoading ? <Spinner label="Loading tours..." /> : null}
+      {toursQuery.isLoading ? <Spinner label="Đang tải tour..." /> : null}
 
       {toursQuery.data ? (
         <TourTable
@@ -66,5 +66,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to load tours.';
+  return 'Không thể tải danh sách tour.';
 }

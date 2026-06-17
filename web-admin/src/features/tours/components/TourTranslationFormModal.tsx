@@ -68,11 +68,11 @@ export function TourTranslationFormModal({
     const languageCode = values.languageCode.trim();
 
     if (!isEdit && !languageCode) {
-      nextErrors.languageCode = 'Language is required.';
+      nextErrors.languageCode = 'Vui lòng chọn ngôn ngữ.';
     }
 
     if (!name) {
-      nextErrors.name = 'Name is required.';
+      nextErrors.name = 'Tên là bắt buộc.';
     }
 
     setFieldErrors(nextErrors);
@@ -100,14 +100,14 @@ export function TourTranslationFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? 'Edit Translation' : 'Add Translation'}
+      title={isEdit ? 'Chỉnh sửa bản dịch' : 'Thêm bản dịch'}
       footer={
         <>
           <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onClose}>
-            Cancel
+            Hủy
           </Button>
           <Button type="submit" form="tour-translation-form" isLoading={isSubmitting}>
-            Save
+            Lưu
           </Button>
         </>
       }
@@ -115,7 +115,7 @@ export function TourTranslationFormModal({
       <form id="tour-translation-form" className="space-y-4" onSubmit={handleSubmit} noValidate>
         {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
-        <FormField label="Language" htmlFor="translation-language" error={fieldErrors.languageCode}>
+        <FormField label="Ngôn ngữ" htmlFor="translation-language" error={fieldErrors.languageCode}>
           <Select
             id="translation-language"
             name="languageCode"
@@ -124,7 +124,7 @@ export function TourTranslationFormModal({
                 ? [{ value: translation.languageCode, label: translation.languageCode }]
                 : languageOptions
             }
-            placeholder="Select language"
+            placeholder="Chọn ngôn ngữ"
             value={values.languageCode}
             disabled={isEdit || isSubmitting}
             error={fieldErrors.languageCode}
@@ -134,7 +134,7 @@ export function TourTranslationFormModal({
           />
         </FormField>
 
-        <FormField label="Name" htmlFor="translation-name" error={fieldErrors.name}>
+        <FormField label="Tên" htmlFor="translation-name" error={fieldErrors.name}>
           <Input
             id="translation-name"
             name="name"
@@ -145,7 +145,7 @@ export function TourTranslationFormModal({
           />
         </FormField>
 
-        <FormField label="Description" htmlFor="translation-description">
+        <FormField label="Mô tả" htmlFor="translation-description">
           <textarea
             id="translation-description"
             name="description"

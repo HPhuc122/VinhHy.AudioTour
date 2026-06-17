@@ -1,21 +1,20 @@
-
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../components/ui/Button';
 import usePois from '../hooks/usePois';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { poisApi } from '../api/poisApi';
 import { useToast } from '../../../components/ui/Toast';
-import { useState } from 'react';
 import { buildAssetUrl } from '../../../utils/assetUrl';
 import PoiTranslationModal from './PoiTranslationModal';
 
 interface Props {
-  filters?: any;  
+  filters?: any;
   onEdit?: (poi: any) => void;
   onAddTranslate?: (poi: any) => void;
 }
 
 export function PoiTable({ filters, onEdit }: Props) {
-    const { data, isLoading, isError } = usePois(filters);
+  const { data, isLoading, isError } = usePois(filters);
   const qc = useQueryClient();
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -46,12 +45,12 @@ export function PoiTable({ filters, onEdit }: Props) {
       <table className="min-w-full bg-white divide-y divide-gray-100">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
-            <th className="px-4 py-3 text-left">MÃ ĐỊA ĐIỂM</th>
-            <th className="px-4 py-3 text-left">ẢNH</th>
+            <th className="px-4 py-3 text-left">Mã địa điểm</th>
+            <th className="px-4 py-3 text-left">Ảnh</th>
             <th className="px-4 py-3 text-left">Phân loại</th>
             <th className="px-4 py-3 text-left">Tọa độ</th>
             <th className="px-4 py-3 text-left">Trạng thái</th>
-            <th className="px-4 py-3 text-right">Hành động</th>
+            <th className="px-4 py-3 text-right">Thao tác</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 text-sm">
@@ -93,7 +92,7 @@ export function PoiTable({ filters, onEdit }: Props) {
                       <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800">Đã xóa</span>
                     ) : (
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${poi.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                        {poi.isActive ? 'Hoạt động' : 'Vô hiệu'}
+                        {poi.isActive ? 'Hoạt động' : 'Tạm tắt'}
                       </span>
                     )}
                   </td>
@@ -118,7 +117,7 @@ export function PoiTable({ filters, onEdit }: Props) {
                           size="sm"
                           variant="primary"
                           onClick={async () => {
-                            const ok = window.confirm('Bạn có chắc chắn muốn khôi phục địa điểm này?');
+                            const ok = window.confirm('Bạn có chắc muốn khôi phục địa điểm này?');
                             if (!ok) return;
                             try {
                               setRestoringId(poi.id);
@@ -141,14 +140,14 @@ export function PoiTable({ filters, onEdit }: Props) {
                           size="sm"
                           variant="danger"
                           onClick={async () => {
-                            const ok = window.confirm('Bạn có chắc chắn muốn xóa địa điểm này?');
+                            const ok = window.confirm('Bạn có chắc muốn xóa địa điểm này?');
                             if (!ok) return;
                             try {
                               setDeletingId(poi.id);
                               await deleteMutation.mutateAsync(poi.id);
-                              toast('Đã xoá địa điểm', 'success');
+                              toast('Đã xóa địa điểm', 'success');
                             } catch (err: any) {
-                              const msg = err?.response?.data?.message ?? 'Lỗi khi xoá địa điểm';
+                              const msg = err?.response?.data?.message ?? 'Lỗi khi xóa địa điểm';
                               toast(msg, 'error');
                             } finally {
                               setDeletingId(null);
@@ -158,32 +157,33 @@ export function PoiTable({ filters, onEdit }: Props) {
                           loading={deletingId === poi.id}
                           className={`${deletingId === poi.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                          Xoá
+                          Xóa
                         </Button>
                       )}
                     </div>
-          {translatingPoi && (
-            <PoiTranslationModal
-              isOpen={!!translatingPoi}
-              onClose={() => setTranslatingPoi(null)}
-              poi={translatingPoi}
-            />
-          )}
                   </td>
                 </tr>
               );
             })
           )}
-          {/* Lightbox is rendered after the table to avoid nesting inside tbody */}
         </tbody>
       </table>
+
+      {translatingPoi && (
+        <PoiTranslationModal
+          isOpen={!!translatingPoi}
+          onClose={() => setTranslatingPoi(null)}
+          poi={translatingPoi}
+        />
+      )}
+
       {selectedImageUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={() => setSelectedImageUrl(null)}
           role="dialog"
           aria-modal="true"
-          aria-label="Image lightbox"
+          aria-label="Xem ảnh địa điểm"
         >
           <div
             className="relative max-w-full max-h-full flex items-center justify-center"
@@ -193,14 +193,14 @@ export function PoiTable({ filters, onEdit }: Props) {
               type="button"
               onClick={() => setSelectedImageUrl(null)}
               className="absolute -top-4 -right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white text-3xl hover:bg-white/40 transition-colors"
-              aria-label="Close image"
+              aria-label="Đóng ảnh"
             >
               ×
             </button>
 
             <img
               src={selectedImageUrl}
-              alt="POI large"
+              alt="Ảnh địa điểm phóng to"
               className="block max-w-[95vw] max-h-[90vh] object-contain rounded-lg border-2 border-white/20 shadow-2xl"
             />
           </div>

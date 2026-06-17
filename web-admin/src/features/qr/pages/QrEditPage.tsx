@@ -33,19 +33,19 @@ export function QrEditPage() {
   }, [qrQuery.data]);
 
   if (parsedQrId === null) {
-    return <Alert variant="error" message="Invalid QR id." />;
+    return <Alert variant="error" message="Mã QR không hợp lệ." />;
   }
 
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Edit QR code</h1>
+        <h1 className="app-title">Chỉnh sửa mã QR</h1>
         <p className="app-subtitle">
-          {qrQuery.data ? qrQuery.data.code : 'Loading QR record.'}
+          {qrQuery.data ? qrQuery.data.code : 'Đang tải mã QR.'}
         </p>
       </div>
 
-      {qrQuery.isLoading ? <Spinner label="Loading QR code..." /> : null}
+      {qrQuery.isLoading ? <Spinner label="Đang tải mã QR..." /> : null}
 
       {queryError ? <Alert variant="error" message={queryError} /> : null}
 
@@ -102,5 +102,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to save QR code.';
+  return 'Không thể lưu mã QR.';
 }

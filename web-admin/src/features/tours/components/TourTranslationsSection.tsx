@@ -67,7 +67,7 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
   };
 
   const handleDelete = (translation: TourTranslationDto) => {
-    const confirmed = window.confirm(`Delete ${translation.languageCode} translation?`);
+    const confirmed = window.confirm(`Xóa bản dịch ${translation.languageCode}?`);
     if (!confirmed) {
       return;
     }
@@ -79,15 +79,15 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
     <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Translations</h2>
-          <p className="app-subtitle">Manage localized tour names and descriptions.</p>
+          <h2 className="text-lg font-semibold text-gray-900">Bản dịch tour</h2>
+          <p className="app-subtitle">Quản lý tên và mô tả tour theo ngôn ngữ.</p>
         </div>
         <Button
           type="button"
           onClick={openAdd}
           disabled={languagesQuery.isLoading || tour.translations.length >= (languagesQuery.data?.length ?? Infinity)}
         >
-          Add Translation
+          Thêm bản dịch
         </Button>
       </div>
 
@@ -97,17 +97,17 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold">Language</th>
-              <th className="px-4 py-3 text-left font-semibold">Name</th>
-              <th className="px-4 py-3 text-left font-semibold">Description</th>
-              <th className="px-4 py-3 text-right font-semibold">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Ngôn ngữ</th>
+              <th className="px-4 py-3 text-left font-semibold">Tên</th>
+              <th className="px-4 py-3 text-left font-semibold">Mô tả</th>
+              <th className="px-4 py-3 text-right font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {tour.translations.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-600">
-                  No translations yet.
+                  Chưa có bản dịch.
                 </td>
               </tr>
             ) : (
@@ -123,7 +123,7 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <Button type="button" size="sm" variant="secondary" onClick={() => openEdit(translation)}>
-                        Edit
+                        Sửa
                       </Button>
                       <Button
                         type="button"
@@ -132,7 +132,7 @@ export function TourTranslationsSection({ tour }: TourTranslationsSectionProps) 
                         loading={deleteTranslation.isPending && deleteTranslation.variables === translation.id}
                         onClick={() => handleDelete(translation)}
                       >
-                        Delete
+                        Xóa
                       </Button>
                     </div>
                   </td>
@@ -166,5 +166,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to save tour translation.';
+  return 'Không thể lưu bản dịch tour.';
 }

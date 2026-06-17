@@ -11,50 +11,50 @@ export function DashboardPage() {
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Dashboard</h1>
-        <p className="app-subtitle">Member 3 content and asset statistics.</p>
+        <h1 className="app-title">Bảng điều khiển</h1>
+        <p className="app-subtitle">Thống kê tổng quan nội dung và tài nguyên.</p>
       </div>
 
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
-          label="Tours"
+          label="Tổng số tour"
           value={stats?.totalTours}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Active Tours"
+          label="Tour đang hoạt động"
           value={stats?.activeTours}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="QR Codes"
+          label="Mã QR"
           value={stats?.totalQrCodes}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Active QR Codes"
+          label="Mã QR đang hoạt động"
           value={stats?.activeQrCodes}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Media Files"
+          label="Tệp media"
           value={stats?.totalMediaFiles}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Images"
+          label="Hình ảnh"
           value={stats?.totalImages}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Audio Files"
+          label="Tệp âm thanh"
           value={stats?.totalAudioFiles}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Deleted Media"
+          label="Media đã xóa"
           value={stats?.deletedMediaFiles}
           isLoading={dashboardQuery.isLoading}
         />
@@ -62,12 +62,12 @@ export function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <DashboardCard
-          label="QR-triggered Audio Plays"
+          label="Lượt phát từ mã QR"
           value={stats?.totalQrScans}
           isLoading={dashboardQuery.isLoading}
         />
         <DashboardCard
-          label="Total Audio Plays"
+          label="Tổng lượt phát âm thanh"
           value={stats?.totalAudioPlays}
           isLoading={dashboardQuery.isLoading}
         />
@@ -94,15 +94,15 @@ function DashboardCard({ label, value, isLoading }: DashboardCardProps) {
 }
 
 function getStatColor(label: string): string {
-  if (label.includes('Active')) {
+  if (label.includes('đang hoạt động')) {
     return 'bg-emerald-50 text-emerald-700';
   }
 
-  if (label.includes('Audio') || label.includes('Images')) {
+  if (label.includes('âm thanh') || label.includes('Hình ảnh')) {
     return 'bg-green-50 text-green-700';
   }
 
-  if (label.includes('Deleted')) {
+  if (label.includes('đã xóa')) {
     return 'bg-red-50 text-red-700';
   }
 
@@ -126,5 +126,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to load dashboard statistics.';
+  return 'Không thể tải thống kê bảng điều khiển.';
 }

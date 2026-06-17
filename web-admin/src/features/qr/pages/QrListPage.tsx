@@ -15,7 +15,7 @@ export function QrListPage() {
     typeof deleteQrMutation.variables === 'number' ? deleteQrMutation.variables : null;
 
   const handleDelete = (qr: QrDto) => {
-    const confirmed = window.confirm(`Delete QR code ${qr.code}?`);
+    const confirmed = window.confirm(`Xóa mã QR ${qr.code}?`);
     if (!confirmed) {
       return;
     }
@@ -30,21 +30,21 @@ export function QrListPage() {
     <section className="app-page">
       <div className="app-page-header">
         <div>
-          <h1 className="app-title">QR codes</h1>
-          <p className="app-subtitle">Manage QR records for POIs and tours.</p>
+          <h1 className="app-title">Mã QR</h1>
+          <p className="app-subtitle">Quản lý mã QR cho địa điểm và tour.</p>
         </div>
         <Link
           to={routes.qrCreate}
           className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         >
-          Create QR code
+          Thêm mã QR
         </Link>
       </div>
 
       {queryError ? <Alert variant="error" message={queryError} /> : null}
       {deleteError ? <Alert variant="error" message={deleteError} /> : null}
 
-      {qrsQuery.isLoading ? <Spinner label="Loading QR codes..." /> : null}
+      {qrsQuery.isLoading ? <Spinner label="Đang tải mã QR..." /> : null}
 
       {qrsQuery.data ? (
         <QrTable qrs={qrsQuery.data} deletingQrId={deletingQrId} onDelete={handleDelete} />
@@ -62,5 +62,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to load QR codes.';
+  return 'Không thể tải danh sách mã QR.';
 }

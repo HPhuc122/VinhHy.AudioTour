@@ -57,7 +57,7 @@ export function UsersPage() {
     if (!deleteTarget) return;
     try {
       await deleteUser.mutateAsync(deleteTarget.id);
-      toast('Đã xoá người dùng', 'success');
+      toast('Đã xóa người dùng', 'success');
       setDeleteTarget(undefined);
     } catch (err) {
       toast(extractApiError(err), 'error');
@@ -78,26 +78,24 @@ export function UsersPage() {
       <div className="app-page-header">
         <div>
           <h1 className="app-title">Người dùng</h1>
-          <p className="app-subtitle">
-            Quản lý tài khoản và phân quyền hệ thống
-          </p>
+          <p className="app-subtitle">Quản lý tài khoản và phân quyền hệ thống</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>+ Thêm người dùng</Button>
       </div>
 
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-gray-600 text-sm">
+          <div className="flex items-center justify-center py-20 text-sm text-gray-600">
             Đang tải...
           </div>
         ) : isError ? (
-          <div className="flex items-center justify-center py-20 text-red-500 text-sm">
+          <div className="flex items-center justify-center py-20 text-sm text-red-500">
             Không thể tải danh sách người dùng
           </div>
         ) : (
           <>
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+              <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
                   <th className="px-5 py-3 text-left">Tên đăng nhập</th>
                   <th className="px-5 py-3 text-left">Email</th>
@@ -109,39 +107,29 @@ export function UsersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {data?.items.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-gray-900">
-                      {user.username}
-                    </td>
+                  <tr key={user.id} className="transition-colors hover:bg-gray-50">
+                    <td className="px-5 py-3 font-medium text-gray-900">{user.username}</td>
                     <td className="px-5 py-3 text-gray-600">{user.email}</td>
                     <td className="px-5 py-3">
                       <Badge variant={roleVariant(user.roleName)}>
                         {displayRoleName(user.roleName)}
                       </Badge>
                     </td>
-                    <td className="px-5 py-3 text-gray-600 uppercase text-xs">
+                    <td className="px-5 py-3 text-xs uppercase text-gray-600">
                       {user.preferredLanguage}
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={user.isActive ? 'success' : 'default'}>
-                        {user.isActive ? 'Hoạt động' : 'Vô hiệu'}
+                        {user.isActive ? 'Hoạt động' : 'Tạm tắt'}
                       </Badge>
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => setEditTarget(user)}
-                        >
+                        <Button size="sm" variant="secondary" onClick={() => setEditTarget(user)}>
                           Sửa
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => setDeleteTarget(user)}
-                        >
-                          Xoá
+                        <Button size="sm" variant="danger" onClick={() => setDeleteTarget(user)}>
+                          Xóa
                         </Button>
                       </div>
                     </td>
@@ -150,9 +138,8 @@ export function UsersPage() {
               </tbody>
             </table>
 
-            {/* Pagination */}
-            {data && data.totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50 text-sm text-gray-600">
+            {data && data.totalPages > 1 ? (
+              <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-5 py-3 text-sm text-gray-600">
                 <span>
                   Hiển thị {data.items.length} / {data.totalCount} người dùng
                 </span>
@@ -163,7 +150,7 @@ export function UsersPage() {
                     disabled={page <= 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    ← Trước
+                    Trước
                   </Button>
                   <span className="px-2 py-1">
                     {page} / {data.totalPages}
@@ -174,16 +161,15 @@ export function UsersPage() {
                     disabled={page >= data.totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    Sau →
+                    Sau
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
           </>
         )}
       </div>
 
-      {/* Create modal */}
       <UserFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
@@ -191,7 +177,6 @@ export function UsersPage() {
         loading={createUser.isPending}
       />
 
-      {/* Edit modal */}
       <UserFormModal
         open={!!editTarget}
         onClose={() => setEditTarget(undefined)}
@@ -200,35 +185,25 @@ export function UsersPage() {
         editUser={editTarget}
       />
 
-      {/* Delete confirm modal */}
       <Modal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(undefined)}
-        title="Xác nhận xoá người dùng"
+        title="Xác nhận xóa người dùng"
         footer={
           <>
-            <Button
-              variant="secondary"
-              onClick={() => setDeleteTarget(undefined)}
-            >
-              Huỷ
+            <Button variant="secondary" onClick={() => setDeleteTarget(undefined)}>
+              Hủy
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleDelete}
-              loading={deleteUser.isPending}
-            >
-              Xoá
+            <Button variant="danger" onClick={handleDelete} loading={deleteUser.isPending}>
+              Xóa
             </Button>
           </>
         }
       >
         <p className="text-sm text-gray-600">
-          Bạn có chắc muốn xoá người dùng{' '}
-          <span className="font-semibold text-gray-900">
-            {deleteTarget?.username}
-          </span>
-          ? Hành động này không thể hoàn tác.
+          Bạn có chắc muốn xóa người dùng{' '}
+          <span className="font-semibold text-gray-900">{deleteTarget?.username}</span>?
+          Hành động này không thể hoàn tác.
         </p>
       </Modal>
     </div>

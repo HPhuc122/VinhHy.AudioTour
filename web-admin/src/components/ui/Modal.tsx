@@ -6,9 +6,26 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  scrollable?: boolean;
 }
 
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+const sizeClasses: Record<NonNullable<ModalProps['size']>, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+};
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  size = 'md',
+  scrollable = false,
+}: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -21,13 +38,17 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
+      <div
+        className={`relative z-10 flex w-full ${sizeClasses[size]} flex-col rounded-lg bg-white shadow-xl ${
+          scrollable ? 'max-h-[90vh]' : ''
+        }`}
+      >
+        <div className="flex flex-shrink-0 items-center justify-between border-b px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">{title}</h2>
           <button
             onClick={onClose}
@@ -42,9 +63,11 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
             </svg>
           </button>
         </div>
-        <div className="px-6 py-4">{children}</div>
+        <div className={`px-6 py-4 ${scrollable ? 'min-h-0 flex-1 overflow-y-auto' : ''}`}>
+          {children}
+        </div>
         {footer && (
-          <div className="flex justify-end gap-2 border-t px-6 py-4">
+          <div className="flex flex-shrink-0 justify-end gap-2 border-t bg-white px-6 py-4">
             {footer}
           </div>
         )}

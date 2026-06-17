@@ -38,12 +38,12 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
   const handleAdd = () => {
     const poiId = Number(selectedPoiId);
     if (!Number.isInteger(poiId) || poiId <= 0) {
-      setFieldError('Select a POI.');
+      setFieldError('Vui lòng chọn POI.');
       return;
     }
 
     if (assignedPoiIds.has(poiId)) {
-      setFieldError('This POI is already assigned to the tour.');
+      setFieldError('POI này đã được gán vào tour.');
       return;
     }
 
@@ -60,7 +60,7 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
   };
 
   const handleRemove = (poiId: number) => {
-    const confirmed = window.confirm('Remove this POI from the tour?');
+    const confirmed = window.confirm('Gỡ POI này khỏi tour?');
     if (!confirmed) {
       return;
     }
@@ -71,8 +71,8 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
   return (
     <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">POIs In Tour</h2>
-        <p className="app-subtitle">Assign POIs that belong to this tour.</p>
+        <h2 className="text-lg font-semibold text-gray-900">POI trong tour</h2>
+        <p className="app-subtitle">Gán các địa điểm thuộc tour này.</p>
       </div>
 
       {errorMessage ? <div className="mt-4"><Alert variant="error" message={errorMessage} /></div> : null}
@@ -84,7 +84,7 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
               id="tour-poi-select"
               name="poiId"
               options={availablePoiOptions}
-              placeholder="Select POI"
+              placeholder="Chọn POI"
               value={selectedPoiId}
               disabled={poisQuery.isLoading || addPoi.isPending}
               error={fieldError ?? undefined}
@@ -96,7 +96,7 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
           </FormField>
         </div>
         <Button type="button" onClick={handleAdd} loading={addPoi.isPending}>
-          Add POI
+          Thêm POI
         </Button>
       </div>
 
@@ -104,17 +104,17 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold">Order</th>
-              <th className="px-4 py-3 text-left font-semibold">POI Name</th>
-              <th className="px-4 py-3 text-left font-semibold">Code</th>
-              <th className="px-4 py-3 text-right font-semibold">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Thứ tự</th>
+              <th className="px-4 py-3 text-left font-semibold">Tên POI</th>
+              <th className="px-4 py-3 text-left font-semibold">Mã</th>
+              <th className="px-4 py-3 text-right font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {sortedPois.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-600">
-                  No POIs assigned yet.
+                  Chưa có POI nào được gán.
                 </td>
               </tr>
             ) : (
@@ -136,7 +136,7 @@ export function TourPoisSection({ tour }: TourPoisSectionProps) {
                         loading={removePoi.isPending && removePoi.variables === tourPoi.poiId}
                         onClick={() => handleRemove(tourPoi.poiId)}
                       >
-                        Remove
+                        Gỡ
                       </Button>
                     </div>
                   </td>
@@ -159,5 +159,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to update tour POIs.';
+  return 'Không thể cập nhật POI của tour.';
 }

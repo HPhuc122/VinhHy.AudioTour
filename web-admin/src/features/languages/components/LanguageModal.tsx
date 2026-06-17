@@ -49,28 +49,27 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
       <div className="w-full max-w-lg bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="px-6 py-4 border-b flex items-center justify-between">
           <h3 className="text-lg font-medium">{initialData ? 'Sửa ngôn ngữ' : 'Thêm ngôn ngữ'}</h3>
-          <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>✕</button>
+          <button className="text-gray-500 hover:text-gray-700" onClick={onClose} aria-label="Đóng">×</button>
         </div>
 
         <form
           onSubmit={async (e) => {
             e.preventDefault();
 
-            // Basic validation
             if (!code || code.trim() === '') {
-              toast('Mã (code) không được để trống', 'error');
+              toast('Mã ngôn ngữ không được để trống', 'error');
               return;
             }
             if (!name || name.trim() === '') {
-              toast('Tên (name) không được để trống', 'error');
+              toast('Tên ngôn ngữ không được để trống', 'error');
               return;
             }
             if (!nativeName || nativeName.trim() === '') {
-              toast('Tên bản địa (native name) không được để trống', 'error');
+              toast('Tên bản địa không được để trống', 'error');
               return;
             }
             if (sortOrder === null || Number.isNaN(sortOrder)) {
-              toast('Thứ tự (sort order) không hợp lệ', 'error');
+              toast('Thứ tự sắp xếp không hợp lệ', 'error');
               return;
             }
 
@@ -80,7 +79,7 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
           <div className="p-6">
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Code</label>
+                <label className="block text-sm font-medium text-gray-700">Mã ngôn ngữ</label>
                 <input
                   type="text"
                   value={code}
@@ -92,28 +91,30 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <label className="block text-sm font-medium text-gray-700">Tên ngôn ngữ</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full border rounded px-2 py-1 text-sm" required />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Native Name</label>
+                <label className="block text-sm font-medium text-gray-700">Tên bản địa</label>
                 <input type="text" value={nativeName} onChange={(e) => setNativeName(e.target.value)} className="mt-1 block w-full border rounded px-2 py-1 text-sm" required />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Sort Order</label>
+                <label className="block text-sm font-medium text-gray-700">Thứ tự sắp xếp</label>
                 <input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="mt-1 block w-full border rounded px-2 py-1 text-sm" required />
               </div>
 
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} id="isActive" />
-                <label htmlFor="isActive" className="text-sm text-gray-700">Is Active</label>
+                <label htmlFor="isActive" className="text-sm text-gray-700">Đang hoạt động</label>
               </div>
 
               <div className="flex justify-end gap-2">
                 <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={onClose}>Hủy</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Lưu</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? 'Đang lưu...' : 'Lưu'}
+                </button>
               </div>
             </div>
           </div>

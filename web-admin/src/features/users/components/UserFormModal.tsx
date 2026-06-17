@@ -77,7 +77,7 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
           : { preferredLanguage: 'vi' },
       );
     }
-  }, [open, editUser]);
+  }, [open, editUser, isEdit, form]);
 
   const roleOptions = getAssignableRoles(roles).map((r) => ({
     value: r.id,
@@ -92,7 +92,7 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Huỷ
+            Hủy
           </Button>
           <Button
             onClick={form.handleSubmit(onSubmit as any)}
@@ -107,7 +107,7 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
         {!isEdit && (
           <Input
             label="Tên đăng nhập"
-            placeholder="vd: john_doe"
+            placeholder="vd: admin_vinhhy"
             error={(form.formState.errors as any).username?.message}
             {...form.register('username')}
           />

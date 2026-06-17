@@ -11,8 +11,8 @@ export function TourCreatePage() {
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Create tour</h1>
-        <p className="app-subtitle">Add a tour for CMS and mobile clients.</p>
+        <h1 className="app-title">Thêm tour</h1>
+        <p className="app-subtitle">Tạo tour cho CMS và ứng dụng khách.</p>
       </div>
 
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
@@ -43,5 +43,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to create tour.';
+  return 'Không thể tạo tour.';
 }

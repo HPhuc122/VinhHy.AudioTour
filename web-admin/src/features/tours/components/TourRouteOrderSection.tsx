@@ -54,8 +54,8 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
     <section className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Route Order</h2>
-          <p className="app-subtitle">Order POIs for the tour route.</p>
+          <h2 className="text-lg font-semibold text-gray-900">Thứ tự tuyến</h2>
+          <p className="app-subtitle">Sắp xếp POI theo tuyến tham quan.</p>
         </div>
         <Button
           type="button"
@@ -63,7 +63,7 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
           loading={reorderPois.isPending}
           onClick={handleSave}
         >
-          Save Order
+          Lưu thứ tự
         </Button>
       </div>
 
@@ -73,16 +73,16 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold">Order</th>
-              <th className="px-4 py-3 text-left font-semibold">POI Name</th>
-              <th className="px-4 py-3 text-right font-semibold">Controls</th>
+              <th className="px-4 py-3 text-left font-semibold">Thứ tự</th>
+              <th className="px-4 py-3 text-left font-semibold">Tên POI</th>
+              <th className="px-4 py-3 text-right font-semibold">Điều khiển</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {draftPois.length === 0 ? (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-600">
-                  Add POIs before setting route order.
+                  Thêm POI trước khi sắp xếp tuyến.
                 </td>
               </tr>
             ) : (
@@ -101,7 +101,7 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
                         disabled={index === 0 || reorderPois.isPending}
                         onClick={() => move(index, -1)}
                       >
-                        Up
+                        Lên
                       </Button>
                       <Button
                         type="button"
@@ -110,7 +110,7 @@ export function TourRouteOrderSection({ tour }: TourRouteOrderSectionProps) {
                         disabled={index === draftPois.length - 1 || reorderPois.isPending}
                         onClick={() => move(index, 1)}
                       >
-                        Down
+                        Xuống
                       </Button>
                     </div>
                   </td>
@@ -137,5 +137,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to save route order.';
+  return 'Không thể lưu thứ tự tuyến.';
 }

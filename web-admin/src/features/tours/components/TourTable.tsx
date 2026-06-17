@@ -13,7 +13,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
   if (tours.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-gray-100 bg-white px-4 py-10 text-center text-sm text-gray-600">
-        No tours found.
+        Không có tour nào.
       </div>
     );
   }
@@ -24,13 +24,13 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-gray-500">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold">Code</th>
-              <th className="px-4 py-3 text-left font-semibold">Language</th>
-              <th className="px-4 py-3 text-left font-semibold">Duration</th>
+              <th className="px-4 py-3 text-left font-semibold">Mã</th>
+              <th className="px-4 py-3 text-left font-semibold">Ngôn ngữ</th>
+              <th className="px-4 py-3 text-left font-semibold">Thời lượng</th>
               <th className="px-4 py-3 text-left font-semibold">POIs</th>
-              <th className="px-4 py-3 text-left font-semibold">Status</th>
-              <th className="px-4 py-3 text-left font-semibold">Updated</th>
-              <th className="px-4 py-3 text-right font-semibold">Actions</th>
+              <th className="px-4 py-3 text-left font-semibold">Trạng thái</th>
+              <th className="px-4 py-3 text-left font-semibold">Cập nhật</th>
+              <th className="px-4 py-3 text-right font-semibold">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
@@ -45,7 +45,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  {tour.estimatedMinutes == null ? '-' : `${tour.estimatedMinutes} min`}
+                  {tour.estimatedMinutes == null ? '-' : `${tour.estimatedMinutes} phút`}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">{tour.pois.length}</td>
                 <td className="whitespace-nowrap px-4 py-3">
@@ -56,7 +56,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                         : 'bg-gray-50 text-gray-600'
                     }`}
                   >
-                    {tour.isActive ? 'Active' : 'Inactive'}
+                    {tour.isActive ? 'Hoạt động' : 'Tạm tắt'}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
@@ -68,7 +68,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                       to={routes.tourEdit.replace(':tourId', String(tour.id))}
                       className="inline-flex items-center justify-center rounded-md bg-transparent px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                     >
-                      Edit
+                      Sửa
                     </Link>
                     <Button
                       variant="ghost"
@@ -76,7 +76,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                       isLoading={deletingTourId === tour.id}
                       onClick={() => onDelete(tour)}
                     >
-                      Delete
+                      Xóa
                     </Button>
                   </div>
                 </td>

@@ -11,8 +11,8 @@ export function QrCreatePage() {
   return (
     <section className="app-page">
       <div>
-        <h1 className="app-title">Create QR code</h1>
-        <p className="app-subtitle">Add a QR entry for a POI or tour.</p>
+        <h1 className="app-title">Thêm mã QR</h1>
+        <p className="app-subtitle">Tạo mã QR cho địa điểm hoặc tour.</p>
       </div>
 
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-5">
@@ -43,5 +43,5 @@ function getErrorMessage(error: unknown): string | null {
     return error.message;
   }
 
-  return 'Unable to create QR code.';
+  return 'Không thể tạo mã QR.';
 }

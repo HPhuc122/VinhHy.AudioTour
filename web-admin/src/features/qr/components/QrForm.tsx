@@ -80,18 +80,18 @@ export function QrForm({
     const accessDurationMinutes = Number(values.accessDurationMinutes);
 
     if (!values.targetId || !Number.isInteger(targetId) || targetId <= 0) {
-      nextErrors.targetId = 'Select a target.';
+      nextErrors.targetId = 'Chọn đối tượng.';
     }
 
     if (!Number.isFinite(priceAmount) || priceAmount < 0) {
-      nextErrors.priceAmount = 'Enter a valid price.';
+      nextErrors.priceAmount = 'Nhập giá hợp lệ.';
     }
 
     if (
       !Number.isInteger(accessDurationMinutes) ||
       accessDurationMinutes <= 0
     ) {
-      nextErrors.accessDurationMinutes = 'Enter a duration greater than 0.';
+      nextErrors.accessDurationMinutes = 'Thời lượng phải lớn hơn 0.';
     }
 
     setFieldErrors(nextErrors);
@@ -115,7 +115,7 @@ export function QrForm({
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Target type" htmlFor="qr-target-type">
+        <FormField label="Loại đối tượng" htmlFor="qr-target-type">
           <Select
             id="qr-target-type"
             name="targetType"
@@ -135,12 +135,12 @@ export function QrForm({
           />
         </FormField>
 
-        <FormField label="Target" htmlFor="qr-target-id" error={fieldErrors.targetId}>
+        <FormField label="Đối tượng" htmlFor="qr-target-id" error={fieldErrors.targetId}>
           <Select
             id="qr-target-id"
             name="targetId"
             options={targetOptions}
-            placeholder="Select target"
+            placeholder="Chọn đối tượng"
             value={values.targetId}
             disabled={isSubmitting || poisQuery.isLoading || toursQuery.isLoading}
             error={fieldErrors.targetId}
@@ -150,13 +150,13 @@ export function QrForm({
           />
         </FormField>
 
-        <FormField label="Status" htmlFor="qr-status">
+        <FormField label="Trạng thái" htmlFor="qr-status">
           <Select
             id="qr-status"
             name="isActive"
             options={[
-              { value: 'true', label: 'Active' },
-              { value: 'false', label: 'Inactive' },
+              { value: 'true', label: 'Hoạt động' },
+              { value: 'false', label: 'Tạm tắt' },
             ]}
             value={String(values.isActive)}
             disabled={isSubmitting}
@@ -166,7 +166,7 @@ export function QrForm({
           />
         </FormField>
 
-        <FormField label="Payment" htmlFor="qr-requires-payment">
+        <FormField label="Thanh toán" htmlFor="qr-requires-payment">
           <label className="flex min-h-[38px] items-center gap-3 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm">
             <input
               id="qr-requires-payment"
@@ -181,11 +181,11 @@ export function QrForm({
                 }))
               }
             />
-            Require simulated payment
+            Yêu cầu thanh toán mô phỏng
           </label>
         </FormField>
 
-        <FormField label="Price amount" htmlFor="qr-price-amount" error={fieldErrors.priceAmount}>
+        <FormField label="Giá" htmlFor="qr-price-amount" error={fieldErrors.priceAmount}>
           <Input
             id="qr-price-amount"
             name="priceAmount"
@@ -202,7 +202,7 @@ export function QrForm({
         </FormField>
 
         <FormField
-          label="Access duration (minutes)"
+          label="Thời lượng truy cập (phút)"
           htmlFor="qr-access-duration"
           error={fieldErrors.accessDurationMinutes}
         >
@@ -227,10 +227,10 @@ export function QrForm({
 
       <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
         <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
-          Cancel
+          Hủy
         </Button>
         <Button type="submit" isLoading={isSubmitting}>
-          Save QR record
+          Lưu mã QR
         </Button>
       </div>
     </form>
