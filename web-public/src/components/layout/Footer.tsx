@@ -26,9 +26,9 @@ export function Footer() {
         <div>
           <p className="font-semibold text-white mb-3">Liên hệ</p>
           <ul className="space-y-2 text-xs">
-            <li>📍 Phố ẩm thực Vĩnh Hy, Ninh Thuận</li>
-            <li>📧 info@vinhhytour.vn</li>
-            <li>📞 0123 456 789</li>
+            <li>Phố ẩm thực Vĩnh Hy, Ninh Thuận</li>
+            <li>info@vinhhytour.vn</li>
+            <li>0123 456 789</li>
           </ul>
         </div>
       </div>

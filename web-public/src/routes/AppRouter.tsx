@@ -9,8 +9,6 @@ import { TourRoutePage } from '../features/tours/TourRoutePage';
 import { MapPage } from '../features/map/MapPage';
 import { SearchPage } from '../features/search/SearchPage';
 import { QrLandingPage } from '../features/qr/QrLandingPage';
-import { LoginPage } from '../features/auth/pages/LoginPage';
-import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ROUTES } from './routeConstants';
 import type { Lang } from '../hooks/useLanguage';
 
@@ -22,11 +20,6 @@ interface Props {
 export function AppRouter({ lang, setLang }: Props) {
   return (
     <Routes>
-      {/* Auth pages - no layout */}
-      <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-      <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
-
-      {/* Public pages - with layout */}
       <Route element={<MainLayout lang={lang} setLang={setLang} />}>
         <Route path={ROUTES.HOME} element={<HomePage lang={lang} />} />
         <Route path={ROUTES.POIS} element={<PoisPage lang={lang} />} />

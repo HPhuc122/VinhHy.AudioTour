@@ -8,6 +8,4 @@ export const ROUTES = {
   MAP: '/ban-do',
   SEARCH: '/tim-kiem',
   QR: '/qr/:code',
-  LOGIN: '/login',
-  REGISTER: '/register',
 } as const;
