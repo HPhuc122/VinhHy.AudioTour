@@ -16,9 +16,22 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { getDefaultRouteForRole, ROLE_VENDOR } from '@/features/auth/roleAccess';
 
 const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
-const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
+const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'TourOperator'];
+const VENDOR_ROLES = [ROLE_VENDOR];
+
+function RoleLandingRoute() {
+  const { user } = useAuth();
+
+  if (user?.role === ROLE_VENDOR) {
+    return <Navigate to={getDefaultRouteForRole(user.role)} replace />;
+  }
+
+  return <DashboardPage />;
+}
 
 export function AppRoutes() {
   return (
@@ -27,8 +40,10 @@ export function AppRoutes() {
         <Route path={routes.login} element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path={routes.dashboard} element={<DashboardPage />} />
-            <Route path={routes.profile} element={<ProfilePage />} />
+            <Route path={routes.dashboard} element={<RoleLandingRoute />} />
+            <Route element={<ProtectedRoute allowedRoles={[...ADMIN_ROLES, ...CONTENT_ROLES]} />}>
+              <Route path={routes.profile} element={<ProfilePage />} />
+            </Route>
             <Route element={<ProtectedRoute allowedRoles={CONTENT_ROLES} />}>
               <Route path={routes.tours} element={<TourListPage />} />
               <Route path={routes.tourCreate} element={<TourCreatePage />} />
@@ -40,6 +55,9 @@ export function AppRoutes() {
             </Route>
             <Route element={<ProtectedRoute allowedRoles={CONTENT_ROLES} />}>
               <Route path={routes.pois} element={<PoiPage />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={VENDOR_ROLES} />}>
+              <Route path={routes.registerPoi} element={<PoiPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={ADMIN_ROLES} />}>
               <Route path={routes.languages} element={<LanguagePage />} />

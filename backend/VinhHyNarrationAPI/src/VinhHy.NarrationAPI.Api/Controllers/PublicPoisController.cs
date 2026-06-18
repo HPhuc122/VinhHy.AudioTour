@@ -20,13 +20,14 @@ public class PublicPoisController(IPoiService poiService) : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var result = await poiService.GetPagedAsync(
-            page,
-            pageSize,
-            search,
-            category,
+            page: page,
+            pageSize: pageSize,
+            search: search,
+            category: category,
             isActive: true,
+            approvalStatus: null,
             includeDeleted: false,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         return this.ApiOk(result);
     }

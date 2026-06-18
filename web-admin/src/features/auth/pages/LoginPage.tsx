@@ -1,13 +1,13 @@
 import { Navigate } from 'react-router-dom';
-import { routes } from '@/config/routes';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
 
 export function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   if (isAuthenticated) {
-    return <Navigate to={routes.dashboard} replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return (

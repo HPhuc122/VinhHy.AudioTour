@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { poisApi } from '../api/poisApi';
+import { usersApi } from '../../users/api/usersApi';
 import { useToast } from '../../../components/ui/Toast';
 import { Modal } from '../../../components/ui/Modal';
 import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
+import { FormField } from '../../../components/ui/FormField';
 import MapPickerOverlay from './MapPickerOverlay';
 
 const createSchema = z.object({
+  name: z.string().trim().min(1, 'Tên địa điểm là bắt buộc'),
+  userId: z.coerce.number().optional(),
+  shortDescription: z.string().optional(),
+  description: z.string().optional(),
   imageFile: z.any().optional(),
+  imageFiles: z.any().optional(),
   category: z.string().optional(),
   audioUrl: z.string().optional(),
   isActive: z.boolean().optional(),
@@ -39,6 +46,7 @@ interface Props {
   onSubmit: (data: CreateForm | EditForm) => void;
   loading?: boolean;
   editPoi?: any;
+  isVendorMode?: boolean;
 }
 
 const CATEGORY_OPTIONS = [
@@ -48,6 +56,10 @@ const CATEGORY_OPTIONS = [
 ];
 
 const defaultValues = {
+  name: '',
+  userId: 0,
+  shortDescription: '',
+  description: '',
   isActive: true,
   radiusMeters: 30,
   priority: 1,
@@ -55,12 +67,26 @@ const defaultValues = {
   minDwellSeconds: 5,
 };
 
-export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
+export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = false }: Props) {
   const isEdit = Boolean(editPoi);
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<string[]>([]);
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users', 'poi-owner-options'],
+    queryFn: () => usersApi.getAll(1, 100),
+    enabled: open && !isVendorMode,
+  });
+
+  const ownerOptions = [
+    { value: 0, label: '-- Thuộc hệ thống (Admin) --' },
+    ...(usersData?.items ?? []).map((user) => ({
+      value: user.id,
+      label: user.username || user.email,
+    })),
+  ];
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => poisApi.create(data),
@@ -76,7 +102,12 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
     resolver: zodResolver(isEdit ? editSchema : createSchema) as any,
     defaultValues: isEdit
       ? {
+          name: editPoi?.name ?? '',
+          userId: editPoi?.userId ?? 0,
+          shortDescription: editPoi?.shortDescription ?? '',
+          description: editPoi?.description ?? '',
           imageFile: undefined,
+          imageFiles: undefined,
           category: editPoi?.category ?? '',
           isActive: editPoi?.isActive ?? true,
           latitude: editPoi?.latitude,
@@ -97,7 +128,12 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
     form.reset(
       isEdit
         ? {
+            name: editPoi?.name ?? '',
+            userId: editPoi?.userId ?? 0,
+            shortDescription: editPoi?.shortDescription ?? '',
+            description: editPoi?.description ?? '',
             imageFile: undefined,
+            imageFiles: undefined,
             category: editPoi?.category ?? '',
             isActive: editPoi?.isActive ?? true,
             latitude: editPoi?.latitude,
@@ -109,13 +145,20 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
           }
         : defaultValues,
     );
-    setPreview(null);
+    setPreviews([]);
   }, [open, editPoi]);
 
   const handleSubmit = async (data: CreateForm | EditForm) => {
     try {
       const formData = new FormData();
       const values = data as any;
+      formData.append('Name', values.name ?? '');
+      if (!isVendorMode && Number(values.userId) > 0) {
+        formData.append('UserId', String(values.userId));
+      }
+
+      formData.append('ShortDescription', values.shortDescription ?? '');
+      formData.append('Description', values.description ?? '');
       formData.append('Category', values.category ?? '');
       formData.append(
         'Latitude',
@@ -149,7 +192,10 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
       );
       formData.append('IsActive', values.isActive ? 'true' : 'false');
 
-      if (values.imageFile) {
+      const imageFiles = Array.isArray(values.imageFiles) ? values.imageFiles : [];
+      if (imageFiles.length > 0) {
+        imageFiles.forEach((file: File) => formData.append('Images', file));
+      } else if (values.imageFile) {
         formData.append('Image', values.imageFile);
       }
 
@@ -157,6 +203,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
         await updateMutation.mutateAsync({ id: editPoi.id, data: formData });
         toast('Cập nhật địa điểm thành công', 'success');
       } else {
+        formData.append('ApprovalStatus', isVendorMode ? '0' : '1');
         await createMutation.mutateAsync(formData);
         toast('Tạo địa điểm thành công', 'success');
       }
@@ -191,21 +238,78 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
       <div className="flex flex-col gap-4">
         {isEdit ? <Input label="Mã địa điểm" value={editPoi?.code ?? ''} disabled /> : null}
 
+        <Input
+          label="Tên địa điểm"
+          placeholder="Nhập tên địa điểm"
+          error={(form.formState.errors as any).name?.message}
+          {...form.register('name')}
+          required
+        />
+
+        {!isVendorMode ? (
+          <Select
+            label="Chủ sở hữu (Tùy chọn)"
+            options={ownerOptions}
+            {...form.register('userId')}
+          />
+        ) : null}
+
+        <FormField
+          label="Mô tả ngắn"
+          htmlFor="poi-short-description"
+          error={(form.formState.errors as any).shortDescription?.message}
+        >
+          <textarea
+            id="poi-short-description"
+            rows={2}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nhập mô tả ngắn"
+            {...form.register('shortDescription')}
+          />
+        </FormField>
+
+        <FormField
+          label="Mô tả chi tiết"
+          htmlFor="poi-description"
+          error={(form.formState.errors as any).description?.message}
+        >
+          <textarea
+            id="poi-description"
+            rows={4}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Nhập mô tả chi tiết"
+            {...form.register('description')}
+          />
+        </FormField>
+
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-700">Ảnh địa điểm</label>
           <input
             type="file"
             accept="image/*"
+            multiple
             className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-lime-400 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-lime-900 hover:file:bg-lime-500"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                form.setValue('imageFile', file);
-                setPreview(URL.createObjectURL(file));
+              const files = Array.from(event.target.files ?? []);
+              if (files.length > 0) {
+                form.setValue('imageFiles', files);
+                form.setValue('imageFile', files[0]);
+                setPreviews(files.map((file) => URL.createObjectURL(file)));
               }
             }}
           />
-          {preview ? <img src={preview} alt="Xem trước" className="mt-2 max-h-40 object-contain" /> : null}
+          {previews.length > 0 ? (
+            <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {previews.map((previewUrl, index) => (
+                <img
+                  key={previewUrl}
+                  src={previewUrl}
+                  alt={`Xem trước ${index + 1}`}
+                  className="h-24 w-full rounded-md border object-cover"
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <Select
@@ -270,10 +374,30 @@ export function PoiFormModal({ open, onClose, loading, editPoi }: Props) {
         />
 
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Bán kính (m)" type="number" {...form.register('radiusMeters')} />
-          <Input label="Độ ưu tiên" type="number" {...form.register('priority')} />
-          <Input label="Thời gian chờ (giây)" type="number" {...form.register('cooldownSeconds')} />
-          <Input label="Thời gian dừng tối thiểu (giây)" type="number" {...form.register('minDwellSeconds')} />
+          <Input
+            label="Bán kính (m)"
+            type="number"
+            disabled={isVendorMode}
+            {...form.register('radiusMeters')}
+          />
+          <Input
+            label="Độ ưu tiên"
+            type="number"
+            disabled={isVendorMode}
+            {...form.register('priority')}
+          />
+          <Input
+            label="Thời gian chờ (giây)"
+            type="number"
+            disabled={isVendorMode}
+            {...form.register('cooldownSeconds')}
+          />
+          <Input
+            label="Thời gian dừng tối thiểu (giây)"
+            type="number"
+            disabled={isVendorMode}
+            {...form.register('minDwellSeconds')}
+          />
         </div>
       </div>
     </Modal>

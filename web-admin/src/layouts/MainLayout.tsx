@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { displayRoleName, roleMatches } from '@/features/auth/roleAccess';
+import { displayRoleName, isVendorRole, roleMatches, ROLE_VENDOR } from '@/features/auth/roleAccess';
 
 interface NavItem {
   to: string;
@@ -11,17 +11,19 @@ interface NavItem {
 }
 
 const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
-const VENDOR_CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
+const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'TourOperator'];
+const VENDOR_ROLES = [ROLE_VENDOR];
 
 const NAV_ITEMS: NavItem[] = [
-  { to: routes.dashboard, label: 'Bảng điều khiển', icon: 'D' },
+  { to: routes.dashboard, label: 'Bảng điều khiển', icon: 'D', roles: CONTENT_ROLES },
   { to: routes.users, label: 'Người dùng', icon: 'U', roles: ADMIN_ROLES },
   { to: routes.roles, label: 'Phân quyền', icon: 'R', roles: ADMIN_ROLES },
-  { to: routes.pois, label: 'Địa điểm (POI)', icon: 'P', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.pois, label: 'Địa điểm (POI)', icon: 'P', roles: CONTENT_ROLES },
+  { to: routes.registerPoi, label: 'Đăng ký POI', icon: 'S', roles: VENDOR_ROLES },
   { to: routes.languages, label: 'Ngôn ngữ', icon: 'L', roles: ADMIN_ROLES },
-  { to: routes.tours, label: 'Tour', icon: 'T', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.media, label: 'Thư viện', icon: 'M', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.tours, label: 'Tour', icon: 'T', roles: CONTENT_ROLES },
+  { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: CONTENT_ROLES },
+  { to: routes.media, label: 'Thư viện', icon: 'M', roles: CONTENT_ROLES },
 ];
 
 export function MainLayout() {
@@ -34,6 +36,7 @@ export function MainLayout() {
   };
 
   const visibleNav = NAV_ITEMS.filter((item) => roleMatches(user?.role, item.roles));
+  const isVendor = isVendorRole(user?.role);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -74,9 +77,16 @@ export function MainLayout() {
         </nav>
 
         <div className="border-t border-gray-700 p-4">
-          <NavLink
-            to={routes.profile}
-            className="mb-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+          <div
+            className={`mb-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 ${
+              isVendor ? '' : 'transition-colors hover:bg-gray-800 hover:text-white'
+            }`}
+            role={isVendor ? undefined : 'link'}
+            onClick={() => {
+              if (!isVendor) {
+                navigate(routes.profile);
+              }
+            }}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-xs font-bold uppercase text-white">
               {user?.username?.[0] ?? 'U'}
@@ -85,7 +95,7 @@ export function MainLayout() {
               <p className="truncate text-sm font-medium text-gray-200">{user?.username}</p>
               <p className="truncate text-xs text-gray-500">{displayRoleName(user?.role)}</p>
             </div>
-          </NavLink>
+          </div>
 
           <button
             onClick={handleLogout}

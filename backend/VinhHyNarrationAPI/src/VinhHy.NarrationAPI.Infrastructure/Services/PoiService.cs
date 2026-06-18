@@ -1,4 +1,7 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
+using System.Text.Json;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
@@ -15,14 +18,21 @@ public class PoiService : IPoiService
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
     private readonly IFileUploadService _fileUploadService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private const string PoiUploadDirectory = "uploads/pois";
 
-    public PoiService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete, IFileUploadService fileUploadService)
+    public PoiService(
+        IUnitOfWork uow,
+        IMapper mapper,
+        SoftDeleteService softDelete,
+        IFileUploadService fileUploadService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
         _fileUploadService = fileUploadService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<PoiDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -42,7 +52,7 @@ public class PoiService : IPoiService
         CancellationToken cancellationToken = default)
     {
         // Backwards-compatible wrapper that delegates to new signature
-        return await GetPagedAsync(filter.Page, filter.PageSize, filter.Search, filter.Category, filter.IsActive, filter.IncludeDeleted, cancellationToken).ConfigureAwait(false);
+        return await GetPagedAsync(filter.Page, filter.PageSize, filter.Search, filter.Category, filter.IsActive, filter.ApprovalStatus, filter.IncludeDeleted, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<PagedResult<PoiDto>> GetPagedAsync(
@@ -51,11 +61,22 @@ public class PoiService : IPoiService
         string? search = null,
         string? category = null,
         bool? isActive = null,
+        ApprovalStatus? approvalStatus = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
         // Delegate to repository which already applies filters and supports includeDeleted/IgnoreQueryFilters.
-        var (items, total) = await _uow.Pois.GetPagedAsync(page, pageSize, search, category, isActive, includeDeleted, cancellationToken).ConfigureAwait(false);
+        var ownerUserId = IsCurrentUserVendor() ? GetCurrentUserId() : null;
+        var (items, total) = await _uow.Pois.GetPagedAsync(
+            page,
+            pageSize,
+            search,
+            category,
+            isActive,
+            approvalStatus,
+            ownerUserId,
+            includeDeleted,
+            cancellationToken).ConfigureAwait(false);
 
         return PagedResult<PoiDto>.Create(
             _mapper.Map<IReadOnlyList<PoiDto>>(items),
@@ -68,17 +89,15 @@ public class PoiService : IPoiService
         CreatePoiRequest request,
         CancellationToken cancellationToken = default)
     {
-        // Handle image file upload if provided
-        string? imageUrl = null;
-        if (request.Image is not null && request.Image.Length > 0)
-        {
-            imageUrl = await _fileUploadService.SaveFileAsync(request.Image, PoiUploadDirectory, cancellationToken).ConfigureAwait(false);
-        }
+        var imageUrls = await SavePoiImagesAsync(request.Images, request.Image, cancellationToken)
+            .ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         var poi = _mapper.Map<Poi>(request);
         poi.Code = await GenerateUniqueCodeAsync("POI", cancellationToken).ConfigureAwait(false);
-        poi.ImageUrl = imageUrl;
+        poi.UserId = ResolveOwnerUserIdForCreate(request.UserId);
+        poi.ImageUrl = imageUrls.FirstOrDefault();
+        poi.ImageUrls = SerializeImageUrls(imageUrls);
         poi.CreatedAt = now;
         poi.UpdatedAt = now;
 
@@ -96,36 +115,68 @@ public class PoiService : IPoiService
         var poi = await _uow.Pois.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Poi), id);
 
+        var isVendor = IsCurrentUserVendor();
+        ApplyOwnerUserIdForUpdate(poi, request.UserId);
+
+        var hasNewImages = request.Images.Any(image => image.Length > 0) ||
+            (request.Image is not null && request.Image.Length > 0);
+        var shouldResetApprovalStatus = isVendor && HasApprovalSensitiveUpdate(poi, request, hasNewImages);
+
+        if (request.Name is not null) poi.Name = request.Name;
+        if (request.ShortDescription is not null) poi.ShortDescription = request.ShortDescription;
+        if (request.Description is not null) poi.Description = request.Description;
         if (request.Latitude.HasValue) poi.Latitude = request.Latitude.Value;
         if (request.Longitude.HasValue) poi.Longitude = request.Longitude.Value;
         if (request.RadiusMeters.HasValue) poi.RadiusMeters = request.RadiusMeters.Value;
         if (request.Priority.HasValue) poi.Priority = request.Priority.Value;
         if (request.IsActive.HasValue) poi.IsActive = request.IsActive.Value;
 
-        // Handle image file update if provided
-        if (request.Image is not null && request.Image.Length > 0)
+        if (hasNewImages)
         {
-            // Delete old image if it exists
-            if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
-            {
-                _fileUploadService.DeleteFile(poi.ImageUrl);
-            }
+            DeletePoiImages(poi);
 
-            // Upload new image
-            poi.ImageUrl = await _fileUploadService.SaveFileAsync(request.Image, PoiUploadDirectory, cancellationToken).ConfigureAwait(false);
+            var imageUrls = await SavePoiImagesAsync(request.Images, request.Image, cancellationToken)
+                .ConfigureAwait(false);
+            poi.ImageUrl = imageUrls.FirstOrDefault();
+            poi.ImageUrls = SerializeImageUrls(imageUrls);
         }
         else if (request.ImageUrl is not null)
         {
             // Only update if explicitly provided (not null from client)
             poi.ImageUrl = request.ImageUrl;
+            poi.ImageUrls = SerializeImageUrls([request.ImageUrl]);
         }
 
         if (request.Category is not null) poi.Category = request.Category;
         if (request.CooldownSeconds.HasValue) poi.CooldownSeconds = request.CooldownSeconds.Value;
         if (request.MinDwellSeconds.HasValue) poi.MinDwellSeconds = request.MinDwellSeconds.Value;
+        if (shouldResetApprovalStatus) poi.ApprovalStatus = ApprovalStatus.Pending;
 
         poi.Version++;
         poi.UpdatedAt = DateTime.UtcNow;
+        _uow.Pois.Update(poi);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return _mapper.Map<PoiDto>(poi);
+    }
+
+    public async Task<PoiDto> UpdateApprovalStatusAsync(
+        int id,
+        UpdatePoiApprovalStatusRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(request.ApprovalStatus))
+        {
+            throw new ValidationException(nameof(request.ApprovalStatus), "Approval status is invalid.");
+        }
+
+        var poi = await _uow.Pois.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Poi), id);
+
+        poi.ApprovalStatus = request.ApprovalStatus;
+        poi.Version++;
+        poi.UpdatedAt = DateTime.UtcNow;
+
         _uow.Pois.Update(poi);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
@@ -173,5 +224,136 @@ public class PoiService : IPoiService
         }
 
         throw new ValidationException(nameof(Poi.Code), "Unable to generate a unique POI code.");
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var value = _httpContextAccessor.HttpContext?.User
+            .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return int.TryParse(value, out var userId) ? userId : null;
+    }
+
+    private int? ResolveOwnerUserIdForCreate(int? requestedUserId)
+    {
+        return IsCurrentUserVendor()
+            ? GetCurrentUserId() ?? throw new UnauthorizedException("Current user id is required to create a POI.")
+            : NormalizeOwnerUserId(requestedUserId);
+    }
+
+    private void ApplyOwnerUserIdForUpdate(Poi poi, int? requestedUserId)
+    {
+        if (!IsCurrentUserVendor())
+        {
+            if (requestedUserId.HasValue)
+            {
+                poi.UserId = NormalizeOwnerUserId(requestedUserId);
+            }
+
+            return;
+        }
+
+        var currentUserId = GetCurrentUserId()
+            ?? throw new UnauthorizedException("Current user id is required to update a POI.");
+
+        if (poi.UserId != currentUserId)
+        {
+            throw new UnauthorizedException("You are not allowed to update this POI.");
+        }
+    }
+
+    private static int? NormalizeOwnerUserId(int? userId) =>
+        userId.GetValueOrDefault() > 0 ? userId : null;
+
+    private static bool HasApprovalSensitiveUpdate(Poi poi, UpdatePoiRequest request, bool hasNewImages)
+    {
+        return hasNewImages ||
+            HasStringChanged(request.Name, poi.Name) ||
+            HasStringChanged(request.ShortDescription, poi.ShortDescription) ||
+            HasStringChanged(request.Description, poi.Description) ||
+            HasStringChanged(request.ImageUrl, poi.ImageUrl) ||
+            HasStringChanged(request.Category, poi.Category) ||
+            (request.Latitude.HasValue && request.Latitude.Value != poi.Latitude) ||
+            (request.Longitude.HasValue && request.Longitude.Value != poi.Longitude) ||
+            (request.RadiusMeters.HasValue && request.RadiusMeters.Value != poi.RadiusMeters) ||
+            (request.Priority.HasValue && request.Priority.Value != poi.Priority) ||
+            (request.CooldownSeconds.HasValue && request.CooldownSeconds.Value != poi.CooldownSeconds) ||
+            (request.MinDwellSeconds.HasValue && request.MinDwellSeconds.Value != poi.MinDwellSeconds);
+    }
+
+    private static bool HasStringChanged(string? requestedValue, string? currentValue) =>
+        requestedValue is not null &&
+        !string.Equals(
+            NormalizeOptionalText(requestedValue),
+            NormalizeOptionalText(currentValue),
+            StringComparison.Ordinal);
+
+    private static string NormalizeOptionalText(string? value) => value ?? string.Empty;
+
+    private bool IsCurrentUserVendor()
+    {
+        var role = _httpContextAccessor.HttpContext?.User
+            .FindFirst(ClaimTypes.Role)?.Value;
+
+        return string.Equals(role, RoleNames.Vendor, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<IReadOnlyList<string>> SavePoiImagesAsync(
+        IEnumerable<IFormFile> images,
+        IFormFile? fallbackImage,
+        CancellationToken cancellationToken)
+    {
+        var files = images
+            .Where(image => image.Length > 0)
+            .ToList();
+
+        if (files.Count == 0 && fallbackImage is not null && fallbackImage.Length > 0)
+        {
+            files.Add(fallbackImage);
+        }
+
+        var urls = new List<string>(files.Count);
+        foreach (var file in files)
+        {
+            var url = await _fileUploadService.SaveFileAsync(file, PoiUploadDirectory, cancellationToken)
+                .ConfigureAwait(false);
+            urls.Add(url);
+        }
+
+        return urls;
+    }
+
+    private void DeletePoiImages(Poi poi)
+    {
+        var urls = DeserializeImageUrls(poi.ImageUrls).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
+        {
+            urls.Add(poi.ImageUrl);
+        }
+
+        foreach (var url in urls)
+        {
+            _fileUploadService.DeleteFile(url);
+        }
+    }
+
+    private static string? SerializeImageUrls(IReadOnlyList<string> imageUrls) =>
+        imageUrls.Count == 0 ? null : JsonSerializer.Serialize(imageUrls);
+
+    private static IReadOnlyList<string> DeserializeImageUrls(string? imageUrls)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrls))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(imageUrls) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }

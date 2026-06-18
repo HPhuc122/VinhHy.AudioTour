@@ -1,4 +1,5 @@
 using AutoMapper;
+using System.Text.Json;
 using VinhHy.NarrationAPI.Application.Features.Analytics.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Audio.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Audit.DTOs;
@@ -40,13 +41,17 @@ public class MappingProfile : Profile
             .ForMember(d => d.SyncHistories, opt => opt.Ignore())
             .ForMember(d => d.DeletedRecords, opt => opt.Ignore())
             .ForMember(d => d.AuditLogs, opt => opt.Ignore())
-            .ForMember(d => d.ContentVersions, opt => opt.Ignore());
+            .ForMember(d => d.ContentVersions, opt => opt.Ignore())
+            .ForMember(d => d.Pois, opt => opt.Ignore());
 
         CreateMap<Poi, PoiDto>()
+            .ForMember(d => d.ImageUrls, opt => opt.MapFrom(s => DeserializeImageUrls(s.ImageUrls)))
             .ForMember(
                 d => d.DisplayName,
                 opt => opt.MapFrom(s =>
-                    s.Translations
+                    !string.IsNullOrWhiteSpace(s.Name)
+                        ? s.Name
+                        : s.Translations
                         .OrderBy(t => t.LanguageCode == "vi" ? 0 : 1)
                         .ThenBy(t => t.LanguageCode)
                         .Select(t => t.Name)
@@ -54,7 +59,10 @@ public class MappingProfile : Profile
         CreateMap<CreatePoiRequest, Poi>()
             .ForMember(d => d.Id, opt => opt.Ignore())
             .ForMember(d => d.Code, opt => opt.Ignore())
+            .ForMember(d => d.UserId, opt => opt.Ignore())
+            .ForMember(d => d.User, opt => opt.Ignore())
             .ForMember(d => d.ImageUrl, opt => opt.Ignore())
+            .ForMember(d => d.ImageUrls, opt => opt.Ignore())
             .ForMember(d => d.DeletedAt, opt => opt.Ignore())
             .ForMember(d => d.Version, opt => opt.Ignore())
             .ForMember(d => d.CreatedAt, opt => opt.Ignore())
@@ -66,7 +74,8 @@ public class MappingProfile : Profile
             .ForMember(d => d.NarrationLogs, opt => opt.Ignore())
             .ForMember(d => d.AnalyticsDaily, opt => opt.Ignore());
 
-        CreateMap<Poi, SyncablePoiDto>();
+        CreateMap<Poi, SyncablePoiDto>()
+            .ForMember(d => d.ImageUrls, opt => opt.MapFrom(s => DeserializeImageUrls(s.ImageUrls)));
         CreateMap<Poi, GeofenceConfigDto>()
             .ForMember(d => d.POIId, opt => opt.MapFrom(s => s.Id))
             .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Code));
@@ -176,5 +185,22 @@ public class MappingProfile : Profile
             .ForMember(d => d.Username, opt => opt.MapFrom(s => s.User != null ? s.User.Username : null));
 
         CreateMap<Device, DeviceDto>();
+    }
+
+    private static IReadOnlyList<string> DeserializeImageUrls(string? imageUrls)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrls))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<string[]>(imageUrls) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 }

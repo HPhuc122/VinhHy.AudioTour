@@ -39,4 +39,6 @@ public class User : IAuditableEntity
     public ICollection<AuditLog> AuditLogs { get; set; } = [];
 
     public ICollection<ContentVersion> ContentVersions { get; set; } = [];
+
+    public ICollection<Poi> Pois { get; set; } = [];
 }

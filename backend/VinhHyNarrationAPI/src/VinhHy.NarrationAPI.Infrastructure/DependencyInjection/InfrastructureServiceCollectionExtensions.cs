@@ -20,6 +20,7 @@ public static class InfrastructureServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.AddHttpContextAccessor();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
 
         var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");

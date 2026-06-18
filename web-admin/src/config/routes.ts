@@ -10,6 +10,7 @@ export const routes = {
   qrCreate: '/qr/create',
   qrEdit: '/qr/:id/edit',
   pois: '/pois',
+  registerPoi: '/register-poi',
   languages: '/languages',
   users: '/users',
   roles: '/roles',

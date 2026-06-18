@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260618035758_UpdatePoiEntity")]
+    partial class UpdatePoiEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -753,9 +756,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Version")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -770,8 +770,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasFilter("[DeletedAt] IS NOT NULL");
 
                     b.HasIndex("UpdatedAt");
-
-                    b.HasIndex("UserId");
 
                     b.HasIndex("Latitude", "Longitude")
                         .HasFilter("[IsActive] = 1 AND [DeletedAt] IS NULL");
@@ -1314,16 +1312,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Navigation("Tour");
                 });
 
-            modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.Poi", b =>
-                {
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "User")
-                        .WithMany("Pois")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.PoiTranslation", b =>
                 {
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Poi", "Poi")
@@ -1469,8 +1457,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Navigation("Devices");
 
                     b.Navigation("NarrationLogs");
-
-                    b.Navigation("Pois");
 
                     b.Navigation("SyncHistories");
                 });
