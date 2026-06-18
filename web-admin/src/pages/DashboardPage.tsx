@@ -8,6 +8,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
 import { poisApi, type PoiDto } from '@/features/pois/api/poisApi';
+import { buildAssetUrl } from '@/utils/assetUrl';
 
 const DEFAULT_CENTER: [number, number] = [10.7615, 106.7033];
 const DEFAULT_ZOOM = 17;
@@ -108,7 +109,7 @@ export function DashboardPage() {
         ) : null}
 
         <Card className="overflow-hidden p-0">
-          <div className="relative h-[420px] w-full">
+          <div className="relative h-[840px] w-full">
             {poisQuery.isLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
                 Đang tải bản đồ địa điểm...
@@ -169,6 +170,7 @@ interface PoiMapPoint {
   code: string;
   name: string;
   category?: string | null;
+  imageUrl?: string | null;
   isActive: boolean;
   latitude: number;
   longitude: number;
@@ -177,21 +179,32 @@ interface PoiMapPoint {
 function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
   return (
     <MapContainer
-      center={points[0] ? [points[0].latitude, points[0].longitude] : DEFAULT_CENTER}
+      center={DEFAULT_CENTER}
       zoom={DEFAULT_ZOOM}
       scrollWheelZoom
       className="h-full w-full"
     >
       <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
-      <FitPoiBounds points={points} />
+      <FocusDefaultMap />
       {points.map((poi) => (
         <Marker
           key={poi.id}
           position={[poi.latitude, poi.longitude]}
           icon={poiMarkerIcon}
+          eventHandlers={{
+            mouseover: (event) => event.target.openPopup(),
+            mouseout: (event) => event.target.closePopup(),
+          }}
         >
           <Popup>
-            <div className="min-w-40 text-sm">
+            <div className="w-52 text-sm">
+              {poi.imageUrl ? (
+                <img
+                  src={poi.imageUrl}
+                  alt={poi.name || poi.code}
+                  className="mb-2 h-28 w-full rounded-md object-cover"
+                />
+              ) : null}
               <p className="font-semibold text-gray-900">{poi.name || poi.code}</p>
               <p className="text-xs text-gray-500">{poi.code}</p>
               {poi.category ? <p className="mt-1 text-xs text-gray-600">{poi.category}</p> : null}
@@ -210,26 +223,23 @@ function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
   );
 }
 
-function FitPoiBounds({ points }: { points: PoiMapPoint[] }) {
+function FocusDefaultMap() {
   const map = useMap();
 
   useEffect(() => {
-    window.setTimeout(() => map.invalidateSize(), 0);
-
-    if (points.length === 0) {
+    const refreshMapSize = () => {
+      map.invalidateSize();
       map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-      return;
-    }
+    };
 
-    if (points.length === 1) {
-      const point = points[0]!;
-      map.setView([point.latitude, point.longitude], DEFAULT_ZOOM);
-      return;
-    }
+    const animationFrameId = window.requestAnimationFrame(refreshMapSize);
+    const timeoutIds = [100, 300, 700].map((delay) => window.setTimeout(refreshMapSize, delay));
 
-    const bounds = L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
-  }, [map, points]);
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, [map]);
 
   return null;
 }
@@ -248,6 +258,7 @@ function getPoiMapPoints(pois: PoiDto[]): PoiMapPoint[] {
         code: poi.code,
         name: poi.name || poi.displayName || poi.code,
         category: poi.category,
+        imageUrl: getPoiPreviewImageUrl(poi),
         isActive: poi.isActive,
         latitude,
         longitude,
@@ -255,6 +266,14 @@ function getPoiMapPoints(pois: PoiDto[]): PoiMapPoint[] {
 
       return points;
     }, []);
+}
+
+function getPoiPreviewImageUrl(poi: PoiDto): string | null {
+  const rawUrl = Array.isArray(poi.imageUrls) && poi.imageUrls.length > 0
+    ? poi.imageUrls[0]
+    : poi.imageUrl;
+
+  return rawUrl ? buildAssetUrl(rawUrl) : null;
 }
 
 function parseCoordinate(value?: number | string | null): number | null {
