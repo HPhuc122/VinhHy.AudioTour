@@ -8,12 +8,13 @@ export const analyticsQueryKeys = {
   dashboard: () => [...analyticsQueryKeys.all, 'dashboard'] as const,
 };
 
-export function useDashboardStatsQuery() {
+export function useDashboardStatsQuery(options?: { enabled?: boolean }) {
   const { httpClient } = useAuth();
   const analyticsApi = useMemo(() => createAnalyticsApi(httpClient), [httpClient]);
 
   return useQuery({
     queryKey: analyticsQueryKeys.dashboard(),
     queryFn: () => analyticsApi.getDashboard(),
+    enabled: options?.enabled ?? true,
   });
 }

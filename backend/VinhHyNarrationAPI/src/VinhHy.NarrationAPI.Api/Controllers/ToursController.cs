@@ -10,7 +10,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/tours")]
-[Authorize]
+[Authorize(Roles = RoleGroups.AdminOrTourOrContent)]
 public class ToursController(ITourService tourService) : ControllerBase
 {
     [HttpGet("{id:int}")]

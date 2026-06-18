@@ -11,4 +11,10 @@ public class UploadMediaRequest
     public long FileSize { get; set; }
 
     public int? UploadedByUserId { get; set; }
+
+    public bool ImageOnly { get; set; }
+
+    public string? ApprovalStatus { get; set; }
+
+    public int? ReviewedByUserId { get; set; }
 }

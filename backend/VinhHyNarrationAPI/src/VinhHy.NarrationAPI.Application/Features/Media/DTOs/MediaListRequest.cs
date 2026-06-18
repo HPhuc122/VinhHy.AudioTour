@@ -8,5 +8,9 @@ public class MediaListRequest : PaginationRequest
 
     public string? FileType { get; set; }
 
+    public string? ApprovalStatus { get; set; }
+
     public bool IncludeDeleted { get; set; }
+
+    public int? UploadedByUserId { get; set; }
 }

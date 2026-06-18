@@ -7,6 +7,8 @@ const MEDIA_BASE = '/api/v1/media';
 
 export type MediaFileType = 'image' | 'audio';
 export type MediaFilterType = 'all' | MediaFileType;
+export type ApprovalStatus = 'Pending' | 'Approved' | 'Rejected';
+export type ApprovalStatusFilter = 'all' | ApprovalStatus;
 
 export interface MediaFileDto {
   id: number;
@@ -20,6 +22,12 @@ export interface MediaFileDto {
   uploadedAt: string;
   uploadedByUserId?: number | null;
   uploadedByUsername?: string | null;
+  approvalStatus: ApprovalStatus;
+  submittedAt?: string | null;
+  reviewedByUserId?: number | null;
+  reviewedByUsername?: string | null;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
   isDeleted: boolean;
 }
 
@@ -28,6 +36,7 @@ export interface MediaSearchFilter {
   pageSize?: number;
   search?: string;
   fileType?: MediaFilterType;
+  approvalStatus?: ApprovalStatusFilter;
   includeDeleted?: boolean;
 }
 
@@ -47,6 +56,10 @@ export function createMediaApi(httpClient: AxiosInstance) {
             search: filter.search || undefined,
             fileType:
               filter.fileType && filter.fileType !== 'all' ? filter.fileType : undefined,
+            approvalStatus:
+              filter.approvalStatus && filter.approvalStatus !== 'all'
+                ? filter.approvalStatus
+                : undefined,
             includeDeleted: filter.includeDeleted,
           },
         },
@@ -80,6 +93,23 @@ export function createMediaApi(httpClient: AxiosInstance) {
     async restoreMedia(id: number): Promise<void> {
       const response = await httpClient.post<ApiResponse<null>>(`${MEDIA_BASE}/${id}/restore`);
       unwrapApiResponse(response.data, true);
+    },
+
+    async approveMedia(id: number): Promise<MediaFileDto> {
+      const response = await httpClient.post<ApiResponse<MediaFileDto>>(
+        `${MEDIA_BASE}/${id}/approve`,
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async rejectMedia(id: number, reason: string): Promise<MediaFileDto> {
+      const response = await httpClient.post<ApiResponse<MediaFileDto>>(
+        `${MEDIA_BASE}/${id}/reject`,
+        { reason },
+      );
+
+      return unwrapApiResponse(response.data);
     },
   };
 }

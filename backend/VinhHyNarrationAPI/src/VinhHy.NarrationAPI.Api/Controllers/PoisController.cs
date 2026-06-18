@@ -10,7 +10,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pois")]
-[Authorize]
+[Authorize(Roles = RoleGroups.AdminOrTourOrContent)]
 public class PoisController(IPoiService poiService) : ControllerBase
 {
     [HttpGet("{id:int}")]

@@ -24,5 +24,17 @@ public class MediaFileDto
 
     public string? UploadedByUsername { get; set; }
 
+    public string ApprovalStatus { get; set; } = null!;
+
+    public DateTime? SubmittedAt { get; set; }
+
+    public int? ReviewedByUserId { get; set; }
+
+    public string? ReviewedByUsername { get; set; }
+
+    public DateTime? ReviewedAt { get; set; }
+
+    public string? RejectionReason { get; set; }
+
     public bool IsDeleted { get; set; }
 }

@@ -107,6 +107,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPoiTranslationService, PoiTranslationService>();
         services.AddScoped<IAudioService, AudioService>();
         services.AddScoped<IMediaService, MediaService>();
+        services.AddScoped<INarrationDraftService, NarrationDraftService>();
         services.AddScoped<ITourService, TourService>();
         services.AddScoped<IQrService, QrService>();
         services.AddScoped<IPublicAccessService, PublicAccessService>();

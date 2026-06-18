@@ -21,7 +21,7 @@ export function LoginForm() {
 
     const trimmedUsername = username.trim();
     if (!trimmedUsername || !password) {
-      setValidationError('Username and password are required.');
+      setValidationError('Vui lòng nhập tên đăng nhập và mật khẩu.');
       return;
     }
 
@@ -39,7 +39,7 @@ export function LoginForm() {
     loginMutation.error instanceof ApiClientError
       ? loginMutation.error.message
       : loginMutation.error
-        ? 'Login failed. Please try again.'
+        ? 'Đăng nhập thất bại. Vui lòng thử lại.'
         : null;
 
   return (
@@ -47,7 +47,7 @@ export function LoginForm() {
       {validationError ? <Alert variant="error" message={validationError} /> : null}
       {apiError ? <Alert variant="error" message={apiError} /> : null}
 
-      <FormField label="Username" htmlFor="username">
+      <FormField label="Ten dang nhap" htmlFor="username">
         <Input
           id="username"
           name="username"
@@ -58,7 +58,7 @@ export function LoginForm() {
         />
       </FormField>
 
-      <FormField label="Password" htmlFor="password">
+      <FormField label="Mat khau" htmlFor="password">
         <Input
           id="password"
           name="password"
@@ -71,7 +71,7 @@ export function LoginForm() {
       </FormField>
 
       <Button type="submit" className="w-full" isLoading={loginMutation.isPending}>
-        Sign in
+        Dang nhap
       </Button>
     </form>
   );

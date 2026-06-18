@@ -7,6 +7,17 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+export interface VendorRegisterRequest {
+  username: string;
+  password: string;
+  confirmPassword: string;
+  email: string;
+  ownerName: string;
+  storeName: string;
+  phoneNumber?: string;
+  preferredLanguage: string;
+}
+
 export interface AuthTokensDto {
   accessToken: string;
   refreshToken: string;

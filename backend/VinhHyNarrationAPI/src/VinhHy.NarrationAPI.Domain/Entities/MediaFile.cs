@@ -1,4 +1,5 @@
 using VinhHy.NarrationAPI.Domain.Common;
+using VinhHy.NarrationAPI.Domain.Constants;
 
 namespace VinhHy.NarrationAPI.Domain.Entities;
 
@@ -20,7 +21,19 @@ public class MediaFile : BaseEntity
 
     public int? UploadedByUserId { get; set; }
 
+    public string ApprovalStatus { get; set; } = ApprovalStatuses.Pending;
+
+    public DateTime? SubmittedAt { get; set; }
+
+    public int? ReviewedByUserId { get; set; }
+
+    public DateTime? ReviewedAt { get; set; }
+
+    public string? RejectionReason { get; set; }
+
     public bool IsDeleted { get; set; }
 
     public User? UploadedByUser { get; set; }
+
+    public User? ReviewedByUser { get; set; }
 }

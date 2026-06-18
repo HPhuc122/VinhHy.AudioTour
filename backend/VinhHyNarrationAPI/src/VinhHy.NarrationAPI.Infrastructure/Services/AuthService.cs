@@ -2,6 +2,7 @@ using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Auth.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
@@ -90,14 +91,47 @@ public class AuthService : IAuthService
         };
     }
 
-    public async Task<LoginResponse> RegisterAsync(
+    public async Task RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken = default)
     {
-        await Task.CompletedTask.ConfigureAwait(false);
-        throw new ValidationException(
-            nameof(request.Username),
-            "Public guest registration is disabled. Guests must use QR access passes; admin/vendor accounts are created in web-admin.");
+        var username = request.Username.Trim();
+        var email = request.Email.Trim();
+
+        if (await _uow.Users.GetByUsernameAsync(username, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new ValidationException(nameof(request.Username), "Ten dang nhap da ton tai.");
+        }
+
+        if (await _uow.Users.GetByEmailAsync(email, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new ValidationException(nameof(request.Email), "Email da ton tai.");
+        }
+
+        var vendorRole = await _uow.Roles.GetByNameAsync(RoleNames.Vendor, cancellationToken)
+            .ConfigureAwait(false);
+        if (vendorRole is null)
+        {
+            throw new ValidationException(nameof(request.Username), "Vai tro Vendor chua duoc cau hinh.");
+        }
+
+        var now = DateTime.UtcNow;
+        var user = new User
+        {
+            Username = username,
+            Email = email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            RoleId = vendorRole.Id,
+            PreferredLanguage = string.IsNullOrWhiteSpace(request.PreferredLanguage)
+                ? "vi"
+                : request.PreferredLanguage.Trim(),
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await _uow.Users.AddAsync(user, cancellationToken).ConfigureAwait(false);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private Task<User?> FindUserByRefreshTokenAsync(

@@ -12,6 +12,5 @@ public interface IAuthService
         RegisterDeviceRequest request,
         CancellationToken cancellationToken = default);
 
-    // [NEW] Đăng ký tài khoản khách public
-    Task<LoginResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default);
+    Task RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default);
 }

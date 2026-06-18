@@ -1,10 +1,17 @@
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Alert } from '@/components/ui/Alert';
 import { routes } from '@/config/routes';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { useAuth } from '@/features/auth/context/AuthContext';
 
+interface LoginLocationState {
+  message?: string;
+}
+
 export function LoginPage() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const state = location.state as LoginLocationState | null;
 
   if (isAuthenticated) {
     return <Navigate to={routes.dashboard} replace />;
@@ -20,7 +27,24 @@ export function LoginPage() {
           <h1 className="text-xl font-bold text-gray-900">VinhHy AudioTour</h1>
           <p className="mt-1 text-sm text-gray-500">CMS Admin</p>
         </div>
+
+        {state?.message ? (
+          <div className="mb-4">
+            <Alert message={state.message} />
+          </div>
+        ) : null}
+
         <LoginForm />
+
+        <div className="mt-5 text-center">
+          <Link
+            to={routes.registerVendor}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
+          >
+            Đăng ký tài khoản chủ sạp
+          </Link>
+        </div>
+
         <p className="mt-6 text-center text-xs text-gray-400">
           © {new Date().getFullYear()} VinhHy AudioTour
         </p>

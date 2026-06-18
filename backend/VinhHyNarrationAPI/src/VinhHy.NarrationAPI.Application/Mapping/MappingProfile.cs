@@ -92,7 +92,8 @@ public class MappingProfile : Profile
 
         CreateMap<MediaFile, MediaFileDto>()
             .ForMember(d => d.PublicUrl, opt => opt.Ignore())
-            .ForMember(d => d.UploadedByUsername, opt => opt.MapFrom(s => s.UploadedByUser != null ? s.UploadedByUser.Username : null));
+            .ForMember(d => d.UploadedByUsername, opt => opt.MapFrom(s => s.UploadedByUser != null ? s.UploadedByUser.Username : null))
+            .ForMember(d => d.ReviewedByUsername, opt => opt.MapFrom(s => s.ReviewedByUser != null ? s.ReviewedByUser.Username : null));
 
         CreateMap<Tour, TourDto>()
             .ForMember(d => d.Pois, opt => opt.MapFrom(s => s.TourPois))

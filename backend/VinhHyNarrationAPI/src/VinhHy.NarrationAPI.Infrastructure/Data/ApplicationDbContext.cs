@@ -26,6 +26,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
+    public DbSet<NarrationDraft> NarrationDrafts => Set<NarrationDraft>();
+
     public DbSet<Tour> Tours => Set<Tour>();
 
     public DbSet<TourTranslation> TourTranslations => Set<TourTranslation>();

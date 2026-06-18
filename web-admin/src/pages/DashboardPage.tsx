@@ -2,11 +2,83 @@ import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { ROLE_VENDOR } from '@/features/auth/roleAccess';
+import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
+import { useNarrationsQuery } from '@/features/narrations/hooks/useNarrationsQuery';
 
 export function DashboardPage() {
-  const dashboardQuery = useDashboardStatsQuery();
+  const { user } = useAuth();
+  const isVendor = user?.role === ROLE_VENDOR;
+  const dashboardQuery = useDashboardStatsQuery({ enabled: !isVendor });
+  const vendorImagesAll = useMediaQuery(
+    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'all' },
+    { enabled: isVendor },
+  );
+  const vendorImagesPending = useMediaQuery(
+    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Pending' },
+    { enabled: isVendor },
+  );
+  const vendorImagesApproved = useMediaQuery(
+    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Approved' },
+    { enabled: isVendor },
+  );
+  const vendorImagesRejected = useMediaQuery(
+    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Rejected' },
+    { enabled: isVendor },
+  );
+  const vendorNarrationsPending = useNarrationsQuery(
+    { page: 1, pageSize: 1, status: 'Pending' },
+    { enabled: isVendor },
+  );
+  const vendorNarrationsApproved = useNarrationsQuery(
+    { page: 1, pageSize: 1, status: 'Approved' },
+    { enabled: isVendor },
+  );
+  const vendorNarrationsRejected = useNarrationsQuery(
+    { page: 1, pageSize: 1, status: 'Rejected' },
+    { enabled: isVendor },
+  );
+  const vendorNarrationsAudio = useNarrationsQuery(
+    { page: 1, pageSize: 1, status: 'AudioGenerated' },
+    { enabled: isVendor },
+  );
   const stats = dashboardQuery.data;
   const errorMessage = getErrorMessage(dashboardQuery.error);
+
+  if (isVendor) {
+    const isLoading =
+      vendorImagesAll.isLoading ||
+      vendorImagesPending.isLoading ||
+      vendorImagesApproved.isLoading ||
+      vendorImagesRejected.isLoading ||
+      vendorNarrationsPending.isLoading ||
+      vendorNarrationsApproved.isLoading ||
+      vendorNarrationsRejected.isLoading ||
+      vendorNarrationsAudio.isLoading;
+
+    return (
+      <section className="app-page">
+        <div>
+          <h1 className="app-title">Bảng điều khiển chủ sạp</h1>
+          <p className="app-subtitle">
+            Theo dõi trạng thái ảnh và bản thuyết minh đã gửi duyệt.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <DashboardCard label="Tổng ảnh" value={vendorImagesAll.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Ảnh chờ duyệt" value={vendorImagesPending.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Ảnh đã duyệt" value={vendorImagesApproved.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Ảnh từ chối" value={vendorImagesRejected.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Thuyết minh chờ duyệt" value={vendorNarrationsPending.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Thuyết minh đã duyệt" value={vendorNarrationsApproved.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Thuyết minh từ chối" value={vendorNarrationsRejected.data?.totalCount} isLoading={isLoading} />
+          <DashboardCard label="Đã tạo âm thanh" value={vendorNarrationsAudio.data?.totalCount} isLoading={isLoading} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="app-page">
@@ -56,6 +128,16 @@ export function DashboardPage() {
         <DashboardCard
           label="Media đã xóa"
           value={stats?.deletedMediaFiles}
+          isLoading={dashboardQuery.isLoading}
+        />
+        <DashboardCard
+          label="Ảnh chờ duyệt"
+          value={stats?.pendingImages}
+          isLoading={dashboardQuery.isLoading}
+        />
+        <DashboardCard
+          label="Thuyết minh chờ duyệt"
+          value={stats?.pendingNarrations}
           isLoading={dashboardQuery.isLoading}
         />
       </div>

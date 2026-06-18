@@ -16,6 +16,14 @@ public interface IMediaService
 
     Task<MediaFileDto> UploadAsync(UploadMediaRequest request, CancellationToken cancellationToken = default);
 
+    Task<MediaFileDto> ApproveAsync(int id, int reviewerUserId, CancellationToken cancellationToken = default);
+
+    Task<MediaFileDto> RejectAsync(
+        int id,
+        int reviewerUserId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
     Task RestoreAsync(int id, CancellationToken cancellationToken = default);

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { displayRoleName, roleMatches } from '@/features/auth/roleAccess';
+import { ROLE_VENDOR, displayRoleName, roleMatches } from '@/features/auth/roleAccess';
 
 interface NavItem {
   to: string;
@@ -11,17 +11,18 @@ interface NavItem {
 }
 
 const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
-const VENDOR_CONTENT_ROLES = ['Admin', 'SuperAdmin', 'Vendor', 'ContentAdmin', 'TourOperator'];
+const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'TourOperator'];
+const MEDIA_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', ROLE_VENDOR];
 
 const NAV_ITEMS: NavItem[] = [
   { to: routes.dashboard, label: 'Bảng điều khiển', icon: 'D' },
   { to: routes.users, label: 'Người dùng', icon: 'U', roles: ADMIN_ROLES },
   { to: routes.roles, label: 'Phân quyền', icon: 'R', roles: ADMIN_ROLES },
-  { to: routes.pois, label: 'Địa điểm (POI)', icon: 'P', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.pois, label: 'Địa điểm (POI)', icon: 'P', roles: CONTENT_ROLES },
   { to: routes.languages, label: 'Ngôn ngữ', icon: 'L', roles: ADMIN_ROLES },
-  { to: routes.tours, label: 'Tour', icon: 'T', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: VENDOR_CONTENT_ROLES },
-  { to: routes.media, label: 'Thư viện', icon: 'M', roles: VENDOR_CONTENT_ROLES },
+  { to: routes.tours, label: 'Tour', icon: 'T', roles: CONTENT_ROLES },
+  { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: CONTENT_ROLES },
+  { to: routes.media, label: 'Thư viện ảnh', icon: 'M', roles: MEDIA_ROLES },
 ];
 
 export function MainLayout() {

@@ -1,5 +1,6 @@
 export const routes = {
   login: '/login',
+  registerVendor: '/dang-ky-chu-sap',
   dashboard: '/',
   profile: '/profile',
   tours: '/tours',

@@ -1,6 +1,11 @@
 import type { AxiosInstance } from 'axios';
 import type { ApiResponse } from '@/types/api';
-import type { LoginRequest, LoginResponseDto, RefreshTokenRequest } from '@/types/auth';
+import type {
+  LoginRequest,
+  LoginResponseDto,
+  RefreshTokenRequest,
+  VendorRegisterRequest,
+} from '@/types/auth';
 import { toApiClientError } from '@/api/apiError';
 import { withSkipAuthRefresh } from '@/api/httpClient';
 
@@ -31,6 +36,18 @@ export function createAuthApi(
       );
 
       return unwrapApiResponse(response.data);
+    },
+
+    async registerVendor(request: VendorRegisterRequest): Promise<void> {
+      const response = await httpClient.post<ApiResponse<null>>(
+        `${AUTH_BASE}/register`,
+        request,
+        withSkipAuthRefresh({}),
+      );
+
+      if (!response.data.success) {
+        throw toApiClientError(new Error(response.data.message || 'Dang ky that bai'));
+      }
     },
   };
 }

@@ -13,6 +13,8 @@ export interface DashboardStatsDto {
   totalImages: number;
   totalAudioFiles: number;
   deletedMediaFiles: number;
+  pendingImages: number;
+  pendingNarrations: number;
   totalTourViews?: number | null;
   totalQrScans: number;
   totalAudioPlays: number;

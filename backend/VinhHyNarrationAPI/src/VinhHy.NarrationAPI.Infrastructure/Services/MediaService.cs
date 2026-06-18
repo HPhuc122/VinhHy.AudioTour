@@ -5,6 +5,7 @@ using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Media.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
@@ -45,11 +46,14 @@ public class MediaService : IMediaService
         CancellationToken cancellationToken = default)
     {
         var fileType = NormalizeFileType(request.FileType);
+        var approvalStatus = NormalizeApprovalStatus(request.ApprovalStatus);
         var result = await _uow.MediaFiles.GetPagedAsync(
                 request.NormalizedPage,
                 request.NormalizedPageSize,
                 request.Search,
                 fileType,
+                approvalStatus,
+                request.UploadedByUserId,
                 request.IncludeDeleted,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -97,6 +101,8 @@ public class MediaService : IMediaService
             await request.FileContent.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
         }
 
+        var now = DateTime.UtcNow;
+        var approvalStatus = NormalizeApprovalStatus(request.ApprovalStatus) ?? ApprovalStatuses.Pending;
         var mediaFile = new MediaFile
         {
             FileName = fileName,
@@ -107,14 +113,70 @@ public class MediaService : IMediaService
                 : request.ContentType,
             FileSize = request.FileSize,
             RelativePath = relativePath,
-            UploadedAt = DateTime.UtcNow,
+            UploadedAt = now,
             UploadedByUserId = request.UploadedByUserId,
+            ApprovalStatus = approvalStatus,
+            SubmittedAt = now,
+            ReviewedByUserId = approvalStatus == ApprovalStatuses.Approved ? request.ReviewedByUserId : null,
+            ReviewedAt = approvalStatus == ApprovalStatuses.Approved ? now : null,
             IsDeleted = false
         };
 
         await _uow.MediaFiles.AddAsync(mediaFile, cancellationToken).ConfigureAwait(false);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        return _mapper.Map<MediaFileDto>(mediaFile);
+    }
+
+    public async Task<MediaFileDto> ApproveAsync(
+        int id,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var mediaFile = await _uow.MediaFiles.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(MediaFile), id);
+
+        if (mediaFile.FileType != "image")
+        {
+            throw new ValidationException(nameof(id), "Only image media can use approval workflow.");
+        }
+
+        mediaFile.ApprovalStatus = ApprovalStatuses.Approved;
+        mediaFile.ReviewedByUserId = reviewerUserId;
+        mediaFile.ReviewedAt = DateTime.UtcNow;
+        mediaFile.RejectionReason = null;
+        _uow.MediaFiles.Update(mediaFile);
+
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return _mapper.Map<MediaFileDto>(mediaFile);
+    }
+
+    public async Task<MediaFileDto> RejectAsync(
+        int id,
+        int reviewerUserId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ValidationException(nameof(reason), "Rejection reason is required.");
+        }
+
+        var mediaFile = await _uow.MediaFiles.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(MediaFile), id);
+
+        if (mediaFile.FileType != "image")
+        {
+            throw new ValidationException(nameof(id), "Only image media can use approval workflow.");
+        }
+
+        mediaFile.ApprovalStatus = ApprovalStatuses.Rejected;
+        mediaFile.ReviewedByUserId = reviewerUserId;
+        mediaFile.ReviewedAt = DateTime.UtcNow;
+        mediaFile.RejectionReason = reason.Trim();
+        _uow.MediaFiles.Update(mediaFile);
+
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return _mapper.Map<MediaFileDto>(mediaFile);
     }
 
@@ -154,6 +216,23 @@ public class MediaService : IMediaService
         return normalized;
     }
 
+    private static string? NormalizeApprovalStatus(string? approvalStatus)
+    {
+        if (string.IsNullOrWhiteSpace(approvalStatus))
+        {
+            return null;
+        }
+
+        var normalized = approvalStatus.Trim();
+        return normalized switch
+        {
+            ApprovalStatuses.Pending => ApprovalStatuses.Pending,
+            ApprovalStatuses.Approved => ApprovalStatuses.Approved,
+            ApprovalStatuses.Rejected => ApprovalStatuses.Rejected,
+            _ => throw new ValidationException(nameof(approvalStatus), "Approval status must be Pending, Approved, or Rejected.")
+        };
+    }
+
     private static void ValidateUpload(UploadMediaRequest request)
     {
         if (request.FileContent is null)
@@ -177,6 +256,11 @@ public class MediaService : IMediaService
             throw new ValidationException(
                 nameof(request.OriginalFileName),
                 "Allowed file extensions are jpg, jpeg, png, webp, mp3, wav, and m4a.");
+        }
+
+        if (request.ImageOnly && AllowedExtensions[extension] != "image")
+        {
+            throw new ValidationException(nameof(request.OriginalFileName), "Vendors can upload image files only.");
         }
     }
 }

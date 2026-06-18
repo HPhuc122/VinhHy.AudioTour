@@ -1,0 +1,33 @@
+using VinhHy.NarrationAPI.Application.Common;
+using VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
+
+namespace VinhHy.NarrationAPI.Application.Interfaces.Services;
+
+public interface INarrationDraftService
+{
+    Task<PagedResult<NarrationDraftDto>> SearchAsync(
+        NarrationDraftListRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<NarrationDraftDto> CreateAsync(
+        CreateNarrationDraftRequest request,
+        int submittedByUserId,
+        bool autoApprove,
+        CancellationToken cancellationToken = default);
+
+    Task<NarrationDraftDto> ApproveAsync(
+        int id,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<NarrationDraftDto> RejectAsync(
+        int id,
+        int reviewerUserId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    Task<NarrationDraftDto> GenerateAudioAsync(
+        int id,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default);
+}

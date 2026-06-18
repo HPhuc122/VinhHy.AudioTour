@@ -18,6 +18,10 @@ public class DashboardStatsDto
 
     public int DeletedMediaFiles { get; set; }
 
+    public int PendingImages { get; set; }
+
+    public int PendingNarrations { get; set; }
+
     public int? TotalTourViews { get; set; }
 
     public int TotalQrScans { get; set; }

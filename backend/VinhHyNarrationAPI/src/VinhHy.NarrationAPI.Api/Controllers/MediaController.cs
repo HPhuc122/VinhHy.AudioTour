@@ -6,15 +6,17 @@ using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Media.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 
 namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/media")]
-[Authorize(Roles = RoleGroups.ContentManagement)]
+[Authorize(Roles = RoleGroups.VendorMedia)]
 public class MediaController(IMediaService mediaService) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var mediaFiles = await mediaService.GetAllAsync(cancellationToken);
@@ -24,6 +26,13 @@ public class MediaController(IMediaService mediaService) : ControllerBase
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] MediaListRequest request, CancellationToken cancellationToken)
     {
+        if (IsVendor())
+        {
+            request.FileType = "image";
+            request.IncludeDeleted = false;
+            request.UploadedByUserId = GetCurrentUserId();
+        }
+
         var mediaFiles = await mediaService.SearchAsync(request, BuildPublicUrl, cancellationToken);
         return this.ApiOk(mediaFiles);
     }
@@ -35,6 +44,11 @@ public class MediaController(IMediaService mediaService) : ControllerBase
         if (mediaFile is null)
         {
             throw new NotFoundException("Media file", id);
+        }
+
+        if (IsVendor() && (mediaFile.FileType != "image" || mediaFile.UploadedByUserId != GetCurrentUserId()))
+        {
+            return Forbid();
         }
 
         return this.ApiOk(mediaFile);
@@ -56,14 +70,37 @@ public class MediaController(IMediaService mediaService) : ControllerBase
                 OriginalFileName = file.FileName,
                 ContentType = file.ContentType,
                 FileSize = file.Length,
-                UploadedByUserId = GetCurrentUserId()
+                UploadedByUserId = GetCurrentUserId(),
+                ImageOnly = IsVendor(),
+                ApprovalStatus = IsVendor() ? ApprovalStatuses.Pending : ApprovalStatuses.Approved,
+                ReviewedByUserId = IsVendor() ? null : GetCurrentUserId()
             },
             cancellationToken);
 
         return this.ApiOk(uploaded, "Media file uploaded");
     }
 
+    [HttpPost("{id:int}/approve")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> Approve(int id, CancellationToken cancellationToken)
+    {
+        var media = await mediaService.ApproveAsync(id, GetRequiredCurrentUserId(), cancellationToken);
+        return this.ApiOk(media, "Media file approved");
+    }
+
+    [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> Reject(
+        int id,
+        [FromBody] RejectMediaRequest request,
+        CancellationToken cancellationToken)
+    {
+        var media = await mediaService.RejectAsync(id, GetRequiredCurrentUserId(), request.Reason, cancellationToken);
+        return this.ApiOk(media, "Media file rejected");
+    }
+
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
         await mediaService.DeleteAsync(id, cancellationToken);
@@ -71,6 +108,7 @@ public class MediaController(IMediaService mediaService) : ControllerBase
     }
 
     [HttpPost("{id:int}/restore")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Restore(int id, CancellationToken cancellationToken)
     {
         await mediaService.RestoreAsync(id, cancellationToken);
@@ -82,6 +120,11 @@ public class MediaController(IMediaService mediaService) : ControllerBase
         var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(value, out var userId) ? userId : null;
     }
+
+    private int GetRequiredCurrentUserId() =>
+        GetCurrentUserId() ?? throw new UnauthorizedException("Missing authenticated user id.");
+
+    private bool IsVendor() => User.IsInRole(RoleNames.Vendor);
 
     private string BuildPublicUrl(string relativePath)
     {

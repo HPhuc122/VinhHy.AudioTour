@@ -8,16 +8,19 @@ public static class RoleGroups
         $"{RoleNames.Admin},{RoleNames.SuperAdmin}";
 
     public const string ContentManagement =
-        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin}";
+
+    public const string VendorMedia =
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.Vendor}";
 
     public const string TourOperations =
-        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.TourOperator}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.TourOperator}";
 
     public const string Analytics =
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.AnalyticsViewer}";
 
     public const string AdminOrTourOrContent =
-        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin},{RoleNames.TourOperator}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.TourOperator}";
 
     public const string AuthenticatedStaff =
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.Vendor},{RoleNames.ContentAdmin},{RoleNames.TourOperator},{RoleNames.AnalyticsViewer}";

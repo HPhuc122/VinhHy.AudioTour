@@ -18,6 +18,7 @@ public class MediaRepository : IMediaRepository
         await Query(includeDeleted: false)
             .AsNoTracking()
             .Include(m => m.UploadedByUser)
+            .Include(m => m.ReviewedByUser)
             .OrderByDescending(m => m.UploadedAt)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -27,12 +28,15 @@ public class MediaRepository : IMediaRepository
         int pageSize,
         string? search = null,
         string? fileType = null,
+        string? approvalStatus = null,
+        int? uploadedByUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
         IQueryable<MediaFile> query = Query(includeDeleted)
             .AsNoTracking()
-            .Include(m => m.UploadedByUser);
+            .Include(m => m.UploadedByUser)
+            .Include(m => m.ReviewedByUser);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -45,6 +49,16 @@ public class MediaRepository : IMediaRepository
         if (!string.IsNullOrWhiteSpace(fileType))
         {
             query = query.Where(m => m.FileType == fileType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(approvalStatus))
+        {
+            query = query.Where(m => m.ApprovalStatus == approvalStatus);
+        }
+
+        if (uploadedByUserId.HasValue)
+        {
+            query = query.Where(m => m.UploadedByUserId == uploadedByUserId.Value);
         }
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -60,6 +74,8 @@ public class MediaRepository : IMediaRepository
 
     public async Task<int> CountAsync(
         string? fileType = null,
+        string? approvalStatus = null,
+        int? uploadedByUserId = null,
         bool? isDeleted = false,
         CancellationToken cancellationToken = default)
     {
@@ -68,6 +84,16 @@ public class MediaRepository : IMediaRepository
         if (!string.IsNullOrWhiteSpace(fileType))
         {
             query = query.Where(m => m.FileType == fileType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(approvalStatus))
+        {
+            query = query.Where(m => m.ApprovalStatus == approvalStatus);
+        }
+
+        if (uploadedByUserId.HasValue)
+        {
+            query = query.Where(m => m.UploadedByUserId == uploadedByUserId.Value);
         }
 
         if (isDeleted.HasValue)
@@ -84,6 +110,7 @@ public class MediaRepository : IMediaRepository
         CancellationToken cancellationToken = default) =>
         await Query(includeDeleted)
             .Include(m => m.UploadedByUser)
+            .Include(m => m.ReviewedByUser)
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken)
             .ConfigureAwait(false);
 

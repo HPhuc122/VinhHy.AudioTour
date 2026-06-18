@@ -11,11 +11,15 @@ public interface IMediaRepository
         int pageSize,
         string? search = null,
         string? fileType = null,
+        string? approvalStatus = null,
+        int? uploadedByUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
     Task<int> CountAsync(
         string? fileType = null,
+        string? approvalStatus = null,
+        int? uploadedByUserId = null,
         bool? isDeleted = false,
         CancellationToken cancellationToken = default);
 

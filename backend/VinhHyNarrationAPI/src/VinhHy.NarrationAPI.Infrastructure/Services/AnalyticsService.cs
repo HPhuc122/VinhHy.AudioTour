@@ -1,8 +1,10 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using VinhHy.NarrationAPI.Application.Features.Analytics.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
+using VinhHy.NarrationAPI.Infrastructure.Data;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
@@ -10,11 +12,13 @@ public class AnalyticsService : IAnalyticsService
 {
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly ApplicationDbContext _db;
 
-    public AnalyticsService(IUnitOfWork uow, IMapper mapper)
+    public AnalyticsService(IUnitOfWork uow, IMapper mapper, ApplicationDbContext db)
     {
         _uow = uow;
         _mapper = mapper;
+        _db = db;
     }
 
     public async Task<IReadOnlyList<AnalyticsDailyDto>> GetDailyAsync(
@@ -60,6 +64,13 @@ public class AnalyticsService : IAnalyticsService
             TotalImages = await _uow.MediaFiles.CountAsync(fileType: "image", cancellationToken: cancellationToken).ConfigureAwait(false),
             TotalAudioFiles = await _uow.MediaFiles.CountAsync(fileType: "audio", cancellationToken: cancellationToken).ConfigureAwait(false),
             DeletedMediaFiles = await _uow.MediaFiles.CountAsync(isDeleted: true, cancellationToken: cancellationToken).ConfigureAwait(false),
+            PendingImages = await _uow.MediaFiles.CountAsync(
+                fileType: "image",
+                approvalStatus: ApprovalStatuses.Pending,
+                cancellationToken: cancellationToken).ConfigureAwait(false),
+            PendingNarrations = await _db.NarrationDrafts.CountAsync(
+                n => n.Status == NarrationDraftStatuses.Pending,
+                cancellationToken).ConfigureAwait(false),
             TotalTourViews = null,
             TotalQrScans = await _uow.NarrationLogs.CountAsync(TriggerTypes.Qr, cancellationToken).ConfigureAwait(false),
             TotalAudioPlays = await _uow.NarrationLogs.CountAsync(cancellationToken: cancellationToken).ConfigureAwait(false)

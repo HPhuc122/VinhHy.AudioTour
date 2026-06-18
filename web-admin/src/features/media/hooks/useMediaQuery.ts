@@ -8,12 +8,13 @@ export const mediaQueryKeys = {
   list: (filter: MediaSearchFilter) => [...mediaQueryKeys.all, 'list', filter] as const,
 };
 
-export function useMediaQuery(filter: MediaSearchFilter = {}) {
+export function useMediaQuery(filter: MediaSearchFilter = {}, options?: { enabled?: boolean }) {
   const { httpClient } = useAuth();
   const mediaApi = useMemo(() => createMediaApi(httpClient), [httpClient]);
 
   return useQuery({
     queryKey: mediaQueryKeys.list(filter),
     queryFn: () => mediaApi.searchMedia(filter),
+    enabled: options?.enabled ?? true,
   });
 }
