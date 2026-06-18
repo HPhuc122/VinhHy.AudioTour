@@ -1,10 +1,22 @@
 namespace VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 
+using VinhHy.NarrationAPI.Domain.Entities;
+
 public class PoiDto
 {
     public int Id { get; set; }
 
     public string Code { get; set; } = null!;
+
+    public string Name { get; set; } = string.Empty;
+
+    public string? ShortDescription { get; set; }
+
+    public string? Description { get; set; }
+
+    public ApprovalStatus ApprovalStatus { get; set; }
+
+    public int? UserId { get; set; }
 
     public string? DisplayName { get; set; }
 
@@ -19,6 +31,8 @@ public class PoiDto
     public bool IsActive { get; set; }
 
     public string? ImageUrl { get; set; }
+
+    public IReadOnlyList<string> ImageUrls { get; set; } = [];
 
     public string? Category { get; set; }
 

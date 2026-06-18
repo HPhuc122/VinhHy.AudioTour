@@ -1,4 +1,5 @@
 import type { RoleDto } from '@/features/roles/types/role';
+import { routes } from '@/config/routes';
 
 export const ROLE_ADMIN = 'Admin';
 export const ROLE_VENDOR = 'Vendor';
@@ -11,6 +12,14 @@ const ASSIGNABLE_ROLE_ORDER = [ROLE_ADMIN, ROLE_VENDOR];
 
 export function isAdminRole(role?: string | null): boolean {
   return Boolean(role && ADMIN_ALIASES.includes(role));
+}
+
+export function isVendorRole(role?: string | null): boolean {
+  return role === ROLE_VENDOR;
+}
+
+export function getDefaultRouteForRole(_role?: string | null): string {
+  return routes.dashboard;
 }
 
 export function roleMatches(userRole: string | undefined | null, allowedRoles?: string[]): boolean {

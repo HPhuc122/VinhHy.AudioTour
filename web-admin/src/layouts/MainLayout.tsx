@@ -75,9 +75,10 @@ export function MainLayout() {
         </nav>
 
         <div className="border-t border-gray-700 p-4">
-          <NavLink
-            to={routes.profile}
-            className="mb-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+          <div
+            className="mb-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            role="link"
+            onClick={() => navigate(routes.profile)}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-xs font-bold uppercase text-white">
               {user?.username?.[0] ?? 'U'}
@@ -86,7 +87,7 @@ export function MainLayout() {
               <p className="truncate text-sm font-medium text-gray-200">{user?.username}</p>
               <p className="truncate text-xs text-gray-500">{displayRoleName(user?.role)}</p>
             </div>
-          </NavLink>
+          </div>
 
           <button
             onClick={handleLogout}

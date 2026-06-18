@@ -5,6 +5,7 @@ using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Entities;
 
 namespace VinhHy.NarrationAPI.Api.Controllers;
 
@@ -44,10 +45,11 @@ public class PoisController(IPoiService poiService) : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? category = null,
         [FromQuery] bool? isActive = null,
+        [FromQuery] ApprovalStatus? approvalStatus = null,
         [FromQuery] bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, includeDeleted, cancellationToken);
+        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, approvalStatus, includeDeleted, cancellationToken);
         return this.ApiOk(result);
     }
 
@@ -70,6 +72,17 @@ public class PoisController(IPoiService poiService) : ControllerBase
     {
         var poi = await poiService.UpdateAsync(id, request, cancellationToken);
         return this.ApiOk(poi, "POI updated");
+    }
+
+    [HttpPut("{id:int}/approval-status")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> UpdateApprovalStatus(
+        int id,
+        [FromBody] UpdatePoiApprovalStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var poi = await poiService.UpdateApprovalStatusAsync(id, request, cancellationToken);
+        return this.ApiOk(poi, "POI approval status updated");
     }
 
     [HttpDelete("{id:int}")]

@@ -35,6 +35,8 @@ public class PoiRepository : IPoiRepository
         string? search = null,
         string? category = null,
         bool? isActive = null,
+        ApprovalStatus? approvalStatus = null,
+        int? ownerUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
@@ -46,6 +48,7 @@ public class PoiRepository : IPoiRepository
         {
             query = query.Where(p =>
                 p.Code.Contains(search) ||
+                p.Name.Contains(search) ||
                 p.Translations.Any(t => t.Name.Contains(search)));
         }
 
@@ -54,6 +57,12 @@ public class PoiRepository : IPoiRepository
 
         if (isActive.HasValue)
             query = query.Where(p => p.IsActive == isActive.Value);
+
+        if (approvalStatus.HasValue)
+            query = query.Where(p => p.ApprovalStatus == approvalStatus.Value);
+
+        if (ownerUserId.HasValue)
+            query = query.Where(p => p.UserId == ownerUserId.Value);
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 

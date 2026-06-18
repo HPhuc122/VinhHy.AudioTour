@@ -3,18 +3,19 @@ import { Alert } from '@/components/ui/Alert';
 import { routes } from '@/config/routes';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
 
 interface LoginLocationState {
   message?: string;
 }
 
 export function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
   const state = location.state as LoginLocationState | null;
 
   if (isAuthenticated) {
-    return <Navigate to={routes.dashboard} replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return (

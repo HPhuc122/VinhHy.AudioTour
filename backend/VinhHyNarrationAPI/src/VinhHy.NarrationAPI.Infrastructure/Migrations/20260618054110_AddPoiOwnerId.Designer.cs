@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260618054110_AddPoiOwnerId")]
+    partial class AddPoiOwnerId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -496,13 +499,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ApprovalStatus")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Pending");
-
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -531,23 +527,10 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasMaxLength(260)
                         .HasColumnType("nvarchar(260)");
 
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
                     b.Property<string>("RelativePath")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ReviewedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("UploadedAt")
                         .ValueGeneratedOnAdd()
@@ -559,8 +542,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ApprovalStatus");
-
                     b.HasIndex("FileName")
                         .IsUnique();
 
@@ -568,110 +549,15 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.HasIndex("IsDeleted");
 
-                    b.HasIndex("ReviewedByUserId");
-
                     b.HasIndex("UploadedAt");
 
-                    b.HasIndex("UploadedByUserId", "FileType", "ApprovalStatus");
+                    b.HasIndex("UploadedByUserId");
 
                     b.ToTable("MediaFiles", null, t =>
                         {
-                            t.HasCheckConstraint("CK_MediaFiles_ApprovalStatus", "[ApprovalStatus] IN ('Pending', 'Approved', 'Rejected')");
-
                             t.HasCheckConstraint("CK_MediaFiles_FileSize", "[FileSize] > 0");
 
                             t.HasCheckConstraint("CK_MediaFiles_FileType", "[FileType] IN ('image', 'audio')");
-                        });
-                });
-
-            modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.NarrationDraft", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("AudioGeneratedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<int?>("GeneratedAudioTrackId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("LanguageCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("ReviewedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SimulatedAudioUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)")
-                        .HasDefaultValue("Pending");
-
-                    b.Property<DateTime>("SubmittedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<int>("SubmittedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TextContent")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("SYSUTCDATETIME()");
-
-                    b.Property<string>("Voice")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GeneratedAudioTrackId");
-
-                    b.HasIndex("ReviewedByUserId");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("SubmittedAt");
-
-                    b.HasIndex("SubmittedByUserId", "Status");
-
-                    b.ToTable("NarrationDrafts", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_NarrationDrafts_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'AudioGenerated')");
                         });
                 });
 
@@ -1386,44 +1272,12 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.MediaFile", b =>
                 {
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "ReviewedByUser")
-                        .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "UploadedByUser")
                         .WithMany()
                         .HasForeignKey("UploadedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("ReviewedByUser");
-
                     b.Navigation("UploadedByUser");
-                });
-
-            modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.NarrationDraft", b =>
-                {
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.AudioTrack", "GeneratedAudioTrack")
-                        .WithMany()
-                        .HasForeignKey("GeneratedAudioTrackId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "ReviewedByUser")
-                        .WithMany()
-                        .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "SubmittedByUser")
-                        .WithMany()
-                        .HasForeignKey("SubmittedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("GeneratedAudioTrack");
-
-                    b.Navigation("ReviewedByUser");
-
-                    b.Navigation("SubmittedByUser");
                 });
 
             modelBuilder.Entity("VinhHy.NarrationAPI.Domain.Entities.NarrationLog", b =>

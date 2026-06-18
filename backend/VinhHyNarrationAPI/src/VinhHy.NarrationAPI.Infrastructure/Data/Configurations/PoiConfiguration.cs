@@ -19,6 +19,7 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
         builder.Property(e => e.Priority).HasDefaultValue(1);
         builder.Property(e => e.IsActive).HasDefaultValue(true);
         builder.Property(e => e.ImageUrl).HasMaxLength(500);
+        builder.Property(e => e.ImageUrls);
         builder.Property(e => e.Category).HasMaxLength(100);
         builder.Property(e => e.CooldownSeconds).HasDefaultValue(300);
         builder.Property(e => e.MinDwellSeconds).HasDefaultValue(5);
@@ -26,7 +27,13 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
         builder.Property(e => e.CreatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
         builder.Property(e => e.UpdatedAt).HasDefaultValueSql("SYSUTCDATETIME()");
 
+        builder.HasOne(e => e.User)
+            .WithMany(u => u.Pois)
+            .HasForeignKey(e => e.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(e => e.Code).IsUnique();
+        builder.HasIndex(e => e.UserId);
         builder.HasIndex(e => e.UpdatedAt);
         builder.HasIndex(e => e.DeletedAt)
             .HasFilter("[DeletedAt] IS NOT NULL");

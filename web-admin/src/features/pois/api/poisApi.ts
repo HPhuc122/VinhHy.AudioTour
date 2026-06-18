@@ -8,6 +8,11 @@ const POIS_BASE = '/api/v1/pois';
 export interface PoiDto {
   id: number;
   code: string;
+  name: string;
+  shortDescription?: string | null;
+  description?: string | null;
+  approvalStatus: number | string;
+  userId?: number | null;
   displayName?: string | null;
   isActive: boolean;
   category?: string | null;
@@ -19,6 +24,7 @@ export interface PoiDto {
   priority?: number | null;
   cooldownSeconds?: number | null;
   minDwellSeconds?: number | null;
+  imageUrls?: string[];
 }
 
 export interface PoiListFilter {
@@ -27,6 +33,7 @@ export interface PoiListFilter {
   search?: string;
   category?: string;
   isActive?: boolean | string;
+  approvalStatus?: number | string;
   includeDeleted?: boolean;
 }
 
@@ -40,6 +47,7 @@ export function createPoisApi(client: AxiosInstance) {
           search: filter.search || undefined,
           category: filter.category || undefined,
           isActive: filter.isActive,
+          approvalStatus: filter.approvalStatus,
           includeDeleted: filter.includeDeleted,
         },
       });
@@ -71,6 +79,15 @@ export const poisApi = {
     const response = await httpClient.put<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}`, data, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+
+    return unwrapApiResponse(response.data);
+  },
+
+  async updateApprovalStatus(id: number, approvalStatus: number): Promise<PoiDto> {
+    const response = await httpClient.put<ApiResponse<PoiDto>>(
+      `${POIS_BASE}/${id}/approval-status`,
+      { approvalStatus },
+    );
 
     return unwrapApiResponse(response.data);
   },

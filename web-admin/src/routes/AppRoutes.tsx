@@ -39,17 +39,13 @@ export function AppRoutes() {
               <Route path={routes.qr} element={<QrListPage />} />
               <Route path={routes.qrCreate} element={<QrCreatePage />} />
               <Route path={routes.qrEdit} element={<QrEditPage />} />
+              <Route path={routes.pois} element={<PoiPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={MEDIA_ROLES} />}>
               <Route path={routes.media} element={<MediaLibraryPage />} />
             </Route>
-            <Route element={<ProtectedRoute allowedRoles={CONTENT_ROLES} />}>
-              <Route path={routes.pois} element={<PoiPage />} />
-            </Route>
             <Route element={<ProtectedRoute allowedRoles={ADMIN_ROLES} />}>
               <Route path={routes.languages} element={<LanguagePage />} />
-            </Route>
-            <Route element={<ProtectedRoute allowedRoles={ADMIN_ROLES} />}>
               <Route path={routes.users} element={<UsersPage />} />
               <Route path={routes.roles} element={<RolesPage />} />
             </Route>

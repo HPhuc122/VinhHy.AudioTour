@@ -4,9 +4,9 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
-import { routes } from '@/config/routes';
 import { useLoginMutation } from '@/features/auth/hooks/useLoginMutation';
 import { ApiClientError } from '@/api/apiError';
+import { getDefaultRouteForRole } from '@/features/auth/roleAccess';
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -28,8 +28,8 @@ export function LoginForm() {
     loginMutation.mutate(
       { username: trimmedUsername, password },
       {
-        onSuccess: () => {
-          navigate(routes.dashboard, { replace: true });
+        onSuccess: (session) => {
+          navigate(getDefaultRouteForRole(session.user.role), { replace: true });
         },
       },
     );

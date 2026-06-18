@@ -14,6 +14,8 @@ public interface IPoiRepository
         string? search = null,
         string? category = null,
         bool? isActive = null,
+        ApprovalStatus? approvalStatus = null,
+        int? ownerUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
