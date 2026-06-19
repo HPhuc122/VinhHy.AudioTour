@@ -7,12 +7,18 @@ import { Spinner } from '../../components/ui/Spinner';
 import { ROUTES } from '../../routes/routeConstants';
 import type { Lang } from '../../hooks/useLanguage';
 import type { PoiDto } from '../../types/api';
+import {
+  MAP_ATTRIBUTION,
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_FOCUS_ZOOM,
+  MAP_MAX_ZOOM,
+  MAP_TILE_URL,
+} from '../../config/mapConfig';
 
 interface Props { lang: Lang; }
 
 // Vĩnh Hy center coordinates
-const VINHY_CENTER: [number, number] = [11.6017, 109.2267];
-
 export function MapPage({ lang }: Props) {
   const [searchParams] = useSearchParams();
   const mapRef = useRef<HTMLDivElement>(null);
@@ -41,14 +47,14 @@ export function MapPage({ lang }: Props) {
 
     import('leaflet').then((L) => {
       const map = L.map(mapRef.current!, {
-        center: VINHY_CENTER,
-        zoom: 15,
+        center: MAP_DEFAULT_CENTER,
+        zoom: MAP_DEFAULT_ZOOM,
         zoomControl: true,
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-        maxZoom: 19,
+      L.tileLayer(MAP_TILE_URL, {
+        attribution: MAP_ATTRIBUTION,
+        maxZoom: MAP_MAX_ZOOM,
       }).addTo(map);
 
       leafletMapRef.current = map;
@@ -123,7 +129,7 @@ export function MapPage({ lang }: Props) {
 
       // Focus on specific POI
       if (focusLat && focusLng) {
-        map.setView([parseFloat(focusLat), parseFloat(focusLng)], 18);
+        map.setView([parseFloat(focusLat), parseFloat(focusLng)], MAP_FOCUS_ZOOM);
       }
     });
   }, [mapReady, poisData, tourDetail, focusLat, focusLng]);
@@ -148,7 +154,7 @@ export function MapPage({ lang }: Props) {
                 key={poi.id}
                 onClick={() => {
                   setSelectedPoi(poi);
-                  leafletMapRef.current?.setView([poi.latitude, poi.longitude], 17);
+                  leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_DEFAULT_ZOOM);
                 }}
                 className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800 transition-colors ${
                   selectedPoi?.id === poi.id ? 'bg-gray-800 border-l-2 border-l-emerald-500' : ''

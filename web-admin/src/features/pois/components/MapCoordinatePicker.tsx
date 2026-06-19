@@ -1,9 +1,15 @@
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 import { useEffect, useState } from 'react';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
+import {
+  MAP_ATTRIBUTION,
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_MAX_ZOOM,
+  MAP_TILE_URL,
+} from '@/config/mapConfig';
 
-// Fix for default marker icons not loading with build tools like Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -16,11 +22,6 @@ interface Props {
   position: { lat: number; lng: number } | null;
   onChange: (lat: number, lng: number) => void;
 }
-
-type MapType = 'roadmap' | 'hybrid';
-
-const DEFAULT_CENTER: [number, number] = [11.6017, 109.2267];
-const DEFAULT_ZOOM = 17;
 
 function ClickHandler({ onChange }: { onChange: (lat: number, lng: number) => void }) {
   useMapEvents({
@@ -38,34 +39,16 @@ export function MapCoordinatePicker({ position, onChange }: Props) {
     setLocalPos(position ?? null);
   }, [position]);
 
-  const [mapType, setMapType] = useState<MapType>('roadmap');
-
-  const tileUrls: Record<MapType, string> = {
-    roadmap: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-  };
-
-  const currentTileUrl = tileUrls[mapType];
-
   return (
-    <div className="relative w-full h-64 rounded-md overflow-hidden">
-      <div className="absolute right-3 top-3 z-[1000]">
-        <button
-          type="button"
-          onClick={() => setMapType((t) => (t === 'roadmap' ? 'hybrid' : 'roadmap'))}
-          className="rounded bg-white/90 px-3 py-1 text-xs shadow hover:bg-white"
-        >
-          {mapType === 'roadmap' ? '🗺️ Xem ảnh Vệ tinh' : '🗺️ Xem Bản đồ thường'}
-        </button>
-      </div>
-
+    <div className="relative h-64 w-full overflow-hidden rounded-md">
       <MapContainer
-        center={localPos ? [localPos.lat, localPos.lng] : DEFAULT_CENTER}
-        zoom={DEFAULT_ZOOM}
+        center={localPos ? [localPos.lat, localPos.lng] : MAP_DEFAULT_CENTER}
+        zoom={MAP_DEFAULT_ZOOM}
+        maxZoom={MAP_MAX_ZOOM}
         scrollWheelZoom={false}
         style={{ width: '100%', height: '100%' }}
       >
-        <TileLayer url={currentTileUrl} attribution="&copy; Google Maps" />
+        <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
         <ClickHandler
           onChange={(lat, lng) => {
             setLocalPos({ lat, lng });

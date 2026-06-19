@@ -6,15 +6,19 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
+import {
+  MAP_ATTRIBUTION,
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_MAX_ZOOM,
+  MAP_TILE_URL,
+} from '@/config/mapConfig';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
 import { canViewAnalyticsDashboard, isAdminRole, isVendorRole } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
 import { useNarrationsQuery } from '@/features/narrations/hooks/useNarrationsQuery';
 import { poisApi, type PoiDto, type PoiListFilter } from '@/features/pois/api/poisApi';
-
-const DEFAULT_CENTER: [number, number] = [10.7615, 106.7033];
-const DEFAULT_ZOOM = 17;
 
 const LIFECYCLE_PENDING_REVIEW = 0;
 const LIFECYCLE_PENDING_PAYMENT = 2;
@@ -377,12 +381,13 @@ interface PoiMapPoint {
 function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
   return (
     <MapContainer
-      center={points[0] ? [points[0].latitude, points[0].longitude] : DEFAULT_CENTER}
-      zoom={DEFAULT_ZOOM}
+      center={points[0] ? [points[0].latitude, points[0].longitude] : MAP_DEFAULT_CENTER}
+      zoom={MAP_DEFAULT_ZOOM}
+      maxZoom={MAP_MAX_ZOOM}
       scrollWheelZoom
       className="h-full w-full"
     >
-      <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
+      <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
       <FitPoiBounds points={points} />
       {points.map((poi) => (
         <Marker key={poi.id} position={[poi.latitude, poi.longitude]} icon={poi.isOwned ? ownedPoiMarkerIcon : poiMarkerIcon}>
@@ -413,18 +418,18 @@ function FitPoiBounds({ points }: { points: PoiMapPoint[] }) {
     window.setTimeout(() => map.invalidateSize(), 0);
 
     if (points.length === 0) {
-      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+      map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
       return;
     }
 
     if (points.length === 1) {
       const point = points[0]!;
-      map.setView([point.latitude, point.longitude], DEFAULT_ZOOM);
+      map.setView([point.latitude, point.longitude], MAP_DEFAULT_ZOOM);
       return;
     }
 
     const bounds = L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
   }, [map, points]);
 
   return null;
