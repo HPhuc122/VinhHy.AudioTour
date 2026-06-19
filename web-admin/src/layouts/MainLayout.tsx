@@ -39,55 +39,55 @@ const VENDOR_ROLES = [ROLE_VENDOR];
 const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { to: routes.dashboard, label: 'Tong quan', icon: 'T', roles: ADMIN_DASHBOARD_ROLES },
+      { to: routes.dashboard, label: 'Tổng quan', icon: 'T', roles: ADMIN_DASHBOARD_ROLES },
     ],
   },
   {
-    title: 'Dia diem va sap',
+    title: 'Địa điểm & sạp',
     roles: CONTENT_ROLES,
     items: [
-      { to: routes.pois, label: 'Danh sach POI', icon: 'P', roles: CONTENT_ROLES },
-      { to: `${routes.pois}?lifecycleStatus=0`, label: 'Cho duyet', icon: 'D', roles: CONTENT_ROLES },
-      { to: `${routes.pois}?lifecycleStatus=2`, label: 'Cho thanh toan', icon: 'C', roles: CONTENT_ROLES },
+      { to: routes.pois, label: 'Danh sách POI', icon: 'P', roles: CONTENT_ROLES },
+      { to: `${routes.pois}?lifecycleStatus=0`, label: 'Chờ duyệt', icon: 'D', roles: CONTENT_ROLES },
+      { to: `${routes.pois}?lifecycleStatus=2`, label: 'Chờ thanh toán', icon: 'C', roles: CONTENT_ROLES },
     ],
   },
   {
-    title: 'Noi dung',
+    title: 'Nội dung',
     roles: MEDIA_ROLES,
     items: [
-      { to: `${routes.media}?tab=images`, label: 'Thu vien anh', icon: 'A', roles: MEDIA_ROLES },
-      { to: `${routes.media}?tab=narrations`, label: 'Ban thuyet minh', icon: 'N', roles: MEDIA_ROLES },
-      { to: `${routes.pois}?workspace=translations`, label: 'Ban dich', icon: 'B', roles: CONTENT_ROLES },
+      { to: `${routes.media}?tab=images`, label: 'Thư viện ảnh', icon: 'A', roles: MEDIA_ROLES },
+      { to: `${routes.media}?tab=narrations`, label: 'Bản thuyết minh', icon: 'N', roles: MEDIA_ROLES },
+      { to: `${routes.pois}?workspace=translations`, label: 'Bản dịch', icon: 'B', roles: CONTENT_ROLES },
     ],
   },
   {
-    title: 'Tour va ban do',
+    title: 'Tour & bản đồ',
     roles: CONTENT_ROLES,
     items: [
       { to: routes.tours, label: 'Tour', icon: 'R', roles: CONTENT_ROLES },
-      { to: `${routes.dashboard}?panel=map`, label: 'Ban do', icon: 'M', roles: CONTENT_ROLES },
+      { to: `${routes.dashboard}?panel=map`, label: 'Bản đồ', icon: 'M', roles: CONTENT_ROLES },
     ],
   },
   {
-    title: 'Goi nghe va QR',
+    title: 'Gói nghe & QR',
     roles: CONTENT_ROLES,
     items: [
-      { to: `${routes.qr}?view=packages`, label: 'Goi thuyet minh', icon: 'G', roles: CONTENT_ROLES },
-      { to: `${routes.qr}?view=access`, label: 'QR truy cap', icon: 'Q', roles: CONTENT_ROLES },
+      { to: `${routes.qr}?view=packages`, label: 'Gói thuyết minh', icon: 'G', roles: CONTENT_ROLES },
+      { to: `${routes.qr}?view=access`, label: 'QR truy cập', icon: 'Q', roles: CONTENT_ROLES },
     ],
   },
   {
-    title: 'He thong',
+    title: 'Hệ thống',
     roles: SYSTEM_ROLES,
     items: [
-      { to: routes.users, label: 'Nguoi dung', icon: 'U', roles: SYSTEM_ROLES },
-      { to: routes.roles, label: 'Vai tro', icon: 'V', roles: SYSTEM_ROLES },
-      { to: routes.languages, label: 'Ngon ngu', icon: 'L', roles: SYSTEM_ROLES },
+      { to: routes.users, label: 'Người dùng', icon: 'U', roles: SYSTEM_ROLES },
+      { to: routes.roles, label: 'Vai trò', icon: 'V', roles: SYSTEM_ROLES },
+      { to: routes.languages, label: 'Ngôn ngữ', icon: 'L', roles: SYSTEM_ROLES },
     ],
   },
   {
     items: [
-      { to: routes.profile, label: 'Ho so', icon: 'H', roles: ADMIN_DASHBOARD_ROLES },
+      { to: routes.profile, label: 'Hồ sơ', icon: 'H', roles: ADMIN_DASHBOARD_ROLES },
     ],
   },
 ];
@@ -95,24 +95,24 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
 const VENDOR_NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { to: routes.dashboard, label: 'Tong quan', icon: 'T', roles: VENDOR_ROLES },
-      { to: `${routes.registerPoi}?view=mine`, label: 'Sap cua toi', icon: 'S', roles: VENDOR_ROLES },
-      { to: `${routes.registerPoi}?view=register`, label: 'Dang ky dia diem/sap', icon: 'D', roles: VENDOR_ROLES },
+      { to: routes.dashboard, label: 'Tổng quan', icon: 'T', roles: VENDOR_ROLES },
+      { to: `${routes.registerPoi}?view=mine`, label: 'Sạp của tôi', icon: 'S', roles: VENDOR_ROLES },
+      { to: `${routes.registerPoi}?view=register`, label: 'Đăng ký địa điểm/sạp', icon: 'D', roles: VENDOR_ROLES },
     ],
   },
   {
-    title: 'Thu vien',
+    title: 'Thư viện',
     roles: VENDOR_ROLES,
     items: [
-      { to: `${routes.media}?tab=images`, label: 'Hinh anh', icon: 'A', roles: VENDOR_ROLES },
-      { to: `${routes.media}?tab=narrations`, label: 'Ban thuyet minh', icon: 'N', roles: VENDOR_ROLES },
-      { to: `${routes.registerPoi}?workspace=translations`, label: 'Ban dich', icon: 'B', roles: VENDOR_ROLES },
+      { to: `${routes.media}?tab=images`, label: 'Hình ảnh', icon: 'A', roles: VENDOR_ROLES },
+      { to: `${routes.media}?tab=narrations`, label: 'Bản thuyết minh', icon: 'N', roles: VENDOR_ROLES },
+      { to: `${routes.registerPoi}?workspace=translations`, label: 'Bản dịch', icon: 'B', roles: VENDOR_ROLES },
     ],
   },
   {
     items: [
-      { to: `${routes.registerPoi}?lifecycleStatus=2`, label: 'Thanh toan', icon: 'P', roles: VENDOR_ROLES },
-      { to: routes.profile, label: 'Ho so', icon: 'H', roles: VENDOR_ROLES },
+      { to: `${routes.registerPoi}?lifecycleStatus=2`, label: 'Thanh toán', icon: 'P', roles: VENDOR_ROLES },
+      { to: routes.profile, label: 'Hồ sơ', icon: 'H', roles: VENDOR_ROLES },
     ],
   },
 ];
