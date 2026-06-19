@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
@@ -25,20 +25,17 @@ const LIFECYCLE_PENDING_PAYMENT = 2;
 const LIFECYCLE_ACTIVE = 3;
 const LIFECYCLE_REJECTED = 5;
 
-const poiMarkerIcon = L.divIcon({
+const CATEGORY_STYLES = [
+  { icon: 'M', color: '#2563eb', light: '#dbeafe' },
+  { icon: 'F', color: '#16a34a', light: '#dcfce7' },
+  { icon: 'S', color: '#f59e0b', light: '#fef3c7' },
+] as const;
+
+export const currentLocationIcon = L.divIcon({
   className: '',
-  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#2563eb;border:3px solid #ffffff;box-shadow:0 4px 12px rgba(37,99,235,.45);"></span>',
+  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#0ea5e9;border:4px solid #ffffff;box-shadow:0 0 0 8px rgba(14,165,233,.18),0 4px 12px rgba(14,165,233,.35);"></span>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
-  popupAnchor: [0, -8],
-});
-
-const ownedPoiMarkerIcon = L.divIcon({
-  className: '',
-  html: '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:#f59e0b;border:4px solid #ffffff;box-shadow:0 4px 14px rgba(245,158,11,.55);"></span>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-  popupAnchor: [0, -10],
 });
 
 export function DashboardPage() {
@@ -90,6 +87,7 @@ function AdminDashboard({
   poisMapQuery: PoiQueryResult;
 }) {
   const stats = dashboardQuery.data;
+  const [selectedPoi, setSelectedPoi] = useState<PoiMapPoint | null>(null);
   const poiPoints = useMemo(
     () => getPoiMapPoints(poisMapQuery.data?.items ?? []),
     [poisMapQuery.data],
@@ -143,10 +141,11 @@ function AdminDashboard({
                 Đang tải bản đồ địa điểm...
               </div>
             ) : (
-              <PoiDashboardMap points={poiPoints} />
+              <PoiDashboardMap points={poiPoints} onSelect={setSelectedPoi} />
             )}
           </div>
         </Card>
+        {selectedPoi ? <AdminPoiInfoPanel poi={selectedPoi} onClose={() => setSelectedPoi(null)} /> : null}
       </section>
     </section>
   );
@@ -159,6 +158,7 @@ function VendorDashboard({
   poisMapQuery: PoiQueryResult;
   currentUserId?: number;
 }) {
+  const [selectedPoi, setSelectedPoi] = useState<PoiMapPoint | null>(null);
   const vendorPoisTotal = useDashboardPoiQuery({ page: 1, pageSize: 1 }, true, 'vendor-total');
   const vendorPoisPendingReview = useDashboardPoiQuery(
     { page: 1, pageSize: 1, lifecycleStatus: LIFECYCLE_PENDING_REVIEW },
@@ -258,10 +258,11 @@ function VendorDashboard({
                 Đang tải bản đồ sạp...
               </div>
             ) : (
-              <PoiDashboardMap points={poiPoints} />
+              <PoiDashboardMap points={poiPoints} onSelect={setSelectedPoi} />
             )}
           </div>
         </Card>
+        {selectedPoi ? <AdminPoiInfoPanel poi={selectedPoi} onClose={() => setSelectedPoi(null)} /> : null}
       </section>
     </section>
   );
@@ -371,14 +372,26 @@ interface PoiMapPoint {
   id: number;
   code: string;
   name: string;
+  shortDescription?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  audioUrl?: string | null;
   category?: string | null;
   isActive: boolean;
   isOwned: boolean;
+  approvalStatus: number | string;
+  lifecycleStatus: number | string;
   latitude: number;
   longitude: number;
 }
 
-function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
+function PoiDashboardMap({
+  points,
+  onSelect,
+}: {
+  points: PoiMapPoint[];
+  onSelect: (poi: PoiMapPoint) => void;
+}) {
   return (
     <MapContainer
       center={points[0] ? [points[0].latitude, points[0].longitude] : MAP_DEFAULT_CENTER}
@@ -390,7 +403,15 @@ function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
       <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
       <FitPoiBounds points={points} />
       {points.map((poi) => (
-        <Marker key={poi.id} position={[poi.latitude, poi.longitude]} icon={poi.isOwned ? ownedPoiMarkerIcon : poiMarkerIcon}>
+        <Marker
+          key={poi.id}
+          position={[poi.latitude, poi.longitude]}
+          icon={createPoiMarkerIcon(poi)}
+          eventHandlers={{ click: () => onSelect(poi) }}
+        >
+          <Tooltip direction="top" offset={[0, -24]} opacity={1} sticky>
+            <MapHoverCard poi={poi} />
+          </Tooltip>
           <Popup>
             <div className="min-w-40 text-sm">
               <p className="font-semibold text-gray-900">{poi.name || poi.code}</p>
@@ -408,6 +429,91 @@ function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
         </Marker>
       ))}
     </MapContainer>
+  );
+}
+
+function createPoiMarkerIcon(poi: PoiMapPoint) {
+  const style = getCategoryStyle(poi.category);
+  const border = poi.isOwned ? '#f97316' : '#ffffff';
+  const shadow = poi.isOwned
+    ? '0 0 0 4px rgba(249,115,22,.22),0 4px 14px rgba(0,0,0,.25)'
+    : '0 4px 12px rgba(0,0,0,.25)';
+
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="display:flex;align-items:center;gap:6px;transform:translate(-18px,-34px);">
+        <span style="display:flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9999px;background:${style.color};border:3px solid ${border};box-shadow:${shadow};color:white;font:700 12px system-ui;">${style.icon}</span>
+        <span style="max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;background:rgba(255,255,255,.94);padding:3px 7px;color:#111827;font:600 12px system-ui;box-shadow:0 2px 8px rgba(15,23,42,.18);">${escapeHtml(poi.name || poi.code)}</span>
+      </div>
+    `,
+    iconSize: [180, 38],
+    iconAnchor: [18, 34],
+  });
+}
+
+function MapHoverCard({ poi }: { poi: PoiMapPoint }) {
+  return (
+    <div className="max-w-64 text-left">
+      <p className="font-semibold text-gray-900">{poi.name || poi.code}</p>
+      <p className="text-xs text-gray-500">{poi.category || 'POI'}</p>
+      {poi.shortDescription ? (
+        <p className="mt-1 line-clamp-3 text-xs text-gray-700">{poi.shortDescription}</p>
+      ) : null}
+      <p className="mt-2 text-xs font-medium text-gray-600">
+        {formatLifecycleStatus(poi.lifecycleStatus)} / {poi.isActive ? 'Active' : 'Inactive'}
+      </p>
+    </div>
+  );
+}
+
+function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => void }) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="grid gap-0 md:grid-cols-[220px_1fr]">
+        <div className="h-44 bg-gray-100 md:h-full">
+          {poi.imageUrl ? (
+            <img src={poi.imageUrl} alt={poi.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-gray-400">No image</div>
+          )}
+        </div>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">{poi.category || 'POI'}</p>
+              <h3 className="text-lg font-semibold text-gray-900">{poi.name || poi.code}</h3>
+              <p className="text-xs text-gray-500">{poi.code}</p>
+            </div>
+            <button type="button" onClick={onClose} className="rounded px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">
+              X
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-blue-50 px-2 py-1 font-medium text-blue-700">
+              {formatLifecycleStatus(poi.lifecycleStatus)}
+            </span>
+            <span className={poi.isActive ? 'rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700' : 'rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-600'}>
+              {poi.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+
+          <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-gray-600">
+            {poi.description || poi.shortDescription || 'No description available.'}
+          </p>
+
+          {poi.audioUrl ? (
+            <div className="mt-4 rounded-lg bg-gray-50 p-3">
+              <p className="mb-2 text-xs font-medium text-gray-500">Audio preview</p>
+              <audio controls src={poi.audioUrl} className="w-full" />
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-gray-400">No audio preview available.</p>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -448,15 +554,54 @@ function getPoiMapPoints(pois: PoiDto[], currentUserId?: number): PoiMapPoint[] 
       id: poi.id,
       code: poi.code,
       name: poi.name || poi.displayName || poi.code,
+      shortDescription: poi.shortDescription,
+      description: poi.description,
+      imageUrl: poi.imageUrl,
+      audioUrl: poi.audioUrl,
       category: poi.category,
       isActive: poi.isActive,
       isOwned: Boolean(currentUserId && poi.userId === currentUserId),
+      approvalStatus: poi.approvalStatus,
+      lifecycleStatus: poi.lifecycleStatus,
       latitude,
       longitude,
     });
 
     return points;
   }, []);
+}
+
+function getCategoryStyle(category?: string | null) {
+  if (!category) {
+    return CATEGORY_STYLES[0];
+  }
+
+  const normalized = category.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash += normalized.charCodeAt(i);
+  }
+
+  return CATEGORY_STYLES[hash % CATEGORY_STYLES.length] ?? CATEGORY_STYLES[0];
+}
+
+function formatLifecycleStatus(status: number | string): string {
+  if (status === 'PendingReview' || Number(status) === 0) return 'Pending review';
+  if (status === 'Approved' || Number(status) === 1) return 'Approved';
+  if (status === 'PendingPayment' || Number(status) === 2) return 'Pending payment';
+  if (status === 'Active' || Number(status) === 3) return 'Active';
+  if (status === 'Expired' || Number(status) === 4) return 'Expired';
+  if (status === 'Rejected' || Number(status) === 5) return 'Rejected';
+  return String(status || 'Unknown');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function parseCoordinate(value?: number | string | null): number | null {

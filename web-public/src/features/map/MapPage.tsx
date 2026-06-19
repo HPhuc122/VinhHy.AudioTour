@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams, Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { poisApi } from '../../api/poisApi';
+import { publicAudioTourApi } from '../../api/publicAudioTourApi';
 import { toursApi } from '../../api/toursApi';
 import { Spinner } from '../../components/ui/Spinner';
-import { ROUTES } from '../../routes/routeConstants';
 import type { Lang } from '../../hooks/useLanguage';
+import { ROUTES } from '../../routes/routeConstants';
 import type { PoiDto } from '../../types/api';
+import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
+import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
+import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
+import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
 import {
   MAP_ATTRIBUTION,
   MAP_DEFAULT_CENTER,
@@ -18,13 +23,19 @@ import {
 
 interface Props { lang: Lang; }
 
-// Vĩnh Hy center coordinates
+const CATEGORY_STYLES = [
+  { icon: 'M', color: '#2563eb' },
+  { icon: 'F', color: '#16a34a' },
+  { icon: 'S', color: '#f59e0b' },
+] as const;
+
 export function MapPage({ lang }: Props) {
   const [searchParams] = useSearchParams();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const [selectedPoi, setSelectedPoi] = useState<PoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [clientExpired, setClientExpired] = useState(false);
 
   const tourId = searchParams.get('tour');
   const focusLat = searchParams.get('lat');
@@ -41,7 +52,14 @@ export function MapPage({ lang }: Props) {
     enabled: !!tourId,
   });
 
-  // Init Leaflet
+  const accessRecord = selectedPoi ? getAccessRecordForPoi(selectedPoi.id) : null;
+  const audioTourQuery = useQuery({
+    queryKey: ['public-map-audio-tour', selectedPoi?.id, lang, accessRecord?.accessToken],
+    queryFn: () => publicAudioTourApi.getPoi(selectedPoi!.id, accessRecord!.accessToken, lang),
+    enabled: !!selectedPoi && !!accessRecord?.accessToken && !clientExpired,
+    retry: false,
+  });
+
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return;
 
@@ -69,16 +87,14 @@ export function MapPage({ lang }: Props) {
     };
   }, []);
 
-  // Add markers when POIs loaded
   useEffect(() => {
     if (!mapReady || !leafletMapRef.current || !poisData) return;
 
     import('leaflet').then((L) => {
       const map = leafletMapRef.current;
 
-      // Clear existing markers
       map.eachLayer((layer: any) => {
-        if (layer instanceof L.Marker || layer instanceof L.Circle) {
+        if (layer instanceof L.Marker || layer instanceof L.Circle || layer instanceof L.Polyline) {
           map.removeLayer(layer);
         }
       });
@@ -86,88 +102,89 @@ export function MapPage({ lang }: Props) {
       const pois = tourDetail ? tourDetail.pois : poisData.items;
 
       pois.forEach((poi: PoiDto, index: number) => {
-        const icon = L.divIcon({
-          html: `<div style="
-            background: ${tourDetail ? '#10b981' : '#3b82f6'};
-            color: white;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            border: 2px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-          ">${tourDetail ? index + 1 : '📍'}</div>`,
-          className: '',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+        const style = getCategoryStyle(poi.category);
+        const marker = L.marker([poi.latitude, poi.longitude], {
+          icon: L.divIcon({
+            html: `
+              <div style="display:flex;align-items:center;gap:6px;transform:translate(-18px,-34px);">
+                <span style="display:flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:9999px;background:${style.color};border:3px solid #ffffff;box-shadow:0 4px 12px rgba(0,0,0,.35);color:white;font:700 12px system-ui;">${tourDetail ? index + 1 : style.icon}</span>
+                <span style="max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;background:rgba(17,24,39,.92);padding:3px 7px;color:white;font:600 12px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.25);">${escapeHtml(poi.name || poi.code)}</span>
+              </div>
+            `,
+            className: '',
+            iconSize: [180, 38],
+            iconAnchor: [18, 34],
+          }),
+        })
+          .addTo(map)
+          .on('click', () => {
+            setClientExpired(false);
+            setSelectedPoi(poi);
+          });
+
+        marker.bindTooltip(getPoiHoverHtml(poi), {
+          direction: 'top',
+          offset: [0, -24],
+          opacity: 1,
+          sticky: true,
+          className: 'vinhhy-map-hovercard',
         });
 
-        const marker = L.marker([poi.latitude, poi.longitude], { icon })
-          .addTo(map)
-          .on('click', () => setSelectedPoi(poi));
-
-        // Geofence circle
         L.circle([poi.latitude, poi.longitude], {
           radius: poi.radiusMeters ?? 30,
-          color: '#10b981',
-          fillColor: '#10b981',
+          color: style.color,
+          fillColor: style.color,
           fillOpacity: 0.1,
           weight: 1,
         }).addTo(map);
       });
 
-      // Draw tour route line
       if (tourDetail && tourDetail.pois.length > 1) {
         const latlngs = tourDetail.pois.map((p: PoiDto) => [p.latitude, p.longitude] as [number, number]);
         L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
-        map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
+        map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
       }
 
-      // Focus on specific POI
       if (focusLat && focusLng) {
         map.setView([parseFloat(focusLat), parseFloat(focusLng)], MAP_FOCUS_ZOOM);
       }
     });
   }, [mapReady, poisData, tourDetail, focusLat, focusLng]);
 
+  const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
+
   return (
-    <div className="h-[calc(100vh-64px)] flex">
-      {/* Sidebar */}
-      <div className="w-72 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-800">
-          <h2 className="font-bold text-white">
-            {tourDetail ? `🗺️ ${tourDetail.name}` : '📍 Tất cả địa điểm'}
-          </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {tourDetail ? `${tourDetail.pois.length} địa điểm` : `${poisData?.totalCount ?? '—'} địa điểm`}
+    <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-gray-800 bg-gray-900">
+        <div className="border-b border-gray-800 p-4">
+          <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : 'All POIs'}</h2>
+          <p className="mt-0.5 text-xs text-gray-400">
+            {tourDetail ? `${tourDetail.pois.length} POIs` : `${poisData?.totalCount ?? '-'} POIs`}
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {isLoading ? <Spinner /> : (
-            (tourDetail ? tourDetail.pois : poisData?.items ?? []).map((poi: PoiDto, i: number) => (
+            listedPois.map((poi: PoiDto, i: number) => (
               <button
                 key={poi.id}
                 onClick={() => {
+                  setClientExpired(false);
                   setSelectedPoi(poi);
                   leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_DEFAULT_ZOOM);
                 }}
-                className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800 transition-colors ${
-                  selectedPoi?.id === poi.id ? 'bg-gray-800 border-l-2 border-l-emerald-500' : ''
+                className={`w-full border-b border-gray-800 px-4 py-3 text-left transition-colors hover:bg-gray-800 ${
+                  selectedPoi?.id === poi.id ? 'border-l-2 border-l-emerald-500 bg-gray-800' : ''
                 }`}
               >
                 <div className="flex items-center gap-2">
                   {tourDetail && (
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center shrink-0">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs text-white">
                       {i + 1}
                     </span>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{poi.name}</p>
+                    <p className="truncate text-sm font-medium text-white">{poi.name}</p>
                     {poi.category && <p className="text-xs text-emerald-500">{poi.category}</p>}
                   </div>
                 </div>
@@ -177,38 +194,141 @@ export function MapPage({ lang }: Props) {
         </div>
       </div>
 
-      {/* Map + POI popup */}
-      <div className="flex-1 relative">
-        <div ref={mapRef} className="w-full h-full" />
-
-        {/* Selected POI popup */}
+      <div className="relative flex-1">
+        <div ref={mapRef} className="h-full w-full" />
         {selectedPoi && (
-          <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl z-[1000]">
-            <button
-              onClick={() => setSelectedPoi(null)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-white"
-            >✕</button>
-            <div className="flex gap-3">
-              {selectedPoi.imageUrl ? (
-                <img src={selectedPoi.imageUrl} alt={selectedPoi.name} className="w-16 h-16 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center text-2xl shrink-0">📍</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-white text-sm">{selectedPoi.name}</h3>
-                {selectedPoi.category && <p className="text-xs text-emerald-500 mb-1">{selectedPoi.category}</p>}
-                <p className="text-gray-400 text-xs line-clamp-2">{selectedPoi.shortDescription ?? selectedPoi.description}</p>
-              </div>
-            </div>
-            <Link
-              to={ROUTES.POI_DETAIL.replace(':id', String(selectedPoi.id))}
-              className="block text-center mt-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs py-2 rounded-lg transition-colors"
-            >
-              Xem chi tiết
-            </Link>
+          <PublicPoiInfoPanel
+            poi={selectedPoi}
+            accessRecord={accessRecord}
+            audioTourQuery={audioTourQuery}
+            clientExpired={clientExpired}
+            onClose={() => setSelectedPoi(null)}
+            onExpired={() => {
+              if (accessRecord) {
+                guestAccessStore.remove(accessRecord.qrCode);
+              }
+              setClientExpired(true);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PublicPoiInfoPanel({
+  poi,
+  accessRecord,
+  audioTourQuery,
+  clientExpired,
+  onClose,
+  onExpired,
+}: {
+  poi: PoiDto;
+  accessRecord: GuestAccessRecord | null;
+  audioTourQuery: ReturnType<typeof useQuery>;
+  clientExpired: boolean;
+  onClose: () => void;
+  onExpired: () => void;
+}) {
+  return (
+    <div className="absolute bottom-4 left-4 right-4 z-[1000] max-h-[82vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl sm:left-auto sm:right-4 sm:w-96">
+      <button onClick={onClose} className="absolute right-3 top-3 text-gray-500 hover:text-white">X</button>
+      <div className="flex gap-3">
+        {poi.imageUrl ? (
+          <img src={poi.imageUrl} alt={poi.name} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-700 text-sm text-gray-400">POI</div>
+        )}
+        <div className="min-w-0 flex-1">
+          {poi.category && <p className="mb-1 text-xs text-emerald-500">{poi.category}</p>}
+          <h3 className="text-base font-semibold text-white">{poi.name}</h3>
+          <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-gray-400">
+            {poi.shortDescription ?? poi.description}
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-4 line-clamp-5 text-sm leading-relaxed text-gray-300">
+        {poi.description || poi.shortDescription || 'Description is being updated.'}
+      </p>
+
+      <Link
+        to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
+        className="mt-4 block rounded-lg bg-emerald-600 py-2 text-center text-xs text-white transition-colors hover:bg-emerald-700"
+      >
+        View details
+      </Link>
+
+      <div className="mt-4">
+        <h4 className="mb-2 text-sm font-semibold text-white">Audio narration</h4>
+        {clientExpired ? (
+          <AccessExpiredPanel />
+        ) : !accessRecord?.accessToken ? (
+          <AccessRequiredPanel
+            title="GuestAccessPass required"
+            message="Scan the POI QR code to unlock protected audio playback."
+          />
+        ) : audioTourQuery.isLoading ? (
+          <Spinner />
+        ) : audioTourQuery.isError || !audioTourQuery.data ? (
+          <AccessExpiredPanel message="GuestAccessPass is invalid, expired, or not valid for this POI." />
+        ) : (
+          <div className="space-y-3">
+            {(audioTourQuery.data as any).audioTracks?.some((track: any) => track.isAvailable) ? (
+              (audioTourQuery.data as any).audioTracks
+                .filter((track: any) => track.isAvailable)
+                .map((track: any) => (
+                  <ProtectedAudioPlayer
+                    key={track.audioTrackId ?? track.id}
+                    track={track}
+                    accessToken={accessRecord.accessToken}
+                    onUnauthorized={onExpired}
+                  />
+                ))
+            ) : (
+              <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">Audio is being updated.</div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function getAccessRecordForPoi(poiId: number): GuestAccessRecord | null {
+  return guestAccessStore.getForPoi(poiId) ?? guestAccessStore.getAnyActive();
+}
+
+function getCategoryStyle(category?: string | null) {
+  if (!category) {
+    return CATEGORY_STYLES[0];
+  }
+
+  const normalized = category.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash += normalized.charCodeAt(i);
+  }
+
+  return CATEGORY_STYLES[hash % CATEGORY_STYLES.length];
+}
+
+function getPoiHoverHtml(poi: PoiDto): string {
+  return `
+    <div style="max-width:240px;text-align:left;">
+      <div style="font-weight:700;color:#111827;">${escapeHtml(poi.name || poi.code)}</div>
+      <div style="font-size:12px;color:#6b7280;">${escapeHtml(poi.category || 'POI')}</div>
+      ${poi.shortDescription ? `<div style="margin-top:4px;font-size:12px;line-height:1.35;color:#374151;">${escapeHtml(poi.shortDescription)}</div>` : ''}
+    </div>
+  `;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
