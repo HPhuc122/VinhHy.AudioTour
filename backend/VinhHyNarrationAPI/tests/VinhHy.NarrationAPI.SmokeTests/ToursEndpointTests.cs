@@ -33,12 +33,20 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
             Assert.Single(items.EnumerateArray());
             Assert.Equal(activeTourId, items[0].GetProperty("id").GetInt32());
             Assert.Equal("Public Smoke Tour", items[0].GetProperty("translations")[0].GetProperty("name").GetString());
-            Assert.True(items[0].GetProperty("pois")[0].GetProperty("hasAudio").GetBoolean());
+            var publicPois = items[0].GetProperty("pois").EnumerateArray().ToArray();
+            Assert.Single(publicPois);
+            Assert.Equal("Public POI", publicPois[0].GetProperty("poiName").GetString());
+            Assert.True(publicPois[0].GetProperty("hasAudio").GetBoolean());
         }
 
         var detailResponse = await _client.GetAsync($"/api/v1/public/tours/{activeTourId}");
         Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
-        Assert.Equal(activeTourId, await GetDataPropertyAsync<int>(detailResponse, "id"));
+        using var detailDoc = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
+        var detailData = detailDoc.RootElement.GetProperty("data");
+        Assert.Equal(activeTourId, detailData.GetProperty("id").GetInt32());
+        var detailPois = detailData.GetProperty("pois").EnumerateArray().ToArray();
+        Assert.Single(detailPois);
+        Assert.Equal("Public POI", detailPois[0].GetProperty("poiName").GetString());
     }
 
     [Fact]
@@ -212,21 +220,74 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
             UpdatedAt = now
         };
 
-        var poi = new Poi
+        var poi = CreatePoi($"POI-PUBLIC-{suffix}", now, p =>
         {
-            Code = $"POI-PUBLIC-{suffix}",
-            Latitude = 11.750000m,
-            Longitude = 109.180000m,
-            RadiusMeters = 30,
-            Priority = 1,
-            IsActive = true,
-            Category = "public-smoke",
-            CreatedAt = now,
-            UpdatedAt = now
+            p.ApprovalStatus = ApprovalStatus.Approved;
+            p.LifecycleStatus = PoiLifecycleStatus.Active;
+            p.PaymentStatus = PoiPaymentStatus.NotRequired;
+            p.IsActive = true;
+            p.ActivatedAt = now;
+            p.ValidFrom = now.AddMinutes(-5);
+            p.ValidUntil = now.AddDays(1);
+        });
+
+        var hiddenPois = new[]
+        {
+            CreatePoi($"POI-PENDING-REVIEW-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Pending;
+                p.LifecycleStatus = PoiLifecycleStatus.PendingReview;
+                p.IsActive = false;
+            }),
+            CreatePoi($"POI-APPROVED-NOT-ACTIVE-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Approved;
+                p.LifecycleStatus = PoiLifecycleStatus.Approved;
+                p.IsActive = false;
+            }),
+            CreatePoi($"POI-PENDING-PAYMENT-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Approved;
+                p.LifecycleStatus = PoiLifecycleStatus.PendingPayment;
+                p.PaymentRequired = true;
+                p.PaymentStatus = PoiPaymentStatus.PendingPayment;
+                p.IsActive = false;
+            }),
+            CreatePoi($"POI-REJECTED-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Rejected;
+                p.LifecycleStatus = PoiLifecycleStatus.Rejected;
+                p.IsActive = false;
+            }),
+            CreatePoi($"POI-EXPIRED-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Approved;
+                p.LifecycleStatus = PoiLifecycleStatus.Expired;
+                p.IsActive = false;
+                p.ValidFrom = now.AddDays(-2);
+                p.ValidUntil = now.AddDays(-1);
+            }),
+            CreatePoi($"POI-INACTIVE-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Approved;
+                p.LifecycleStatus = PoiLifecycleStatus.Active;
+                p.IsActive = false;
+                p.ValidFrom = now.AddMinutes(-5);
+                p.ValidUntil = now.AddDays(1);
+            }),
+            CreatePoi($"POI-DELETED-{suffix}", now, p =>
+            {
+                p.ApprovalStatus = ApprovalStatus.Approved;
+                p.LifecycleStatus = PoiLifecycleStatus.Active;
+                p.IsActive = true;
+                p.ValidFrom = now.AddMinutes(-5);
+                p.ValidUntil = now.AddDays(1);
+                p.DeletedAt = now;
+            })
         };
 
         await db.Tours.AddRangeAsync(activeTour, inactiveTour);
-        await db.Pois.AddAsync(poi);
+        await db.Pois.AddRangeAsync(hiddenPois.Prepend(poi));
         await db.SaveChangesAsync();
 
         await db.TourTranslations.AddRangeAsync(
@@ -263,6 +324,13 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
             OrderIndex = 1
         });
 
+        await db.TourPois.AddRangeAsync(hiddenPois.Select((hiddenPoi, index) => new TourPoi
+        {
+            TourId = activeTour.Id,
+            POIId = hiddenPoi.Id,
+            OrderIndex = index + 2
+        }));
+
         await db.AudioTracks.AddAsync(new AudioTrack
         {
             POIId = poi.Id,
@@ -277,6 +345,25 @@ public class ToursEndpointTests(NarrationApiWebApplicationFactory factory)
         await db.SaveChangesAsync();
 
         return activeTour.Id;
+    }
+
+    private static Poi CreatePoi(string code, DateTime now, Action<Poi>? configure = null)
+    {
+        var poi = new Poi
+        {
+            Code = code,
+            Latitude = 11.750000m,
+            Longitude = 109.180000m,
+            RadiusMeters = 30,
+            Priority = 1,
+            IsActive = true,
+            Category = "public-smoke",
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        configure?.Invoke(poi);
+        return poi;
     }
 
     private static async Task<T> GetDataPropertyAsync<T>(HttpResponseMessage response, string propertyName)

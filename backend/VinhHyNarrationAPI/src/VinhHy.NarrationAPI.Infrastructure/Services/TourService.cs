@@ -6,6 +6,7 @@ using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
+using VinhHy.NarrationAPI.Domain.Specifications;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
@@ -55,7 +56,7 @@ public class TourService : ITourService
             return null;
         }
 
-        return MapPublicTour(tour);
+        return MapPublicTour(tour, DateTime.UtcNow);
     }
 
     public async Task<PagedResult<PublicTourDto>> GetPublicPagedAsync(
@@ -70,8 +71,9 @@ public class TourService : ITourService
             filter.Search,
             cancellationToken).ConfigureAwait(false);
 
+        var now = DateTime.UtcNow;
         return PagedResult<PublicTourDto>.Create(
-            items.Select(MapPublicTour).ToArray(),
+            items.Select(tour => MapPublicTour(tour, now)).ToArray(),
             page,
             pageSize,
             total);
@@ -348,7 +350,7 @@ public class TourService : ITourService
         throw new ValidationException(nameof(Tour.Code), "Unable to generate a unique tour code.");
     }
 
-    private static PublicTourDto MapPublicTour(Tour tour)
+    private static PublicTourDto MapPublicTour(Tour tour, DateTime now)
     {
         return new PublicTourDto
         {
@@ -368,8 +370,8 @@ public class TourService : ITourService
                     Description = t.Description
                 })
                 .ToArray(),
-            Pois = tour.TourPois
-                .OrderBy(tp => tp.OrderIndex)
+            Pois = PoiAvailability
+                .GetPubliclyAvailableTourPois(tour.TourPois, now)
                 .Select(MapPublicTourPoi)
                 .ToArray()
         };

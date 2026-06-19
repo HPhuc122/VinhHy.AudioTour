@@ -5,6 +5,14 @@ namespace VinhHy.NarrationAPI.Domain.Specifications;
 
 public static class PoiAvailability
 {
+    public static IReadOnlyList<TourPoi> GetPubliclyAvailableTourPois(
+        IEnumerable<TourPoi> tourPois,
+        DateTime now) =>
+        tourPois
+            .Where(tp => IsPubliclyAvailable(tp.Poi, now))
+            .OrderBy(tp => tp.OrderIndex)
+            .ToArray();
+
     public static Expression<Func<Poi, bool>> IsPubliclyAvailable(DateTime now) =>
         poi => poi.DeletedAt == null
             && poi.LifecycleStatus == PoiLifecycleStatus.Active

@@ -31,6 +31,7 @@ public class PublicAudioTourService : IPublicAudioTourService
             .ConfigureAwait(false)
             ?? throw new NotFoundException("Tour", tourId);
 
+        var now = DateTime.UtcNow;
         var translation = SelectTourTranslation(tour, languageCode);
 
         return new PublicAudioTourTourDto
@@ -41,9 +42,8 @@ public class PublicAudioTourService : IPublicAudioTourService
             Description = translation?.Description,
             DefaultLanguage = tour.DefaultLanguage,
             EstimatedMinutes = tour.EstimatedMinutes,
-            Pois = tour.TourPois
-                .OrderBy(tp => tp.OrderIndex)
-                .Where(tp => PoiAvailability.IsPubliclyAvailable(tp.Poi, DateTime.UtcNow))
+            Pois = PoiAvailability
+                .GetPubliclyAvailableTourPois(tour.TourPois, now)
                 .Select(tp => MapPoi(tp.Poi, languageCode, tp.OrderIndex))
                 .ToArray()
         };
