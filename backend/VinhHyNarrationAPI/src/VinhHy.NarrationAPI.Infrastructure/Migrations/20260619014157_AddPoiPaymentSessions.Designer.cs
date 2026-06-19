@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619014157_AddPoiPaymentSessions")]
+    partial class AddPoiPaymentSessions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -846,11 +849,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Property<decimal>("Latitude")
                         .HasColumnType("decimal(9,6)");
 
-                    b.Property<byte>("LifecycleStatus")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("tinyint")
-                        .HasDefaultValue((byte)0);
-
                     b.Property<decimal>("Longitude")
                         .HasColumnType("decimal(9,6)");
 
@@ -894,12 +892,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Property<int?>("UserId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("ValidFrom")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("ValidUntil")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("Version")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -915,15 +907,11 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.HasIndex("DeletedAt")
                         .HasFilter("[DeletedAt] IS NOT NULL");
 
-                    b.HasIndex("LifecycleStatus");
-
                     b.HasIndex("PaymentStatus");
 
                     b.HasIndex("UpdatedAt");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("ValidUntil");
 
                     b.HasIndex("Latitude", "Longitude")
                         .HasFilter("[IsActive] = 1 AND [DeletedAt] IS NULL");

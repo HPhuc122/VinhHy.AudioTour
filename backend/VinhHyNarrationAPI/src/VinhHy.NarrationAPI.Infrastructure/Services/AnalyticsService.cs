@@ -4,6 +4,7 @@ using VinhHy.NarrationAPI.Application.Features.Analytics.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
+using VinhHy.NarrationAPI.Domain.Entities;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
@@ -71,9 +72,51 @@ public class AnalyticsService : IAnalyticsService
             PendingNarrations = await _db.NarrationDrafts.CountAsync(
                 n => n.Status == NarrationDraftStatuses.Pending,
                 cancellationToken).ConfigureAwait(false),
+            PendingReviewPois = await CountPoisByLifecycleAsync(PoiLifecycleStatus.PendingReview, cancellationToken).ConfigureAwait(false),
+            ApprovedPois = await CountPoisByLifecycleAsync(PoiLifecycleStatus.Approved, cancellationToken).ConfigureAwait(false),
+            PendingPaymentPois = await CountPoisByLifecycleAsync(PoiLifecycleStatus.PendingPayment, cancellationToken).ConfigureAwait(false),
+            ActivePois = await CountActivePoisAsync(cancellationToken).ConfigureAwait(false),
+            ExpiredPois = await CountExpiredPoisAsync(cancellationToken).ConfigureAwait(false),
+            RejectedPois = await CountPoisByLifecycleAsync(PoiLifecycleStatus.Rejected, cancellationToken).ConfigureAwait(false),
             TotalTourViews = null,
             TotalQrScans = await _uow.NarrationLogs.CountAsync(TriggerTypes.Qr, cancellationToken).ConfigureAwait(false),
             TotalAudioPlays = await _uow.NarrationLogs.CountAsync(cancellationToken: cancellationToken).ConfigureAwait(false)
         };
+    }
+
+    private async Task<int> CountPoisByLifecycleAsync(
+        PoiLifecycleStatus lifecycleStatus,
+        CancellationToken cancellationToken) =>
+        await _db.Pois
+            .AsNoTracking()
+            .CountAsync(p => p.LifecycleStatus == lifecycleStatus, cancellationToken)
+            .ConfigureAwait(false);
+
+    private async Task<int> CountActivePoisAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.Pois
+            .AsNoTracking()
+            .CountAsync(
+                p => p.LifecycleStatus == PoiLifecycleStatus.Active
+                    && p.IsActive
+                    && (!p.ValidFrom.HasValue || p.ValidFrom.Value <= now)
+                    && (!p.ValidUntil.HasValue || p.ValidUntil.Value >= now),
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<int> CountExpiredPoisAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.Pois
+            .AsNoTracking()
+            .CountAsync(
+                p => p.LifecycleStatus == PoiLifecycleStatus.Expired
+                    || (p.LifecycleStatus == PoiLifecycleStatus.Active
+                        && p.ValidUntil.HasValue
+                        && p.ValidUntil.Value < now),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }

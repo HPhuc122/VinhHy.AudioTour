@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Domain.Entities;
+using VinhHy.NarrationAPI.Domain.Specifications;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Repositories;
@@ -36,6 +37,7 @@ public class PoiRepository : IPoiRepository
         string? category = null,
         bool? isActive = null,
         ApprovalStatus? approvalStatus = null,
+        PoiLifecycleStatus? lifecycleStatus = null,
         int? ownerUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
@@ -55,8 +57,18 @@ public class PoiRepository : IPoiRepository
         if (!string.IsNullOrWhiteSpace(category))
             query = query.Where(p => p.Category == category);
 
-        if (isActive.HasValue)
-            query = query.Where(p => p.IsActive == isActive.Value);
+        if (isActive == true && lifecycleStatus == PoiLifecycleStatus.Active)
+        {
+            query = query.Where(PoiAvailability.IsPubliclyAvailable(DateTime.UtcNow));
+        }
+        else
+        {
+            if (isActive.HasValue)
+                query = query.Where(p => p.IsActive == isActive.Value);
+
+            if (lifecycleStatus.HasValue)
+                query = query.Where(p => p.LifecycleStatus == lifecycleStatus.Value);
+        }
 
         if (approvalStatus.HasValue)
             query = query.Where(p => p.ApprovalStatus == approvalStatus.Value);
@@ -92,8 +104,8 @@ public class PoiRepository : IPoiRepository
         decimal maxLon,
         CancellationToken cancellationToken = default) =>
         await _db.Pois
-            .Where(p => p.IsActive
-                && p.Latitude >= minLat && p.Latitude <= maxLat
+            .Where(PoiAvailability.IsPubliclyAvailable(DateTime.UtcNow))
+            .Where(p => p.Latitude >= minLat && p.Latitude <= maxLat
                 && p.Longitude >= minLon && p.Longitude <= maxLon)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

@@ -7,30 +7,9 @@ import { useToast } from '../../../components/ui/Toast';
 import { buildAssetUrl } from '../../../utils/assetUrl';
 import PoiTranslationModal from './PoiTranslationModal';
 
-type ApprovalStatusValue = 0 | 1 | 2;
+type LifecycleStatusValue = 0 | 1 | 2 | 3 | 4 | 5;
 type PaymentStatusValue = 0 | 1 | 2 | 3;
-
-const APPROVAL_STATUS_OPTIONS: Array<{
-  value: ApprovalStatusValue;
-  label: string;
-  selectClassName: string;
-}> = [
-  {
-    value: 0,
-    label: 'Chờ duyệt',
-    selectClassName: 'border-yellow-300 bg-yellow-50 text-yellow-800 focus:ring-yellow-400',
-  },
-  {
-    value: 1,
-    label: 'Đã duyệt',
-    selectClassName: 'border-green-300 bg-green-50 text-green-800 focus:ring-green-400',
-  },
-  {
-    value: 2,
-    label: 'Từ chối',
-    selectClassName: 'border-red-300 bg-red-50 text-red-800 focus:ring-red-400',
-  },
-];
+type AdminLifecycleAction = 'approve' | 'reject' | 'request-payment';
 
 interface Props {
   filters?: any;
@@ -45,7 +24,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
   const toast = useToast();
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [restoringId, setRestoringId] = useState<number | null>(null);
-  const [updatingApprovalId, setUpdatingApprovalId] = useState<number | null>(null);
+  const [updatingLifecycleId, setUpdatingLifecycleId] = useState<number | null>(null);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
   const [viewingImages, setViewingImages] = useState<string[] | null>(null);
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
@@ -61,9 +40,18 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
   });
 
-  const updateApprovalStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: ApprovalStatusValue }) =>
-      poisApi.updateApprovalStatus(id, status),
+  const approveReviewMutation = useMutation({
+    mutationFn: (id: number) => poisApi.approveReview(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
+
+  const requestPaymentMutation = useMutation({
+    mutationFn: (id: number) => poisApi.requestPayment(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: number) => poisApi.reject(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
   });
 
@@ -77,33 +65,36 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
   });
 
-  const handleApprovalStatusChange = async (
-    poi: any,
-    nextStatus: ApprovalStatusValue,
-    resetSelect: () => void,
-  ) => {
-    const currentStatus = getApprovalStatusValue(poi.approvalStatus);
-    if (nextStatus === currentStatus) {
-      return;
-    }
+  const vendorMomoPaymentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const session = await poisApi.startPayment(id);
+      return poisApi.simulateMomoPayment(id, session.paymentSessionId, true);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
 
-    const nextLabel = getApprovalStatusLabel(nextStatus);
-    const ok = window.confirm(`Đổi trạng thái duyệt của ${poi.name || poi.code} thành "${nextLabel}"?`);
+  const handleLifecycleAction = async (poi: any, action: AdminLifecycleAction) => {
+    const label = getLifecycleActionLabel(action);
+    const ok = window.confirm(`Xác nhận "${label}" cho ${poi.name || poi.code}?`);
     if (!ok) {
-      resetSelect();
       return;
     }
 
     try {
-      setUpdatingApprovalId(poi.id);
-      await updateApprovalStatusMutation.mutateAsync({ id: poi.id, status: nextStatus });
-      toast('Đã cập nhật trạng thái duyệt', 'success');
+      setUpdatingLifecycleId(poi.id);
+      if (action === 'approve') {
+        await approveReviewMutation.mutateAsync(poi.id);
+      } else if (action === 'request-payment') {
+        await requestPaymentMutation.mutateAsync(poi.id);
+      } else {
+        await rejectMutation.mutateAsync(poi.id);
+      }
+      toast('Đã cập nhật vòng đời POI', 'success');
     } catch (err: any) {
-      resetSelect();
-      const msg = err?.response?.data?.message ?? 'Lỗi khi cập nhật trạng thái duyệt';
+      const msg = err?.response?.data?.message ?? 'Lỗi khi cập nhật vòng đời POI';
       toast(msg, 'error');
     } finally {
-      setUpdatingApprovalId(null);
+      setUpdatingLifecycleId(null);
     }
   };
 
@@ -130,6 +121,24 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     }
   };
 
+  const handleVendorMomoPayment = async (poi: any) => {
+    const ok = window.confirm(`Thanh toán MoMo mô phỏng cho ${poi.name || poi.code}?`);
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setUpdatingPaymentId(poi.id);
+      await vendorMomoPaymentMutation.mutateAsync(poi.id);
+      toast('Thanh toán MoMo mô phỏng thành công. POI đã được kích hoạt.', 'success');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Thanh toán MoMo mô phỏng thất bại';
+      toast(msg, 'error');
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
   if (isLoading) {
     return <div>Đang tải dữ liệu...</div>;
   }
@@ -140,7 +149,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
 
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="min-w-[1240px] bg-white divide-y divide-gray-100">
+      <table className="min-w-[1420px] bg-white divide-y divide-gray-100">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
             <th className="px-4 py-3 text-left">Mã địa điểm</th>
@@ -148,8 +157,9 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
             <th className="px-4 py-3 text-left">Ảnh</th>
             <th className="px-4 py-3 text-left">Phân loại</th>
             <th className="px-4 py-3 text-left">Tọa độ</th>
-            <th className="px-4 py-3 text-left">Trạng thái duyệt</th>
+            <th className="px-4 py-3 text-left">Vòng đời</th>
             <th className="px-4 py-3 text-left">Thanh toán</th>
+            <th className="px-4 py-3 text-left">Hiệu lực</th>
             <th className="px-4 py-3 text-left">Hoạt động</th>
             <th className="px-4 py-3 text-right">Thao tác</th>
           </tr>
@@ -157,38 +167,41 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
         <tbody className="divide-y divide-gray-100 text-sm">
           {data?.items.length === 0 ? (
             <tr>
-              <td colSpan={9} className="px-4 py-6 text-center text-gray-500">
+              <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
                 Không có địa điểm
               </td>
             </tr>
           ) : (
             data?.items.map((poi: any) => {
               const isDeleted = !!poi.deletedAt;
-              const approvalStatus = getApprovalStatusValue(poi.approvalStatus);
+              const lifecycleStatus = getLifecycleStatusValue(poi.lifecycleStatus);
               const paymentStatus = getPaymentStatusValue(poi.paymentStatus);
-              const canVendorEdit = isVendorMode && approvalStatus !== 1 && !isDeleted;
-              const canActivatePayment = !isVendorMode
-                && !isDeleted
-                && approvalStatus === 1
-                && paymentStatus === 1
-                && !poi.isActive;
+              const canVendorEdit = isVendorMode
+                && lifecycleStatus !== 1
+                && lifecycleStatus !== 2
+                && lifecycleStatus !== 3
+                && !isDeleted;
+              const canAdminApprove = !isVendorMode && !isDeleted && lifecycleStatus === 0;
+              const canAdminReject = !isVendorMode && !isDeleted && (lifecycleStatus === 0 || lifecycleStatus === 1);
+              const canRequestPayment = !isVendorMode && !isDeleted && lifecycleStatus === 1;
+              const canActivatePayment = !isVendorMode && !isDeleted && lifecycleStatus === 2 && paymentStatus === 1;
+              const canVendorPay = isVendorMode && !isDeleted && lifecycleStatus === 2 && paymentStatus === 1;
+              const isPaying = updatingPaymentId === poi.id;
+              const isLifecycleUpdating = updatingLifecycleId === poi.id;
+
               return (
                 <tr key={poi.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'bg-red-50 opacity-80' : ''}`}>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
                     <div className="flex items-center gap-2">
                       <span>{poi.code}</span>
-                      {isDeleted && (
+                      {isDeleted ? (
                         <span className="inline-block text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded">Đã xóa</span>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-gray-900">
                     <div className="max-w-[220px] truncate" title={poi.name || undefined}>
-                      {poi.name?.trim() ? (
-                        poi.name
-                      ) : (
-                        <span className="italic text-gray-400">Chưa cập nhật</span>
-                      )}
+                      {poi.name?.trim() ? poi.name : <span className="italic text-gray-400">Chưa cập nhật</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -223,31 +236,47 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                   <td className="px-4 py-3 text-gray-600">{poi.category}</td>
                   <td className="px-4 py-3 text-gray-500">{poi.latitude}, {poi.longitude}</td>
                   <td className="px-4 py-3">
-                    <div className="min-w-[150px]">
-                      {isVendorMode ? (
-                        <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getVendorRegistrationBadgeClassName(poi)}`}>
-                          {getVendorRegistrationLabel(poi)}
-                        </span>
-                      ) : (
-                        <select
-                          value={approvalStatus}
-                          disabled={isDeleted || updatingApprovalId === poi.id}
-                          className={`w-full rounded-md border px-2 py-1 text-xs font-medium shadow-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${getApprovalStatusClassName(poi.approvalStatus)}`}
-                          onChange={(event) => {
-                            const currentStatus = getApprovalStatusValue(poi.approvalStatus);
-                            const nextStatus = Number(event.target.value) as ApprovalStatusValue;
-                            void handleApprovalStatusChange(poi, nextStatus, () => {
-                              event.currentTarget.value = String(currentStatus);
-                            });
-                          }}
-                        >
-                          {APPROVAL_STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                    <div className="flex min-w-[190px] flex-col items-start gap-2">
+                      <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getLifecycleStatusBadgeClassName(lifecycleStatus)}`}>
+                        {isPaying ? 'Đang thanh toán' : getLifecycleStatusLabel(lifecycleStatus)}
+                      </span>
+                      {!isVendorMode ? (
+                        <div className="flex flex-wrap gap-1">
+                          {canAdminApprove ? (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              disabled={isLifecycleUpdating}
+                              loading={isLifecycleUpdating}
+                              onClick={() => void handleLifecycleAction(poi, 'approve')}
+                            >
+                              Duyệt
+                            </Button>
+                          ) : null}
+                          {canAdminReject ? (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={isLifecycleUpdating}
+                              loading={isLifecycleUpdating}
+                              onClick={() => void handleLifecycleAction(poi, 'reject')}
+                            >
+                              Từ chối
+                            </Button>
+                          ) : null}
+                          {canRequestPayment ? (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              disabled={isLifecycleUpdating}
+                              loading={isLifecycleUpdating}
+                              onClick={() => void handleLifecycleAction(poi, 'request-payment')}
+                            >
+                              Yêu cầu thanh toán
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -276,6 +305,23 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           </Button>
                         </div>
                       ) : null}
+                      {canVendorPay ? (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={isPaying}
+                          loading={isPaying}
+                          onClick={() => void handleVendorMomoPayment(poi)}
+                        >
+                          Thanh toán MoMo
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    <div className="min-w-[160px] space-y-1">
+                      <div>Từ: {formatDateTime(poi.validFrom)}</div>
+                      <div>Đến: {formatDateTime(poi.validUntil)}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -405,7 +451,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
               className="absolute -right-4 -top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-3xl text-white transition-colors hover:bg-white/40"
               aria-label="Đóng ảnh"
             >
-              ×
+              x
             </button>
 
             {viewingImages.length > 1 ? (
@@ -421,7 +467,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                   className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white shadow-lg transition-colors hover:bg-black/70"
                   aria-label="Ảnh trước"
                 >
-                  ❮
+                  &lt;
                 </button>
                 <button
                   type="button"
@@ -434,7 +480,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                   className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-3xl text-white shadow-lg transition-colors hover:bg-black/70"
                   aria-label="Ảnh tiếp theo"
                 >
-                  ❯
+                  &gt;
                 </button>
               </>
             ) : null}
@@ -456,21 +502,74 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
   );
 }
 
-function getApprovalStatusValue(status: unknown): ApprovalStatusValue {
+function getLifecycleStatusValue(status: unknown): LifecycleStatusValue {
   if (status === 'Approved') {
     return 1;
   }
 
-  if (status === 'Rejected') {
+  if (status === 'PendingPayment') {
     return 2;
   }
 
+  if (status === 'Active') {
+    return 3;
+  }
+
+  if (status === 'Expired') {
+    return 4;
+  }
+
+  if (status === 'Rejected') {
+    return 5;
+  }
+
   const value = Number(status);
-  return value === 1 || value === 2 ? value : 0;
+  return value >= 0 && value <= 5 ? value as LifecycleStatusValue : 0;
 }
 
-function getApprovalStatusLabel(status: ApprovalStatusValue): string {
-  return APPROVAL_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? 'Chờ duyệt';
+function getLifecycleStatusLabel(status: LifecycleStatusValue): string {
+  switch (status) {
+    case 1:
+      return 'Đã duyệt';
+    case 2:
+      return 'Chờ thanh toán';
+    case 3:
+      return 'Đang hoạt động';
+    case 4:
+      return 'Hết hạn';
+    case 5:
+      return 'Từ chối';
+    default:
+      return 'Chờ duyệt';
+  }
+}
+
+function getLifecycleStatusBadgeClassName(status: LifecycleStatusValue): string {
+  switch (status) {
+    case 1:
+      return 'border-sky-200 bg-sky-100 text-sky-800';
+    case 2:
+      return 'border-amber-200 bg-amber-100 text-amber-800';
+    case 3:
+      return 'border-green-200 bg-green-100 text-green-800';
+    case 4:
+      return 'border-gray-300 bg-gray-100 text-gray-700';
+    case 5:
+      return 'border-red-200 bg-red-100 text-red-800';
+    default:
+      return 'border-yellow-200 bg-yellow-100 text-yellow-800';
+  }
+}
+
+function getLifecycleActionLabel(action: AdminLifecycleAction): string {
+  switch (action) {
+    case 'approve':
+      return 'Duyệt';
+    case 'reject':
+      return 'Từ chối';
+    case 'request-payment':
+      return 'Yêu cầu thanh toán';
+  }
 }
 
 function getPaymentStatusValue(status: unknown): PaymentStatusValue {
@@ -520,48 +619,20 @@ function getPaymentStatusBadgeClassName(status: PaymentStatusValue): string {
   }
 }
 
-function getVendorRegistrationLabel(poi: any): string {
-  const approvalStatus = getApprovalStatusValue(poi.approvalStatus);
-  const paymentStatus = getPaymentStatusValue(poi.paymentStatus);
-
-  if (approvalStatus === 2) {
-    return 'Từ chối';
+function formatDateTime(value?: string | null): string {
+  if (!value) {
+    return '-';
   }
 
-  if (poi.isActive) {
-    return 'Đã kích hoạt';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
   }
 
-  if (approvalStatus === 1 && paymentStatus === 1) {
-    return 'Đã duyệt - Chờ thanh toán';
-  }
-
-  return 'Chờ duyệt';
-}
-
-function getVendorRegistrationBadgeClassName(poi: any): string {
-  const label = getVendorRegistrationLabel(poi);
-
-  if (label === 'Đã kích hoạt') {
-    return 'border-green-200 bg-green-100 text-green-800';
-  }
-
-  if (label === 'Đã duyệt - Chờ thanh toán') {
-    return 'border-amber-200 bg-amber-100 text-amber-800';
-  }
-
-  if (label === 'Từ chối') {
-    return 'border-red-200 bg-red-100 text-red-800';
-  }
-
-  return 'border-yellow-200 bg-yellow-100 text-yellow-800';
-}
-
-function getApprovalStatusClassName(status: unknown): string {
-  const value = getApprovalStatusValue(status);
-  const fallbackClassName = 'border-yellow-300 bg-yellow-50 text-yellow-800 focus:ring-yellow-400';
-  return APPROVAL_STATUS_OPTIONS.find((option) => option.value === value)?.selectClassName
-    ?? fallbackClassName;
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 function getPoiImageUrls(poi: any): string[] {

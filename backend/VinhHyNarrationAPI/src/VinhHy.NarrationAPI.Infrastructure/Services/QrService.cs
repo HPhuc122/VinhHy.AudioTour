@@ -7,6 +7,7 @@ using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
+using VinhHy.NarrationAPI.Domain.Specifications;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
@@ -51,6 +52,11 @@ public class QrService : IQrService
             .ConfigureAwait(false);
 
         if (qr is null)
+        {
+            return null;
+        }
+
+        if (qr.Poi is not null && !PoiAvailability.IsPubliclyAvailable(qr.Poi, DateTime.UtcNow))
         {
             return null;
         }

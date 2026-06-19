@@ -3,6 +3,7 @@ using VinhHy.NarrationAPI.Application.Features.PublicAudioTour.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Entities;
+using VinhHy.NarrationAPI.Domain.Specifications;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
@@ -42,6 +43,7 @@ public class PublicAudioTourService : IPublicAudioTourService
             EstimatedMinutes = tour.EstimatedMinutes,
             Pois = tour.TourPois
                 .OrderBy(tp => tp.OrderIndex)
+                .Where(tp => PoiAvailability.IsPubliclyAvailable(tp.Poi, DateTime.UtcNow))
                 .Select(tp => MapPoi(tp.Poi, languageCode, tp.OrderIndex))
                 .ToArray()
         };
@@ -59,6 +61,11 @@ public class PublicAudioTourService : IPublicAudioTourService
         var poi = await _uow.Pois.GetByIdAsync(poiId, cancellationToken: cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException("POI", poiId);
+
+        if (!PoiAvailability.IsPubliclyAvailable(poi, DateTime.UtcNow))
+        {
+            throw new NotFoundException("POI", poiId);
+        }
 
         var audioTracks = await _uow.AudioTracks.GetByPoiIdAsync(poiId, cancellationToken)
             .ConfigureAwait(false);

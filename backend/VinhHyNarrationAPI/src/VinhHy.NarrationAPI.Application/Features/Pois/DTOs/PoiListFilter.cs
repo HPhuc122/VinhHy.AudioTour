@@ -13,5 +13,7 @@ public class PoiListFilter : PaginationRequest
 
     public ApprovalStatus? ApprovalStatus { get; set; }
 
+    public PoiLifecycleStatus? LifecycleStatus { get; set; }
+
     public bool IncludeDeleted { get; set; }
 }

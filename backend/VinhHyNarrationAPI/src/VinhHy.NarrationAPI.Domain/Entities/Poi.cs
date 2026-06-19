@@ -18,6 +18,16 @@ public enum PoiPaymentStatus : byte
     Waived = 3
 }
 
+public enum PoiLifecycleStatus : byte
+{
+    PendingReview = 0,
+    Approved = 1,
+    PendingPayment = 2,
+    Active = 3,
+    Expired = 4,
+    Rejected = 5
+}
+
 public class Poi : SyncableEntity
 {
     public string Code { get; set; } = null!;
@@ -46,11 +56,17 @@ public class Poi : SyncableEntity
 
     public bool IsActive { get; set; } = true;
 
+    public PoiLifecycleStatus LifecycleStatus { get; set; } = PoiLifecycleStatus.PendingReview;
+
     public bool PaymentRequired { get; set; }
 
     public PoiPaymentStatus PaymentStatus { get; set; } = PoiPaymentStatus.NotRequired;
 
     public DateTime? ActivatedAt { get; set; }
+
+    public DateTime? ValidFrom { get; set; }
+
+    public DateTime? ValidUntil { get; set; }
 
     public int? ActivatedByUserId { get; set; }
 

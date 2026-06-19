@@ -12,6 +12,7 @@ export interface PoiDto {
   shortDescription?: string | null;
   description?: string | null;
   approvalStatus: number | string;
+  lifecycleStatus: number | string;
   userId?: number | null;
   displayName?: string | null;
   isActive: boolean;
@@ -19,6 +20,8 @@ export interface PoiDto {
   paymentStatus: number | string;
   activatedAt?: string | null;
   activatedByUserId?: number | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
   category?: string | null;
   imageUrl?: string | null;
   audioUrl?: string | null;
@@ -31,6 +34,23 @@ export interface PoiDto {
   imageUrls?: string[];
 }
 
+export interface StartPoiPaymentResponse {
+  paymentSessionId: number;
+  poiId: number;
+  provider: string;
+  status: string;
+  amount: number;
+  currency: string;
+  expiresAt: string;
+}
+
+export interface SimulatePoiPaymentResponse {
+  paymentSessionId: number;
+  poiId: number;
+  status: string;
+  poi: PoiDto;
+}
+
 export interface PoiListFilter {
   page?: number;
   pageSize?: number;
@@ -38,6 +58,7 @@ export interface PoiListFilter {
   category?: string;
   isActive?: boolean | string;
   approvalStatus?: number | string;
+  lifecycleStatus?: number | string;
   includeDeleted?: boolean;
 }
 
@@ -52,6 +73,7 @@ export function createPoisApi(client: AxiosInstance) {
           category: filter.category || undefined,
           isActive: filter.isActive,
           approvalStatus: filter.approvalStatus,
+          lifecycleStatus: filter.lifecycleStatus,
           includeDeleted: filter.includeDeleted,
         },
       });
@@ -96,6 +118,21 @@ export const poisApi = {
     return unwrapApiResponse(response.data);
   },
 
+  async approveReview(id: number): Promise<PoiDto> {
+    const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/approve-review`);
+    return unwrapApiResponse(response.data);
+  },
+
+  async requestPayment(id: number): Promise<PoiDto> {
+    const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/request-payment`);
+    return unwrapApiResponse(response.data);
+  },
+
+  async reject(id: number): Promise<PoiDto> {
+    const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/reject`);
+    return unwrapApiResponse(response.data);
+  },
+
   async markPaid(id: number): Promise<PoiDto> {
     const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/mark-paid`);
     return unwrapApiResponse(response.data);
@@ -103,6 +140,27 @@ export const poisApi = {
 
   async waivePayment(id: number): Promise<PoiDto> {
     const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/waive-payment`);
+    return unwrapApiResponse(response.data);
+  },
+
+  async startPayment(id: number): Promise<StartPoiPaymentResponse> {
+    const response = await httpClient.post<ApiResponse<StartPoiPaymentResponse>>(
+      `${POIS_BASE}/${id}/payment/start`,
+    );
+
+    return unwrapApiResponse(response.data);
+  },
+
+  async simulateMomoPayment(
+    id: number,
+    paymentSessionId: number,
+    success = true,
+  ): Promise<SimulatePoiPaymentResponse> {
+    const response = await httpClient.post<ApiResponse<SimulatePoiPaymentResponse>>(
+      `${POIS_BASE}/${id}/payment/simulate-momo`,
+      { paymentSessionId, success },
+    );
+
     return unwrapApiResponse(response.data);
   },
 

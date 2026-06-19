@@ -30,11 +30,17 @@ public class PoiDto
 
     public bool IsActive { get; set; }
 
+    public PoiLifecycleStatus LifecycleStatus { get; set; }
+
     public bool PaymentRequired { get; set; }
 
     public PoiPaymentStatus PaymentStatus { get; set; }
 
     public DateTime? ActivatedAt { get; set; }
+
+    public DateTime? ValidFrom { get; set; }
+
+    public DateTime? ValidUntil { get; set; }
 
     public int? ActivatedByUserId { get; set; }
 

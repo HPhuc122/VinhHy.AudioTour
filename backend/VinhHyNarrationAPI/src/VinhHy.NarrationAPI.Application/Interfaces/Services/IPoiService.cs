@@ -21,12 +21,19 @@ public interface IPoiService
         string? category = null,
         bool? isActive = null,
         ApprovalStatus? approvalStatus = null,
+        PoiLifecycleStatus? lifecycleStatus = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
     Task<PoiDto> CreateAsync(CreatePoiRequest request, CancellationToken cancellationToken = default);
 
     Task<PoiDto> UpdateAsync(int id, UpdatePoiRequest request, CancellationToken cancellationToken = default);
+
+    Task<PoiDto> ApproveReviewAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<PoiDto> RequestPaymentAsync(int id, CancellationToken cancellationToken = default);
+
+    Task<PoiDto> RejectAsync(int id, CancellationToken cancellationToken = default);
 
     Task<PoiDto> UpdateApprovalStatusAsync(
         int id,
@@ -41,6 +48,17 @@ public interface IPoiService
     Task<PoiDto> WaivePaymentAsync(
         int id,
         int activatedByUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<StartPoiPaymentResponse> StartPaymentAsync(
+        int id,
+        int vendorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<SimulatePoiPaymentResponse> SimulateMomoPaymentAsync(
+        int id,
+        int vendorUserId,
+        SimulatePoiPaymentRequest request,
         CancellationToken cancellationToken = default);
 
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);

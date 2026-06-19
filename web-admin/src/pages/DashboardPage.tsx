@@ -78,6 +78,10 @@ export function DashboardPage() {
     () => getPoiMapPoints(poisQuery.data?.items ?? [], user?.userId),
     [poisQuery.data, user?.userId],
   );
+  const vendorPoiStats = useMemo(
+    () => getVendorPoiStats(poisQuery.data?.items ?? []),
+    [poisQuery.data],
+  );
 
   if (isVendor) {
     const isLoading =
@@ -88,7 +92,8 @@ export function DashboardPage() {
       vendorNarrationsPending.isLoading ||
       vendorNarrationsApproved.isLoading ||
       vendorNarrationsRejected.isLoading ||
-      vendorNarrationsAudio.isLoading;
+      vendorNarrationsAudio.isLoading ||
+      poisQuery.isLoading;
 
     return (
       <section className="app-page">
@@ -99,7 +104,12 @@ export function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <DashboardCard label="Tổng số sạp" value={vendorPoiStats.total} isLoading={isLoading} />
+          <DashboardCard label="Đang hoạt động" value={vendorPoiStats.active} isLoading={isLoading} />
+          <DashboardCard label="Chờ duyệt" value={vendorPoiStats.pendingReview} isLoading={isLoading} />
+          <DashboardCard label="Chờ thanh toán" value={vendorPoiStats.pendingPayment} isLoading={isLoading} />
+          <DashboardCard label="Hết hạn" value={vendorPoiStats.expired} isLoading={isLoading} />
           <DashboardCard label="Tổng ảnh" value={vendorImagesAll.data?.totalCount} isLoading={isLoading} />
           <DashboardCard label="Ảnh chờ duyệt" value={vendorImagesPending.data?.totalCount} isLoading={isLoading} />
           <DashboardCard label="Ảnh đã duyệt" value={vendorImagesApproved.data?.totalCount} isLoading={isLoading} />
@@ -158,6 +168,15 @@ export function DashboardPage() {
         <DashboardCard label="Media đã xóa" value={stats?.deletedMediaFiles} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Ảnh chờ duyệt" value={stats?.pendingImages} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Thuyết minh chờ duyệt" value={stats?.pendingNarrations} isLoading={dashboardQuery.isLoading} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <DashboardCard label="POI chờ duyệt" value={stats?.pendingReviewPois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="POI đã duyệt" value={stats?.approvedPois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="POI chờ thanh toán" value={stats?.pendingPaymentPois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="POI đang hoạt động" value={stats?.activePois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="POI hết hạn" value={stats?.expiredPois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="POI bị từ chối" value={stats?.rejectedPois} isLoading={dashboardQuery.isLoading} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -323,6 +342,59 @@ function getPoiMapPoints(pois: PoiDto[], currentUserId?: number): PoiMapPoint[] 
 
     return points;
   }, []);
+}
+
+function getVendorPoiStats(pois: PoiDto[]) {
+  return pois.reduce(
+    (stats, poi) => {
+      const lifecycleStatus = getLifecycleStatusValue(poi.lifecycleStatus);
+      stats.total += 1;
+
+      if (lifecycleStatus === 0) {
+        stats.pendingReview += 1;
+      } else if (lifecycleStatus === 2) {
+        stats.pendingPayment += 1;
+      } else if (lifecycleStatus === 3 && poi.isActive) {
+        stats.active += 1;
+      } else if (lifecycleStatus === 4) {
+        stats.expired += 1;
+      }
+
+      return stats;
+    },
+    {
+      total: 0,
+      active: 0,
+      pendingReview: 0,
+      pendingPayment: 0,
+      expired: 0,
+    },
+  );
+}
+
+function getLifecycleStatusValue(status: unknown): number {
+  if (status === 'Approved') {
+    return 1;
+  }
+
+  if (status === 'PendingPayment') {
+    return 2;
+  }
+
+  if (status === 'Active') {
+    return 3;
+  }
+
+  if (status === 'Expired') {
+    return 4;
+  }
+
+  if (status === 'Rejected') {
+    return 5;
+  }
+
+  const value = Number(status);
+  return Number.isFinite(value) ? value : 0;
 }
 
 function parseCoordinate(value?: number | string | null): number | null {

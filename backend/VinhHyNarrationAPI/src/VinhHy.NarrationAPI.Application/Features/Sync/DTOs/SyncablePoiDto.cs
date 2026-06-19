@@ -28,6 +28,12 @@ public class SyncablePoiDto
 
     public bool IsActive { get; set; }
 
+    public PoiLifecycleStatus LifecycleStatus { get; set; }
+
+    public DateTime? ValidFrom { get; set; }
+
+    public DateTime? ValidUntil { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public IReadOnlyList<string> ImageUrls { get; set; } = [];

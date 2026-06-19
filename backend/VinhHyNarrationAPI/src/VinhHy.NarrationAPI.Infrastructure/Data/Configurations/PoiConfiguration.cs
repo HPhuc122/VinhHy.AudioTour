@@ -18,6 +18,9 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
         builder.Property(e => e.RadiusMeters).HasColumnType("decimal(8,2)").HasDefaultValue(30m);
         builder.Property(e => e.Priority).HasDefaultValue(1);
         builder.Property(e => e.IsActive).HasDefaultValue(true);
+        builder.Property(e => e.LifecycleStatus)
+            .HasConversion<byte>()
+            .HasDefaultValue(PoiLifecycleStatus.PendingReview);
         builder.Property(e => e.PaymentRequired).HasDefaultValue(false);
         builder.Property(e => e.PaymentStatus)
             .HasConversion<byte>()
@@ -43,7 +46,9 @@ public class PoiConfiguration : IEntityTypeConfiguration<Poi>
 
         builder.HasIndex(e => e.Code).IsUnique();
         builder.HasIndex(e => e.UserId);
+        builder.HasIndex(e => e.LifecycleStatus);
         builder.HasIndex(e => e.PaymentStatus);
+        builder.HasIndex(e => e.ValidUntil);
         builder.HasIndex(e => e.ActivatedByUserId);
         builder.HasIndex(e => e.UpdatedAt);
         builder.HasIndex(e => e.DeletedAt)

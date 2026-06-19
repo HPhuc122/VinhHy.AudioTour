@@ -22,6 +22,18 @@ public class DashboardStatsDto
 
     public int PendingNarrations { get; set; }
 
+    public int PendingReviewPois { get; set; }
+
+    public int ApprovedPois { get; set; }
+
+    public int PendingPaymentPois { get; set; }
+
+    public int ActivePois { get; set; }
+
+    public int ExpiredPois { get; set; }
+
+    public int RejectedPois { get; set; }
+
     public int? TotalTourViews { get; set; }
 
     public int TotalQrScans { get; set; }

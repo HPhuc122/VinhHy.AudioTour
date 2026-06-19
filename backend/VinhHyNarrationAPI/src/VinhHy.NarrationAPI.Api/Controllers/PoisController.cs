@@ -6,6 +6,7 @@ using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 
 namespace VinhHy.NarrationAPI.Api.Controllers;
@@ -47,10 +48,11 @@ public class PoisController(IPoiService poiService) : ControllerBase
         [FromQuery] string? category = null,
         [FromQuery] bool? isActive = null,
         [FromQuery] ApprovalStatus? approvalStatus = null,
+        [FromQuery] PoiLifecycleStatus? lifecycleStatus = null,
         [FromQuery] bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, approvalStatus, includeDeleted, cancellationToken);
+        var result = await poiService.GetPagedAsync(page, pageSize, search, category, isActive, approvalStatus, lifecycleStatus, includeDeleted, cancellationToken);
         return this.ApiOk(result);
     }
 
@@ -86,6 +88,30 @@ public class PoisController(IPoiService poiService) : ControllerBase
         return this.ApiOk(poi, "POI approval status updated");
     }
 
+    [HttpPost("{id:int}/approve-review")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> ApproveReview(int id, CancellationToken cancellationToken)
+    {
+        var poi = await poiService.ApproveReviewAsync(id, cancellationToken);
+        return this.ApiOk(poi, "POI review approved");
+    }
+
+    [HttpPost("{id:int}/request-payment")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> RequestPayment(int id, CancellationToken cancellationToken)
+    {
+        var poi = await poiService.RequestPaymentAsync(id, cancellationToken);
+        return this.ApiOk(poi, "POI moved to pending payment");
+    }
+
+    [HttpPost("{id:int}/reject")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> Reject(int id, CancellationToken cancellationToken)
+    {
+        var poi = await poiService.RejectAsync(id, cancellationToken);
+        return this.ApiOk(poi, "POI rejected");
+    }
+
     [HttpPost("{id:int}/mark-paid")]
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> MarkPaid(int id, CancellationToken cancellationToken)
@@ -100,6 +126,30 @@ public class PoisController(IPoiService poiService) : ControllerBase
     {
         var poi = await poiService.WaivePaymentAsync(id, GetRequiredCurrentUserId(), cancellationToken);
         return this.ApiOk(poi, "POI payment waived and activated");
+    }
+
+    [HttpPost("{id:int}/payment/start")]
+    [Authorize(Roles = RoleNames.Vendor)]
+    public async Task<IActionResult> StartPayment(int id, CancellationToken cancellationToken)
+    {
+        var result = await poiService.StartPaymentAsync(id, GetRequiredCurrentUserId(), cancellationToken);
+        return this.ApiOk(result, "Simulated MoMo payment session started");
+    }
+
+    [HttpPost("{id:int}/payment/simulate-momo")]
+    [Authorize(Roles = RoleNames.Vendor)]
+    public async Task<IActionResult> SimulateMomoPayment(
+        int id,
+        [FromBody] SimulatePoiPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await poiService.SimulateMomoPaymentAsync(
+            id,
+            GetRequiredCurrentUserId(),
+            request,
+            cancellationToken);
+
+        return this.ApiOk(result, "Simulated MoMo payment processed");
     }
 
     [HttpDelete("{id:int}")]

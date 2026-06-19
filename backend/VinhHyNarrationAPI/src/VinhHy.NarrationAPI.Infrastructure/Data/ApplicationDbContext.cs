@@ -40,6 +40,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<AccessPaymentSession> AccessPaymentSessions => Set<AccessPaymentSession>();
 
+    public DbSet<PoiPaymentSession> PoiPaymentSessions => Set<PoiPaymentSession>();
+
     public DbSet<NarrationLog> NarrationLogs => Set<NarrationLog>();
 
     public DbSet<OfflinePackage> OfflinePackages => Set<OfflinePackage>();

@@ -15,6 +15,12 @@ export interface DashboardStatsDto {
   deletedMediaFiles: number;
   pendingImages: number;
   pendingNarrations: number;
+  pendingReviewPois: number;
+  approvedPois: number;
+  pendingPaymentPois: number;
+  activePois: number;
+  expiredPois: number;
+  rejectedPois: number;
   totalTourViews?: number | null;
   totalQrScans: number;
   totalAudioPlays: number;
