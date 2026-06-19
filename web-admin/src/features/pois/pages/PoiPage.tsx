@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -21,6 +21,7 @@ export function PoiPage() {
   const { user } = useAuth();
   const location = useLocation();
   const isVendorMode = user?.role === ROLE_VENDOR || location.pathname === routes.registerPoi;
+  const autoOpenedRegisterRef = useRef<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<any | undefined>();
 
@@ -42,6 +43,19 @@ export function PoiPage() {
     setDraftLifecycleStatus(nextLifecycleStatus);
     setLifecycleStatus(nextLifecycleStatus || undefined);
   }, [location.search]);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    if (
+      isVendorMode &&
+      queryParams.get('view') === 'register' &&
+      autoOpenedRegisterRef.current !== location.search
+    ) {
+      setEditTarget(undefined);
+      setFormOpen(true);
+      autoOpenedRegisterRef.current = location.search;
+    }
+  }, [isVendorMode, location.search]);
 
   const filters = useMemo(
     () => ({

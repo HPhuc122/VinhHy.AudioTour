@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { extractApiError } from '@/api/apiError';
 import { poisApi } from '../api/poisApi';
 import { usersApi } from '../../users/api/usersApi';
 import { useToast } from '../../../components/ui/Toast';
@@ -75,12 +76,20 @@ const defaultValues = {
   minDwellSeconds: 5,
 };
 
+const vendorWizardSteps = [
+  'Thông tin cơ bản',
+  'Vị trí',
+  'Hình ảnh đăng ký',
+  'Xác nhận gửi duyệt',
+];
+
 export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = false }: Props) {
   const isEdit = Boolean(editPoi);
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [vendorStep, setVendorStep] = useState(0);
 
   const { data: usersData } = useQuery({
     queryKey: ['users', 'poi-owner-options'],
@@ -154,6 +163,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
         : defaultValues,
     );
     setPreviews([]);
+    setVendorStep(0);
   }, [open, editPoi]);
 
   const handleSubmit = async (data: CreateForm | EditForm) => {
@@ -221,12 +231,94 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
 
       onClose();
     } catch (err: any) {
-      const message = err?.response?.data?.message ?? 'Lỗi khi lưu địa điểm';
-      toast(message, 'error');
+      toast(extractApiError(err), 'error');
     }
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  const handleVendorNext = async () => {
+    if (vendorStep === 0) {
+      const validName = await form.trigger(['name'] as any);
+      const category = String(form.getValues('category') ?? '').trim();
+      if (!category) {
+        form.setError('category' as any, {
+          type: 'manual',
+          message: 'Vui lòng chọn danh mục.',
+        });
+        return;
+      }
+      if (!validName) return;
+    }
+
+    if (vendorStep === 1) {
+      const validLocation = await form.trigger(['latitude', 'longitude'] as any);
+      if (!validLocation) return;
+    }
+
+    setVendorStep((current) => Math.min(current + 1, vendorWizardSteps.length - 1));
+  };
+
+  if (isVendorMode) {
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={isEdit ? 'Chỉnh sửa đăng ký sạp' : 'Đăng ký địa điểm/sạp'}
+        size="xl"
+        scrollable
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose} disabled={loading || isSaving}>
+              Hủy
+            </Button>
+            {vendorStep > 0 ? (
+              <Button
+                variant="secondary"
+                onClick={() => setVendorStep((current) => Math.max(current - 1, 0))}
+                disabled={loading || isSaving}
+              >
+                Quay lại
+              </Button>
+            ) : null}
+            {vendorStep < vendorWizardSteps.length - 1 ? (
+              <Button onClick={() => void handleVendorNext()} disabled={loading || isSaving}>
+                Tiếp tục
+              </Button>
+            ) : (
+              <Button onClick={form.handleSubmit(handleSubmit as any)} loading={isSaving}>
+                {isSaving ? 'Đang gửi...' : isEdit ? 'Gửi lại hồ sơ' : 'Gửi duyệt'}
+              </Button>
+            )}
+          </>
+        }
+      >
+        <VendorPoiRegistrationWizard
+          step={vendorStep}
+          form={form}
+          editPoi={editPoi}
+          previews={previews}
+          setPreviews={setPreviews}
+          onOpenMap={() => setIsMapPickerOpen(true)}
+        />
+
+        <MapPickerOverlay
+          open={isMapPickerOpen}
+          initialPosition={
+            form.getValues('latitude') && form.getValues('longitude')
+              ? { lat: Number(form.getValues('latitude')), lng: Number(form.getValues('longitude')) }
+              : null
+          }
+          onClose={() => setIsMapPickerOpen(false)}
+          onConfirm={(lat, lng) => {
+            form.setValue('latitude', lat, { shouldValidate: true });
+            form.setValue('longitude', lng, { shouldValidate: true });
+            setIsMapPickerOpen(false);
+          }}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -415,6 +507,261 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
       </div>
     </Modal>
   );
+}
+
+function VendorPoiRegistrationWizard({
+  step,
+  form,
+  editPoi,
+  previews,
+  setPreviews,
+  onOpenMap,
+}: {
+  step: number;
+  form: UseFormReturn<CreateForm | EditForm>;
+  editPoi?: any;
+  previews: string[];
+  setPreviews: (previews: string[]) => void;
+  onOpenMap: () => void;
+}) {
+  const values = form.watch() as any;
+  const errors = form.formState.errors as any;
+
+  return (
+    <div className="space-y-5">
+      <VendorWizardHeader step={step} />
+
+      {editPoi ? (
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
+          <p className="font-semibold text-gray-900">Đang chỉnh sửa hồ sơ</p>
+          <p className="mt-1 text-gray-600">Mã địa điểm: {editPoi.code ?? `#${editPoi.id}`}</p>
+        </div>
+      ) : null}
+
+      {step === 0 ? (
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Điền thông tin khách sẽ nhìn thấy khi sạp được duyệt, thanh toán và kích hoạt.
+          </div>
+
+          <Input
+            label="Tên sạp/địa điểm"
+            placeholder="Ví dụ: Sạp hải sản Cô Ba"
+            error={errors.name?.message}
+            {...form.register('name')}
+            required
+          />
+
+          <Select
+            label="Danh mục"
+            value={String(values.category ?? '')}
+            error={errors.category?.message}
+            options={CATEGORY_OPTIONS}
+            placeholder="-- Chọn danh mục --"
+            onChange={(event) => {
+              form.setValue('category', event.target.value, { shouldValidate: true });
+              form.clearErrors('category' as any);
+            }}
+          />
+
+          <FormField
+            label="Mô tả ngắn"
+            htmlFor="vendor-poi-short-description"
+            error={errors.shortDescription?.message}
+          >
+            <textarea
+              id="vendor-poi-short-description"
+              rows={3}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Một câu ngắn giúp khách hiểu sạp/địa điểm này có gì nổi bật."
+              {...form.register('shortDescription')}
+            />
+          </FormField>
+
+          <FormField
+            label="Mô tả chi tiết"
+            htmlFor="vendor-poi-description"
+            error={errors.description?.message}
+          >
+            <textarea
+              id="vendor-poi-description"
+              rows={6}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Kể thêm về sản phẩm, câu chuyện, trải nghiệm hoặc thông tin khách nên biết."
+              {...form.register('description')}
+            />
+          </FormField>
+        </div>
+      ) : null}
+
+      {step === 1 ? (
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Chọn vị trí chính xác để khách có thể tìm sạp trên bản đồ và hệ thống nhận diện theo vùng gần đúng.
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Vĩ độ"
+              placeholder="Ví dụ: 12.345678"
+              error={errors.latitude?.message}
+              {...form.register('latitude')}
+              required
+            />
+            <Input
+              label="Kinh độ"
+              placeholder="Ví dụ: 109.123456"
+              error={errors.longitude?.message}
+              {...form.register('longitude')}
+              required
+            />
+          </div>
+
+          <Button type="button" variant="secondary" onClick={onOpenMap} className="w-full sm:w-auto">
+            Chọn vị trí trên bản đồ
+          </Button>
+
+          <div className="grid gap-3 rounded-lg border border-gray-100 bg-gray-50 p-4 sm:grid-cols-2">
+            <RegistrationSummaryItem label="Bán kính nhận diện" value={`${values.radiusMeters ?? 30} m`} />
+            <RegistrationSummaryItem
+              label="Ghi chú"
+              value="Thông số nhận diện do hệ thống quản lý, vendor không tự kích hoạt công khai."
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {step === 2 ? (
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Ảnh tải lên trong bước này dùng cho hồ sơ đăng ký. Ảnh chỉ hiển thị công khai sau khi admin duyệt
+            và sạp đủ điều kiện hoạt động.
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-gray-700">Hình ảnh đăng ký</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                if (files.length > 0) {
+                  form.setValue('imageFiles', files as any);
+                  form.setValue('imageFile', files[0] as any);
+                  setPreviews(files.map((file) => URL.createObjectURL(file)));
+                }
+              }}
+            />
+          </div>
+
+          {previews.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {previews.map((previewUrl, index) => (
+                <img
+                  key={previewUrl}
+                  src={previewUrl}
+                  alt={`Xem trước ${index + 1}`}
+                  className="h-28 w-full rounded-lg border object-cover"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+              Bạn có thể gửi hồ sơ trước và bổ sung ảnh sau trong Thư viện.
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {step === 3 ? (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
+            Sau khi gửi, admin sẽ duyệt. Nếu được duyệt, bạn sẽ nhận yêu cầu thanh toán trước khi sạp hiển thị công khai.
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <RegistrationSummaryItem label="Tên sạp/địa điểm" value={values.name || 'Chưa nhập'} />
+            <RegistrationSummaryItem label="Danh mục" value={getCategoryLabel(values.category)} />
+            <RegistrationSummaryItem label="Tọa độ" value={formatCoordinates(values.latitude, values.longitude)} />
+            <RegistrationSummaryItem label="Ảnh đăng ký" value={`${previews.length} ảnh mới`} />
+          </div>
+
+          <div className="rounded-lg border border-gray-100 p-4">
+            <p className="text-sm font-semibold text-gray-900">Mô tả ngắn</p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">
+              {values.shortDescription || 'Chưa nhập mô tả ngắn.'}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-100 p-4">
+            <p className="text-sm font-semibold text-gray-900">Mô tả chi tiết</p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-6 text-gray-600">
+              {values.description || 'Chưa nhập mô tả chi tiết.'}
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VendorWizardHeader({ step }: { step: number }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-4">
+      {vendorWizardSteps.map((label, index) => {
+        const done = index < step;
+        const current = index === step;
+        return (
+          <div
+            key={label}
+            className={`rounded-lg border px-3 py-3 ${
+              current
+                ? 'border-blue-200 bg-blue-50'
+                : done
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-gray-100 bg-gray-50'
+            }`}
+          >
+            <div
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                done
+                  ? 'bg-green-600 text-white'
+                  : current
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-400'
+              }`}
+            >
+              {done ? '✓' : index + 1}
+            </div>
+            <p className="mt-2 text-sm font-medium text-gray-900">{label}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RegistrationSummaryItem({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-white px-3 py-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-gray-900">{value || '-'}</p>
+    </div>
+  );
+}
+
+function getCategoryLabel(value?: string | null): string {
+  return CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? 'Chưa chọn';
+}
+
+function formatCoordinates(latitude?: number | string | null, longitude?: number | string | null): string {
+  if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
+    return 'Chưa chọn';
+  }
+
+  return `${latitude}, ${longitude}`;
 }
 
 export default PoiFormModal;
