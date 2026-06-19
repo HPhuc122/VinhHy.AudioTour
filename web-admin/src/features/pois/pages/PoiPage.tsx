@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -26,6 +26,17 @@ export function PoiPage() {
   const [approvalStatus, setApprovalStatus] = useState<string | undefined>(undefined);
   const [lifecycleStatus, setLifecycleStatus] = useState<string | undefined>(undefined);
   const [showDeleted, setShowDeleted] = useState(false);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const nextApprovalStatus = queryParams.get('approvalStatus') ?? '';
+    const nextLifecycleStatus = queryParams.get('lifecycleStatus') ?? '';
+
+    setDraftApprovalStatus(nextApprovalStatus);
+    setApprovalStatus(nextApprovalStatus || undefined);
+    setDraftLifecycleStatus(nextLifecycleStatus);
+    setLifecycleStatus(nextLifecycleStatus || undefined);
+  }, [location.search]);
 
   return (
     <div>
