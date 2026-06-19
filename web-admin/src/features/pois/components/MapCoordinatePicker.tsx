@@ -19,7 +19,7 @@ interface Props {
 
 type MapType = 'roadmap' | 'hybrid';
 
-const DEFAULT_CENTER: [number, number] = [10.7615, 106.7033];
+const DEFAULT_CENTER: [number, number] = [11.6017, 109.2267];
 const DEFAULT_ZOOM = 17;
 
 function ClickHandler({ onChange }: { onChange: (lat: number, lng: number) => void }) {

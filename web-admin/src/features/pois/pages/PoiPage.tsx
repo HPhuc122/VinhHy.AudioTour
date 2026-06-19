@@ -166,10 +166,7 @@ export function PoiPage() {
       <PoiFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSubmit={(data) => {
-          console.log('submit poi', data);
-          setFormOpen(false);
-        }}
+        onSubmit={() => setFormOpen(false)}
         loading={false}
         editPoi={editTarget}
         isVendorMode={isVendorMode}

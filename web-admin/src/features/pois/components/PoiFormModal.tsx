@@ -23,13 +23,21 @@ const createSchema = z.object({
   category: z.string().optional(),
   audioUrl: z.string().optional(),
   isActive: z.boolean().optional(),
-  latitude: z.coerce.number().refine((value) => !Number.isNaN(value), {
-    message: 'Vĩ độ là bắt buộc',
-  }),
-  longitude: z.coerce.number().refine((value) => !Number.isNaN(value), {
-    message: 'Kinh độ là bắt buộc',
-  }),
-  radiusMeters: z.coerce.number().optional(),
+  latitude: z.coerce
+    .number()
+    .refine((value) => Number.isFinite(value), {
+      message: 'Vĩ độ là bắt buộc',
+    })
+    .min(-90, 'Vĩ độ phải từ -90 đến 90')
+    .max(90, 'Vĩ độ phải từ -90 đến 90'),
+  longitude: z.coerce
+    .number()
+    .refine((value) => Number.isFinite(value), {
+      message: 'Kinh độ là bắt buộc',
+    })
+    .min(-180, 'Kinh độ phải từ -180 đến 180')
+    .max(180, 'Kinh độ phải từ -180 đến 180'),
+  radiusMeters: z.coerce.number().positive('Bán kính phải lớn hơn 0').optional(),
   priority: z.coerce.number().optional(),
   cooldownSeconds: z.coerce.number().optional(),
   minDwellSeconds: z.coerce.number().optional(),

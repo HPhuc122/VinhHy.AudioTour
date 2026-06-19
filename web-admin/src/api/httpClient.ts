@@ -73,8 +73,6 @@ export function createHttpClient(handlers: HttpClientAuthHandlers): AxiosInstanc
       }
     },
   );
-  console.log("BASE URL =", env.apiBaseUrl);
-
   return client;
 }
 

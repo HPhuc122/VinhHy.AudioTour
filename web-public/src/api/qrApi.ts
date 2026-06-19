@@ -5,7 +5,10 @@ import type { ApiResponse, QrDto, QrPoiDto, QrResolveResponse, TourDetailDto } f
 interface RawQrPoiDto {
   id: number;
   code: string;
+  name?: string | null;
   displayName?: string | null;
+  shortDescription?: string | null;
+  description?: string | null;
   latitude: number;
   longitude: number;
   imageUrl?: string | null;
@@ -22,9 +25,9 @@ function mapPoi(poi: RawQrPoiDto): QrPoiDto {
   return {
     poiId: poi.id,
     poiCode: poi.code,
-    name: poi.displayName ?? poi.code,
-    description: '',
-    shortDescription: null,
+    name: poi.name?.trim() || poi.displayName?.trim() || poi.code,
+    description: poi.description ?? '',
+    shortDescription: poi.shortDescription ?? null,
     imageUrl: poi.imageUrl ?? null,
     latitude: poi.latitude,
     longitude: poi.longitude,

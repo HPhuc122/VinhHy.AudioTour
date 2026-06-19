@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/Button';
 import usePois from '../hooks/usePois';
 import { poisApi } from '../api/poisApi';
@@ -22,6 +23,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
   const { data, isLoading, isError } = usePois(filters);
   const qc = useQueryClient();
   const toast = useToast();
+  const navigate = useNavigate();
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [updatingLifecycleId, setUpdatingLifecycleId] = useState<number | null>(null);
@@ -345,6 +347,13 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           + Dịch thuật
                         </Button>
                       ) : null}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => navigate(`/media?tab=narrations&poiId=${poi.id}`)}
+                      >
+                        Thuyết minh
+                      </Button>
                       {isVendorMode ? (
                         canVendorEdit ? (
                           <Button
