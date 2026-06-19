@@ -7,14 +7,19 @@ import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
+import { canViewAnalyticsDashboard, isAdminRole, isVendorRole } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { ROLE_VENDOR } from '@/features/auth/roleAccess';
 import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
 import { useNarrationsQuery } from '@/features/narrations/hooks/useNarrationsQuery';
-import { poisApi, type PoiDto } from '@/features/pois/api/poisApi';
+import { poisApi, type PoiDto, type PoiListFilter } from '@/features/pois/api/poisApi';
 
 const DEFAULT_CENTER: [number, number] = [10.7615, 106.7033];
 const DEFAULT_ZOOM = 17;
+
+const LIFECYCLE_PENDING_REVIEW = 0;
+const LIFECYCLE_PENDING_PAYMENT = 2;
+const LIFECYCLE_ACTIVE = 3;
+const LIFECYCLE_REJECTED = 5;
 
 const poiMarkerIcon = L.divIcon({
   className: '',
@@ -34,154 +39,85 @@ const ownedPoiMarkerIcon = L.divIcon({
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const isVendor = user?.role === ROLE_VENDOR;
-  const dashboardQuery = useDashboardStatsQuery({ enabled: !isVendor });
-  const poisQuery = useQuery({
-    queryKey: ['dashboard', 'poi-map', isVendor],
-    queryFn: () => poisApi.getAll({ page: 1, pageSize: 500 }),
-  });
-  const vendorImagesAll = useMediaQuery(
-    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'all' },
-    { enabled: isVendor },
-  );
-  const vendorImagesPending = useMediaQuery(
-    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Pending' },
-    { enabled: isVendor },
-  );
-  const vendorImagesApproved = useMediaQuery(
-    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Approved' },
-    { enabled: isVendor },
-  );
-  const vendorImagesRejected = useMediaQuery(
-    { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Rejected' },
-    { enabled: isVendor },
-  );
-  const vendorNarrationsPending = useNarrationsQuery(
-    { page: 1, pageSize: 1, status: 'Pending' },
-    { enabled: isVendor },
-  );
-  const vendorNarrationsApproved = useNarrationsQuery(
-    { page: 1, pageSize: 1, status: 'Approved' },
-    { enabled: isVendor },
-  );
-  const vendorNarrationsRejected = useNarrationsQuery(
-    { page: 1, pageSize: 1, status: 'Rejected' },
-    { enabled: isVendor },
-  );
-  const vendorNarrationsAudio = useNarrationsQuery(
-    { page: 1, pageSize: 1, status: 'AudioGenerated' },
-    { enabled: isVendor },
-  );
-  const stats = dashboardQuery.data;
-  const errorMessage = getErrorMessage(dashboardQuery.error);
-  const poiPoints = useMemo(
-    () => getPoiMapPoints(poisQuery.data?.items ?? [], user?.userId),
-    [poisQuery.data, user?.userId],
-  );
-  const vendorPoiStats = useMemo(
-    () => getVendorPoiStats(poisQuery.data?.items ?? []),
-    [poisQuery.data],
+  const isVendorDashboard = isVendorRole(user?.role);
+  const isAdminDashboard = isAdminRole(user?.role);
+  const canLoadAnalytics = canViewAnalyticsDashboard(user?.role);
+  const canLoadPoiMap = isAdminDashboard || isVendorDashboard;
+
+  const dashboardQuery = useDashboardStatsQuery({ enabled: canLoadAnalytics });
+  const poisMapQuery = useDashboardPoiQuery(
+    { page: 1, pageSize: 500 },
+    canLoadPoiMap,
+    'map',
   );
 
-  if (isVendor) {
-    const isLoading =
-      vendorImagesAll.isLoading ||
-      vendorImagesPending.isLoading ||
-      vendorImagesApproved.isLoading ||
-      vendorImagesRejected.isLoading ||
-      vendorNarrationsPending.isLoading ||
-      vendorNarrationsApproved.isLoading ||
-      vendorNarrationsRejected.isLoading ||
-      vendorNarrationsAudio.isLoading ||
-      poisQuery.isLoading;
-
-    return (
-      <section className="app-page">
-        <div>
-          <h1 className="app-title">Bảng điều khiển chủ sạp</h1>
-          <p className="app-subtitle">
-            Theo dõi trạng thái ảnh và bản thuyết minh đã gửi duyệt.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <DashboardCard label="Tổng số sạp" value={vendorPoiStats.total} isLoading={isLoading} />
-          <DashboardCard label="Đang hoạt động" value={vendorPoiStats.active} isLoading={isLoading} />
-          <DashboardCard label="Chờ duyệt" value={vendorPoiStats.pendingReview} isLoading={isLoading} />
-          <DashboardCard label="Chờ thanh toán" value={vendorPoiStats.pendingPayment} isLoading={isLoading} />
-          <DashboardCard label="Hết hạn" value={vendorPoiStats.expired} isLoading={isLoading} />
-          <DashboardCard label="Tổng ảnh" value={vendorImagesAll.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Ảnh chờ duyệt" value={vendorImagesPending.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Ảnh đã duyệt" value={vendorImagesApproved.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Ảnh từ chối" value={vendorImagesRejected.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Thuyết minh chờ duyệt" value={vendorNarrationsPending.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Thuyết minh đã duyệt" value={vendorNarrationsApproved.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Thuyết minh từ chối" value={vendorNarrationsRejected.data?.totalCount} isLoading={isLoading} />
-          <DashboardCard label="Đã tạo âm thanh" value={vendorNarrationsAudio.data?.totalCount} isLoading={isLoading} />
-        </div>
-
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Bản đồ sạp của bạn</h2>
-            <p className="text-sm text-gray-500">
-              Các điểm màu vàng là POI/sạp thuộc tài khoản vendor hiện tại.
-            </p>
-          </div>
-
-          {getErrorMessage(poisQuery.error) ? (
-            <Alert variant="error" message={getErrorMessage(poisQuery.error) ?? ''} />
-          ) : null}
-
-          <Card className="overflow-hidden p-0">
-            <div className="relative h-[360px] w-full">
-              {poisQuery.isLoading ? (
-                <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                  Đang tải bản đồ sạp...
-                </div>
-              ) : (
-                <PoiDashboardMap points={poiPoints} />
-              )}
-            </div>
-          </Card>
-        </section>
-      </section>
-    );
+  if (isVendorDashboard) {
+    return <VendorDashboard poisMapQuery={poisMapQuery} currentUserId={user?.userId} />;
   }
+
+  if (isAdminDashboard) {
+    return <AdminDashboard dashboardQuery={dashboardQuery} poisMapQuery={poisMapQuery} />;
+  }
+
+  if (canLoadAnalytics) {
+    return <AnalyticsOnlyDashboard dashboardQuery={dashboardQuery} />;
+  }
+
+  return <LegacyRoleDashboard role={user?.role} />;
+}
+
+interface DashboardQueryResult {
+  data?: import('@/features/analytics/api/analyticsApi').DashboardStatsDto;
+  isLoading: boolean;
+  error: unknown;
+}
+
+interface PoiQueryResult {
+  data?: import('@/types/api').PagedResult<PoiDto>;
+  isLoading: boolean;
+  error: unknown;
+}
+
+function AdminDashboard({
+  dashboardQuery,
+  poisMapQuery,
+}: {
+  dashboardQuery: DashboardQueryResult;
+  poisMapQuery: PoiQueryResult;
+}) {
+  const stats = dashboardQuery.data;
+  const poiPoints = useMemo(
+    () => getPoiMapPoints(poisMapQuery.data?.items ?? []),
+    [poisMapQuery.data],
+  );
 
   return (
     <section className="app-page">
       <div>
         <h1 className="app-title">Bảng điều khiển</h1>
-        <p className="app-subtitle">Thống kê tổng quan nội dung và tài nguyên.</p>
+        <p className="app-subtitle">Theo dõi trạng thái vận hành POI, nội dung và phê duyệt.</p>
       </div>
 
-      {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
+      {getErrorMessage(dashboardQuery.error) ? (
+        <Alert variant="error" message={getErrorMessage(dashboardQuery.error) ?? ''} />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard label="Tổng số tour" value={stats?.totalTours} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tour đang hoạt động" value={stats?.activeTours} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Mã QR" value={stats?.totalQrCodes} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Mã QR đang hoạt động" value={stats?.activeQrCodes} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tệp media" value={stats?.totalMediaFiles} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Hình ảnh" value={stats?.totalImages} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tệp âm thanh" value={stats?.totalAudioFiles} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Media đã xóa" value={stats?.deletedMediaFiles} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Ảnh chờ duyệt" value={stats?.pendingImages} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Thuyết minh chờ duyệt" value={stats?.pendingNarrations} isLoading={dashboardQuery.isLoading} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <DashboardCard label="Tổng POI" value={stats?.totalPois} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="POI chờ duyệt" value={stats?.pendingReviewPois} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="POI đã duyệt" value={stats?.approvedPois} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="POI chờ thanh toán" value={stats?.pendingPaymentPois} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="POI đang hoạt động" value={stats?.activePois} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="POI hết hạn" value={stats?.expiredPois} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="POI bị từ chối" value={stats?.rejectedPois} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Ảnh chờ duyệt" value={stats?.pendingImages} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Thuyết minh chờ duyệt" value={stats?.pendingNarrations} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Mã QR đang hoạt động" value={stats?.activeQrCodes} isLoading={dashboardQuery.isLoading} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DashboardCard label="Lượt phát từ mã QR" value={stats?.totalQrScans} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tổng lượt phát âm thanh" value={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardCard label="Tổng tour" value={stats?.totalTours} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tour đang hoạt động" value={stats?.activeTours} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng ảnh" value={stats?.totalImages} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng âm thanh" value={stats?.totalAudioFiles} isLoading={dashboardQuery.isLoading} />
       </div>
 
       <section className="space-y-3">
@@ -192,13 +128,13 @@ export function DashboardPage() {
           </p>
         </div>
 
-        {getErrorMessage(poisQuery.error) ? (
-          <Alert variant="error" message={getErrorMessage(poisQuery.error) ?? ''} />
+        {getErrorMessage(poisMapQuery.error) ? (
+          <Alert variant="error" message={getErrorMessage(poisMapQuery.error) ?? ''} />
         ) : null}
 
         <Card className="overflow-hidden p-0">
           <div className="relative h-[420px] w-full">
-            {poisQuery.isLoading ? (
+            {poisMapQuery.isLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
                 Đang tải bản đồ địa điểm...
               </div>
@@ -210,6 +146,171 @@ export function DashboardPage() {
       </section>
     </section>
   );
+}
+
+function VendorDashboard({
+  poisMapQuery,
+  currentUserId,
+}: {
+  poisMapQuery: PoiQueryResult;
+  currentUserId?: number;
+}) {
+  const vendorPoisTotal = useDashboardPoiQuery({ page: 1, pageSize: 1 }, true, 'vendor-total');
+  const vendorPoisPendingReview = useDashboardPoiQuery(
+    { page: 1, pageSize: 1, lifecycleStatus: LIFECYCLE_PENDING_REVIEW },
+    true,
+    'vendor-pending-review',
+  );
+  const vendorPoisPendingPayment = useDashboardPoiQuery(
+    { page: 1, pageSize: 1, lifecycleStatus: LIFECYCLE_PENDING_PAYMENT },
+    true,
+    'vendor-pending-payment',
+  );
+  const vendorPoisActive = useDashboardPoiQuery(
+    { page: 1, pageSize: 1, lifecycleStatus: LIFECYCLE_ACTIVE, isActive: true },
+    true,
+    'vendor-active',
+  );
+  const vendorPoisRejected = useDashboardPoiQuery(
+    { page: 1, pageSize: 1, lifecycleStatus: LIFECYCLE_REJECTED },
+    true,
+    'vendor-rejected',
+  );
+  const vendorImagesAll = useMediaQuery({ page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'all' });
+  const vendorImagesPending = useMediaQuery({ page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Pending' });
+  const vendorImagesApproved = useMediaQuery({ page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Approved' });
+  const vendorImagesRejected = useMediaQuery({ page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'Rejected' });
+  const vendorNarrationsAll = useNarrationsQuery({ page: 1, pageSize: 1, status: 'all' });
+  const vendorNarrationsPending = useNarrationsQuery({ page: 1, pageSize: 1, status: 'Pending' });
+  const vendorNarrationsApproved = useNarrationsQuery({ page: 1, pageSize: 1, status: 'Approved' });
+  const vendorNarrationsAudio = useNarrationsQuery({ page: 1, pageSize: 1, status: 'AudioGenerated' });
+  const poiPoints = useMemo(
+    () => getPoiMapPoints(poisMapQuery.data?.items ?? [], currentUserId),
+    [poisMapQuery.data, currentUserId],
+  );
+  const isLoading = [
+    vendorPoisTotal,
+    vendorPoisPendingReview,
+    vendorPoisPendingPayment,
+    vendorPoisActive,
+    vendorPoisRejected,
+    vendorImagesAll,
+    vendorImagesPending,
+    vendorImagesApproved,
+    vendorImagesRejected,
+    vendorNarrationsAll,
+    vendorNarrationsPending,
+    vendorNarrationsApproved,
+    vendorNarrationsAudio,
+    poisMapQuery,
+  ].some((query) => query.isLoading);
+
+  return (
+    <section className="app-page">
+      <div>
+        <h1 className="app-title">Bảng điều khiển chủ sạp</h1>
+        <p className="app-subtitle">
+          Theo dõi POI, ảnh và bản thuyết minh thuộc tài khoản của bạn.
+        </p>
+      </div>
+
+      <DashboardErrors
+        errors={[
+          vendorPoisTotal.error,
+          vendorImagesAll.error,
+          vendorNarrationsAll.error,
+          poisMapQuery.error,
+        ]}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardCard label="Tổng POI của bạn" value={vendorPoisTotal.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="POI chờ duyệt" value={vendorPoisPendingReview.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="POI chờ thanh toán" value={vendorPoisPendingPayment.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="POI đang hoạt động" value={vendorPoisActive.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="POI bị từ chối" value={vendorPoisRejected.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Tổng ảnh đã tải" value={vendorImagesAll.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Ảnh chờ duyệt" value={vendorImagesPending.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Ảnh đã duyệt" value={vendorImagesApproved.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Ảnh bị từ chối" value={vendorImagesRejected.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Tổng thuyết minh" value={vendorNarrationsAll.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Thuyết minh chờ duyệt" value={vendorNarrationsPending.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Thuyết minh đã duyệt" value={vendorNarrationsApproved.data?.totalCount} isLoading={isLoading} />
+        <DashboardCard label="Đã tạo âm thanh" value={vendorNarrationsAudio.data?.totalCount} isLoading={isLoading} />
+      </div>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Bản đồ sạp của bạn</h2>
+          <p className="text-sm text-gray-500">
+            Các điểm màu vàng là POI thuộc tài khoản vendor hiện tại.
+          </p>
+        </div>
+
+        <Card className="overflow-hidden p-0">
+          <div className="relative h-[360px] w-full">
+            {poisMapQuery.isLoading ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                Đang tải bản đồ sạp...
+              </div>
+            ) : (
+              <PoiDashboardMap points={poiPoints} />
+            )}
+          </div>
+        </Card>
+      </section>
+    </section>
+  );
+}
+
+function AnalyticsOnlyDashboard({ dashboardQuery }: { dashboardQuery: DashboardQueryResult }) {
+  const stats = dashboardQuery.data;
+
+  return (
+    <section className="app-page">
+      <div>
+        <h1 className="app-title">Bảng điều khiển phân tích</h1>
+        <p className="app-subtitle">Các chỉ số tổng quan được phép xem cho vai trò phân tích cũ.</p>
+      </div>
+
+      {getErrorMessage(dashboardQuery.error) ? (
+        <Alert variant="error" message={getErrorMessage(dashboardQuery.error) ?? ''} />
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DashboardCard label="Tổng tour" value={stats?.totalTours} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tour đang hoạt động" value={stats?.activeTours} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng mã QR" value={stats?.totalQrCodes} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Lượt phát từ QR" value={stats?.totalQrScans} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng lượt phát âm thanh" value={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+      </div>
+    </section>
+  );
+}
+
+function LegacyRoleDashboard({ role }: { role?: string | null }) {
+  return (
+    <section className="app-page">
+      <div>
+        <h1 className="app-title">Bảng điều khiển</h1>
+        <p className="app-subtitle">
+          Vai trò {role ?? 'hiện tại'} chưa có bộ chỉ số dashboard riêng trong giao diện quản trị.
+        </p>
+      </div>
+      <Alert
+        variant="info"
+        message="Không có widget nào được tải cho vai trò này để tránh gọi API không được cấp quyền."
+      />
+    </section>
+  );
+}
+
+function useDashboardPoiQuery(filter: PoiListFilter, enabled: boolean, scope: string) {
+  return useQuery({
+    queryKey: ['dashboard', 'pois', scope, filter],
+    queryFn: () => poisApi.getAll(filter),
+    enabled,
+  });
 }
 
 interface DashboardCardProps {
@@ -229,17 +330,26 @@ function DashboardCard({ label, value, isLoading }: DashboardCardProps) {
   );
 }
 
+function DashboardErrors({ errors }: { errors: unknown[] }) {
+  const message = errors.map(getErrorMessage).find(Boolean);
+  return message ? <Alert variant="error" message={message} /> : null;
+}
+
 function getStatColor(label: string): string {
-  if (label.includes('đang hoạt động')) {
+  if (label.includes('đang hoạt động') || label.includes('đã duyệt') || label.includes('Đã tạo')) {
     return 'bg-emerald-50 text-emerald-700';
   }
 
-  if (label.includes('âm thanh') || label.includes('Hình ảnh')) {
-    return 'bg-green-50 text-green-700';
+  if (label.includes('chờ')) {
+    return 'bg-amber-50 text-amber-700';
   }
 
-  if (label.includes('đã xóa')) {
+  if (label.includes('từ chối')) {
     return 'bg-red-50 text-red-700';
+  }
+
+  if (label.includes('âm thanh') || label.includes('ảnh') || label.includes('Ảnh')) {
+    return 'bg-green-50 text-green-700';
   }
 
   return 'bg-blue-50 text-blue-700';
@@ -342,59 +452,6 @@ function getPoiMapPoints(pois: PoiDto[], currentUserId?: number): PoiMapPoint[] 
 
     return points;
   }, []);
-}
-
-function getVendorPoiStats(pois: PoiDto[]) {
-  return pois.reduce(
-    (stats, poi) => {
-      const lifecycleStatus = getLifecycleStatusValue(poi.lifecycleStatus);
-      stats.total += 1;
-
-      if (lifecycleStatus === 0) {
-        stats.pendingReview += 1;
-      } else if (lifecycleStatus === 2) {
-        stats.pendingPayment += 1;
-      } else if (lifecycleStatus === 3 && poi.isActive) {
-        stats.active += 1;
-      } else if (lifecycleStatus === 4) {
-        stats.expired += 1;
-      }
-
-      return stats;
-    },
-    {
-      total: 0,
-      active: 0,
-      pendingReview: 0,
-      pendingPayment: 0,
-      expired: 0,
-    },
-  );
-}
-
-function getLifecycleStatusValue(status: unknown): number {
-  if (status === 'Approved') {
-    return 1;
-  }
-
-  if (status === 'PendingPayment') {
-    return 2;
-  }
-
-  if (status === 'Active') {
-    return 3;
-  }
-
-  if (status === 'Expired') {
-    return 4;
-  }
-
-  if (status === 'Rejected') {
-    return 5;
-  }
-
-  const value = Number(status);
-  return Number.isFinite(value) ? value : 0;
 }
 
 function parseCoordinate(value?: number | string | null): number | null {

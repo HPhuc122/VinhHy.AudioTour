@@ -5,8 +5,12 @@ export const ROLE_ADMIN = 'Admin';
 export const ROLE_VENDOR = 'Vendor';
 export const ROLE_SUPER_ADMIN = 'SuperAdmin';
 export const ROLE_GUEST = 'Guest';
+export const ROLE_CONTENT_ADMIN = 'ContentAdmin';
+export const ROLE_TOUR_OPERATOR = 'TourOperator';
+export const ROLE_ANALYTICS_VIEWER = 'AnalyticsViewer';
 
 const ADMIN_ALIASES = [ROLE_ADMIN, ROLE_SUPER_ADMIN];
+const ANALYTICS_DASHBOARD_ROLES = [ROLE_ADMIN, ROLE_SUPER_ADMIN, ROLE_ANALYTICS_VIEWER];
 const CMS_VISIBLE_ROLE_ORDER = [ROLE_ADMIN, ROLE_VENDOR];
 const ASSIGNABLE_ROLE_ORDER = [ROLE_ADMIN, ROLE_VENDOR];
 
@@ -16,6 +20,10 @@ export function isAdminRole(role?: string | null): boolean {
 
 export function isVendorRole(role?: string | null): boolean {
   return role === ROLE_VENDOR;
+}
+
+export function canViewAnalyticsDashboard(role?: string | null): boolean {
+  return Boolean(role && ANALYTICS_DASHBOARD_ROLES.includes(role));
 }
 
 export function getDefaultRouteForRole(_role?: string | null): string {

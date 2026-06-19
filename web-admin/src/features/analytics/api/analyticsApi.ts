@@ -5,6 +5,7 @@ import type { ApiResponse } from '@/types/api';
 const ANALYTICS_BASE = '/api/v1/analytics';
 
 export interface DashboardStatsDto {
+  totalPois: number;
   totalTours: number;
   activeTours: number;
   totalQrCodes: number;

@@ -2,6 +2,8 @@ namespace VinhHy.NarrationAPI.Application.Features.Analytics.DTOs;
 
 public class DashboardStatsDto
 {
+    public int TotalPois { get; set; }
+
     public int TotalTours { get; set; }
 
     public int ActiveTours { get; set; }

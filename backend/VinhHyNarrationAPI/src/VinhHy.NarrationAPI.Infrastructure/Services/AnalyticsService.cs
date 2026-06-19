@@ -57,6 +57,7 @@ public class AnalyticsService : IAnalyticsService
     {
         return new DashboardStatsDto
         {
+            TotalPois = await _db.Pois.AsNoTracking().CountAsync(cancellationToken).ConfigureAwait(false),
             TotalTours = await _uow.Tours.CountAsync(cancellationToken: cancellationToken).ConfigureAwait(false),
             ActiveTours = await _uow.Tours.CountAsync(isActive: true, cancellationToken: cancellationToken).ConfigureAwait(false),
             TotalQrCodes = await _uow.QrLocations.CountAsync(cancellationToken: cancellationToken).ConfigureAwait(false),
