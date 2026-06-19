@@ -153,6 +153,11 @@ public class PoiTranslationService : IPoiTranslationService
         bool requireOwnedPoi = false,
         CancellationToken cancellationToken = default)
     {
+        if (request.PoiId <= 0)
+        {
+            throw new ValidationException(nameof(request.PoiId), "POI is required.");
+        }
+
         var poi = await EnsurePoiAccessAsync(request.PoiId, requesterUserId, requireOwnedPoi, cancellationToken)
             .ConfigureAwait(false);
 
@@ -160,7 +165,7 @@ public class PoiTranslationService : IPoiTranslationService
         await ValidateLanguageAsync(sourceLanguageCode, nameof(request.SourceLanguageCode), cancellationToken)
             .ConfigureAwait(false);
 
-        var targetLanguageCodes = request.TargetLanguageCodes
+        var targetLanguageCodes = (request.TargetLanguageCodes ?? [])
             .Select(NormalizeLanguageCode)
             .Where(code => !string.IsNullOrWhiteSpace(code))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -169,7 +174,7 @@ public class PoiTranslationService : IPoiTranslationService
 
         if (targetLanguageCodes.Length == 0)
         {
-            throw new ValidationException(nameof(request.TargetLanguageCodes), "At least one target language is required.");
+            throw new ValidationException(nameof(request.TargetLanguageCodes), "At least one target language different from the source language is required.");
         }
 
         foreach (var targetLanguageCode in targetLanguageCodes)
@@ -290,20 +295,22 @@ public class PoiTranslationService : IPoiTranslationService
             .GetByPoiAndLanguageAsync(poi.Id, sourceLanguageCode, cancellationToken)
             .ConfigureAwait(false);
 
-        if (sourceTranslation is not null)
-        {
-            return new SourcePoiContent(
-                sourceTranslation.Name,
-                sourceTranslation.ShortDescription,
-                sourceTranslation.Description);
-        }
+        var sourceName = sourceTranslation?.Name ?? poi.Name;
+        var sourceShortDescription = sourceTranslation?.ShortDescription ?? poi.ShortDescription;
+        var sourceDescription = sourceTranslation?.Description
+            ?? poi.Description
+            ?? poi.ShortDescription
+            ?? poi.Name;
 
-        if (string.IsNullOrWhiteSpace(poi.Name) || string.IsNullOrWhiteSpace(poi.Description))
+        if (string.IsNullOrWhiteSpace(sourceName) || string.IsNullOrWhiteSpace(sourceDescription))
         {
             throw new ValidationException(nameof(sourceLanguageCode), "Source POI content is missing.");
         }
 
-        return new SourcePoiContent(poi.Name, poi.ShortDescription, poi.Description);
+        return new SourcePoiContent(
+            sourceName.Trim(),
+            string.IsNullOrWhiteSpace(sourceShortDescription) ? null : sourceShortDescription.Trim(),
+            sourceDescription.Trim());
     }
 
     private async Task<string> TranslateRequiredAsync(

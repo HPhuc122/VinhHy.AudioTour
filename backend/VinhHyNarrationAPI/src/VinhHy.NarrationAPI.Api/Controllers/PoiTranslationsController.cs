@@ -44,9 +44,14 @@ public class PoiTranslationsController(IPoiTranslationService poiTranslationServ
 
     [HttpPost("generate")]
     public async Task<IActionResult> Generate(
-        [FromBody] GeneratePoiTranslationsRequest request,
+        [FromBody] GeneratePoiTranslationsRequest? request,
         CancellationToken cancellationToken)
     {
+        if (request is null)
+        {
+            throw new ValidationException(nameof(request), "Request body is required.");
+        }
+
         var result = await poiTranslationService.GenerateAsync(
             request,
             GetCurrentUserIdOrNull(),

@@ -125,11 +125,128 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GeneratePoiTranslations_AsAdmin_CreatesTargetTranslation()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = poiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var translations = doc.RootElement.GetProperty("data").GetProperty("translations");
+        Assert.Equal(1, translations.GetArrayLength());
+        Assert.Equal("en", translations[0].GetProperty("languageCode").GetString());
+        Assert.StartsWith("[en]", translations[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task GeneratePoiTranslations_AsVendor_AllowsOwnPoiAndForbidsOtherPoi()
+    {
+        await AuthenticateVendorAsync();
+        var ownPoiId = await CreatePoiAsync();
+
+        var ownResponse = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = ownPoiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.OK, ownResponse.StatusCode);
+
+        await AuthenticateAdminAsync();
+        var otherPoiId = await CreatePoiAsync();
+
+        await AuthenticateVendorAsync();
+        var forbiddenResponse = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = otherPoiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GeneratePoiTranslations_ExistingTarget_RespectsOverwriteFlag()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        var existing = new CreatePoiTranslationRequest
+        {
+            POIId = poiId,
+            LanguageCode = "en",
+            Name = "Manual English POI",
+            ShortDescription = "Manual short description",
+            Description = "Manual full description"
+        };
+
+        var createResponse = await _client.PostAsJsonAsync("/api/v1/poi-translations", existing);
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        var skipResponse = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = poiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.OK, skipResponse.StatusCode);
+        using (var skipDoc = JsonDocument.Parse(await skipResponse.Content.ReadAsStringAsync()))
+        {
+            var data = skipDoc.RootElement.GetProperty("data");
+            Assert.Equal(0, data.GetProperty("translations").GetArrayLength());
+            Assert.Contains(
+                data.GetProperty("skippedLanguageCodes").EnumerateArray(),
+                item => item.GetString() == "en");
+        }
+
+        var overwriteResponse = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = poiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = true
+            });
+
+        Assert.Equal(HttpStatusCode.OK, overwriteResponse.StatusCode);
+        using var overwriteDoc = JsonDocument.Parse(await overwriteResponse.Content.ReadAsStringAsync());
+        var translations = overwriteDoc.RootElement.GetProperty("data").GetProperty("translations");
+        Assert.Equal(1, translations.GetArrayLength());
+        Assert.StartsWith("[en]", translations[0].GetProperty("name").GetString());
+    }
+
     private static MultipartFormDataContent BuildValidPoiForm(string latitude = "11.750000")
     {
         var form = new MultipartFormDataContent
         {
             { new StringContent("Validation smoke POI"), "Name" },
+            { new StringContent("Validation smoke short description"), "ShortDescription" },
+            { new StringContent("Validation smoke full description"), "Description" },
             { new StringContent(latitude), "Latitude" },
             { new StringContent("109.180000"), "Longitude" },
             { new StringContent("30"), "RadiusMeters" },

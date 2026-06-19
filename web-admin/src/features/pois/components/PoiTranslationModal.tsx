@@ -112,7 +112,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
       toast(`Đã tạo bản dịch mô phỏng.${skipped}`, 'success');
     },
     onError: (err: any) => {
-      setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo bản dịch tự động.');
+      setError(getErrorMessage(err, 'Không thể tạo bản dịch tự động.'));
     },
   });
 
@@ -182,7 +182,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
       setEditing(null);
       setError(null);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? err?.message ?? 'Không thể lưu bản dịch.');
+      setError(getErrorMessage(err, 'Không thể lưu bản dịch.'));
     }
   };
 
@@ -195,7 +195,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     try {
       await deleteMutation.mutateAsync(translation.id);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? err?.message ?? 'Không thể xóa bản dịch.');
+      setError(getErrorMessage(err, 'Không thể xóa bản dịch.'));
     }
   };
 
@@ -218,7 +218,13 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
   };
 
   return (
-    <Modal open={isOpen} onClose={onClose} title={`Bản dịch POI ${poi?.code ?? ''}`}>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={`Bản dịch POI ${poi?.code ?? ''}`}
+      size="xl"
+      scrollable
+    >
       <div className="space-y-5">
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
           <div className="font-medium text-gray-900">{poi?.name || poi?.code}</div>
@@ -279,7 +285,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
             </label>
 
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm font-medium text-gray-700">Ngôn ngữ đích</span>
                 <label className="flex items-center gap-2 text-sm text-gray-600">
                   <input
@@ -293,7 +299,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
                   Ghi đè bản dịch đã có
                 </label>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-indigo-100 bg-white/50 p-2">
                 {targetLanguages.length === 0 ? (
                   <span className="text-sm text-gray-500">Không còn ngôn ngữ đích phù hợp.</span>
                 ) : (
@@ -319,7 +325,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
         {error ? <Alert variant="error" message={error} /> : null}
 
         {editing ? (
-          <div className="space-y-4 rounded-md border border-gray-200 p-4">
+          <div className="space-y-4 rounded-md border border-gray-200 p-4 pb-0">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="translation-language">
                 Ngôn ngữ
@@ -358,7 +364,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
               onChange={(value) => setEditing((current) => current ? { ...current, description: value } : current)}
             />
 
-            <div className="flex justify-end gap-2">
+            <div className="sticky bottom-0 -mx-4 flex justify-end gap-2 border-t bg-white px-4 py-3">
               <Button variant="secondary" onClick={() => setEditing(null)}>
                 Hủy
               </Button>
@@ -519,4 +525,18 @@ function TableMessage({ message, tone = 'muted' }: { message: string; tone?: 'mu
 function formatLanguageLabel(code: string, languages: LanguageDto[]): string {
   const language = languages.find((item) => item.code === code);
   return language ? `${language.name} (${language.nativeName})` : code.toUpperCase();
+}
+
+function getErrorMessage(error: any, fallback: string) {
+  const data = error?.response?.data;
+  const validationErrors = data?.errors;
+
+  if (validationErrors && typeof validationErrors === 'object') {
+    const first = Object.values(validationErrors).flat().find(Boolean);
+    if (typeof first === 'string') {
+      return first;
+    }
+  }
+
+  return data?.message ?? error?.message ?? fallback;
 }

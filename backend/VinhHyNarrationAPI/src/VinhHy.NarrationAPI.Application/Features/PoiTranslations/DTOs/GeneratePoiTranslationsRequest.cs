@@ -6,7 +6,7 @@ public class GeneratePoiTranslationsRequest
 
     public string SourceLanguageCode { get; set; } = "vi";
 
-    public IReadOnlyList<string> TargetLanguageCodes { get; set; } = [];
+    public List<string> TargetLanguageCodes { get; set; } = [];
 
     public bool OverwriteExisting { get; set; }
 }
