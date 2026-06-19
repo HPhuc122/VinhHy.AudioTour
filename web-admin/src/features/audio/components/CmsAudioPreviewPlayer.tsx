@@ -29,15 +29,15 @@ export function CmsAudioPreviewPlayer({ poiId }: CmsAudioPreviewPlayerProps) {
   }, [selectedTrackId, tracks]);
 
   if (tracksQuery.isLoading) {
-    return <p className="text-xs text-gray-400">Loading audio preview...</p>;
+    return <p className="text-xs text-gray-400">Đang tải audio preview...</p>;
   }
 
   if (tracksQuery.isError) {
-    return <p className="text-xs text-red-500">Unable to load audio preview.</p>;
+    return <p className="text-xs text-red-500">Không thể tải audio preview.</p>;
   }
 
   if (tracks.length === 0) {
-    return <p className="text-xs text-gray-400">No audio preview available.</p>;
+    return <p className="text-xs text-gray-400">Chưa có audio preview.</p>;
   }
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0]!;
@@ -45,7 +45,7 @@ export function CmsAudioPreviewPlayer({ poiId }: CmsAudioPreviewPlayerProps) {
   return (
     <div className="mt-4 rounded-lg bg-gray-50 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs font-medium text-gray-500">Audio preview</p>
+        <p className="text-xs font-medium text-gray-500">Nghe thử audio</p>
         {tracks.length > 1 ? (
           <select
             value={selectedTrack.id}
@@ -119,7 +119,7 @@ function CmsAudioTrackPlayer({
         <audio controls src={audioUrl} className="w-full" />
       ) : (
         <p className="text-xs text-gray-400">
-          {status === 'loading' ? 'Loading secure preview...' : 'Audio preview is unavailable.'}
+          {status === 'loading' ? 'Đang tải preview bảo vệ...' : 'Audio preview chưa khả dụng.'}
         </p>
       )}
     </div>

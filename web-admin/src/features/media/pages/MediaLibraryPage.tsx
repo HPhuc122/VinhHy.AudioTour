@@ -1,50 +1,64 @@
-﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiClientError } from '@/api/apiError';
+import { useSearchParams } from 'react-router-dom';
+import { extractApiError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { SecureImage } from '@/components/ui/SecureImage';
 import { Select } from '@/components/ui/Select';
+import { CmsAudioPreviewPlayer } from '@/features/audio/components/CmsAudioPreviewPlayer';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { ROLE_VENDOR, isAdminRole } from '@/features/auth/roleAccess';
+import { languagesApi, type LanguageDto } from '@/features/languages/api/languagesApi';
+import { formatLanguageLabel, languageOptions } from '@/features/languages/utils/languageLabels';
 import {
   createMediaApi,
   getMediaUrl,
-  type ApprovalStatusFilter,
+  type ApprovalStatus,
   type MediaFileDto,
 } from '@/features/media/api/mediaApi';
-import { useMediaQuery, mediaQueryKeys } from '@/features/media/hooks/useMediaQuery';
+import { mediaQueryKeys } from '@/features/media/hooks/useMediaQuery';
 import { useUploadMediaMutation } from '@/features/media/hooks/useUploadMediaMutation';
-import { createPoisApi, type PoiDto } from '@/features/pois/api/poisApi';
 import {
   createNarrationsApi,
   type NarrationDraftDto,
-  type NarrationStatusFilter,
+  type NarrationStatus,
 } from '@/features/narrations/api/narrationsApi';
-import {
-  narrationQueryKeys,
-  useNarrationsQuery,
-} from '@/features/narrations/hooks/useNarrationsQuery';
-import { formatLanguageLabel, languageOptions } from '@/features/languages/utils/languageLabels';
+import { narrationQueryKeys } from '@/features/narrations/hooks/useNarrationsQuery';
+import { poiTranslationsApi } from '@/features/pois/api/poiTranslationsApi';
+import { createPoisApi, type PoiDto } from '@/features/pois/api/poisApi';
 
-const PAGE_SIZE = 20;
 const imageAccept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
+const contentPageSize = 500;
 
-type TabKey = 'images' | 'narrations';
+type WorkspaceTab = 'overview' | 'images' | 'narrations' | 'audio' | 'translations';
+type RejectTarget = { type: 'image'; item: MediaFileDto } | { type: 'narration'; item: NarrationDraftDto };
 
-const approvalOptions: Array<{ value: ApprovalStatusFilter; label: string }> = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'Pending', label: 'Chờ duyệt' },
-  { value: 'Approved', label: 'Đã duyệt' },
-  { value: 'Rejected', label: 'Từ chối' },
+type Translation = {
+  id?: number;
+  languageCode: string;
+  name: string;
+  shortDescription: string;
+  description: string;
+};
+
+const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
+  { key: 'overview', label: 'Tổng quan' },
+  { key: 'images', label: 'Hình ảnh' },
+  { key: 'narrations', label: 'Bản thuyết minh' },
+  { key: 'audio', label: 'Âm thanh' },
+  { key: 'translations', label: 'Bản dịch' },
 ];
 
-const narrationStatusOptions: Array<{ value: NarrationStatusFilter; label: string }> = [
-  ...approvalOptions,
-  { value: 'AudioGenerated', label: 'Đã tạo âm thanh' },
-];
+const emptyTranslation: Translation = {
+  languageCode: '',
+  name: '',
+  shortDescription: '',
+  description: '',
+};
 
 const voiceOptions = [
   { value: 'female-north', label: 'Nữ miền Bắc' },
@@ -56,144 +70,183 @@ const voiceOptions = [
 export function MediaLibraryPage() {
   const { user, httpClient } = useAuth();
   const isVendor = user?.role === ROLE_VENDOR;
+  const canReviewContent = isAdminRole(user?.role);
   const canUploadNarrationAudio = isAdminRole(user?.role);
+  const canUploadImages = isVendor || isAdminRole(user?.role);
+  const canCreateNarration = isVendor || isAdminRole(user?.role);
   const queryClient = useQueryClient();
   const mediaApi = useMemo(() => createMediaApi(httpClient), [httpClient]);
   const narrationsApi = useMemo(() => createNarrationsApi(httpClient), [httpClient]);
   const poisApi = useMemo(() => createPoisApi(httpClient), [httpClient]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<TabKey>(
-    new URLSearchParams(window.location.search).get('tab') === 'narrations' ? 'narrations' : 'images',
-  );
-  const [imageSearch, setImageSearch] = useState('');
-  const [imageStatus, setImageStatus] = useState<ApprovalStatusFilter>('all');
-  const [imagePage, setImagePage] = useState(1);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>(() => normalizeWorkspaceTab(searchParams.get('tab')));
+  const [poiSearch, setPoiSearch] = useState('');
   const [selectedPoi, setSelectedPoi] = useState<PoiDto | null>(null);
-  const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [narrationSearch, setNarrationSearch] = useState('');
-  const [narrationStatus, setNarrationStatus] = useState<NarrationStatusFilter>('all');
-  const [narrationPage, setNarrationPage] = useState(1);
-  const [previewMedia, setPreviewMedia] = useState<MediaFileDto | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [rejectImage, setRejectImage] = useState<MediaFileDto | null>(null);
-  const [rejectNarration, setRejectNarration] = useState<NarrationDraftDto | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<MediaFileDto | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [viewNarration, setViewNarration] = useState<NarrationDraftDto | null>(null);
   const [uploadAudioDraft, setUploadAudioDraft] = useState<NarrationDraftDto | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
   const [draftForm, setDraftForm] = useState({
     title: '',
     languageCode: 'vi',
     textContent: '',
     voice: 'female-south',
   });
-
+  const [translationForm, setTranslationForm] = useState<Translation | null>(null);
+  const [sourceLanguageCode, setSourceLanguageCode] = useState('vi');
+  const [targetLanguageCodes, setTargetLanguageCodes] = useState<string[]>([]);
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const requestedPoiId = Number(new URLSearchParams(window.location.search).get('poiId'));
-  const poiIdForFilter = selectedPoi?.id
-    ?? (Number.isInteger(requestedPoiId) && requestedPoiId > 0 ? requestedPoiId : undefined);
 
-  const mediaFilter = useMemo(
-    () => ({
-      page: 1,
-      pageSize: 2000,
-      fileType: 'image' as const,
-      includeDeleted: false,
-    }),
-    [],
-  );
-
+  const requestedPoiId = Number(searchParams.get('poiId'));
   const poiFilter = useMemo(
     () => ({
       page: 1,
-      pageSize: 500,
-      search: imageSearch.trim() || undefined,
+      pageSize: contentPageSize,
+      search: poiSearch.trim() || undefined,
       includeDeleted: false,
     }),
-    [imageSearch],
+    [poiSearch],
   );
 
-  const narrationFilter = useMemo(
-    () => ({
-      page: narrationPage,
-      pageSize: PAGE_SIZE,
-      search: narrationSearch.trim() || undefined,
-      status: narrationStatus,
-      poiId: poiIdForFilter,
-    }),
-    [narrationPage, narrationSearch, narrationStatus, poiIdForFilter],
-  );
-
-  const mediaQuery = useMediaQuery(mediaFilter);
   const poisQuery = useQuery({
-    queryKey: ['library-pois', poiFilter],
+    queryKey: ['content-workspace', 'pois', poiFilter],
     queryFn: () => poisApi.getPois(poiFilter),
   });
 
-  const poiSelectOptions = useMemo(
-    () => [
-      { value: '', label: 'Chọn POI/sạp...' },
-      ...(poisQuery.data?.items.map((poi) => ({
-        value: String(poi.id),
-        label: `${poi.name || poi.displayName || poi.code} (${poi.code})`,
-      })) ?? []),
-    ],
-    [poisQuery.data?.items],
+  const pois = poisQuery.data?.items ?? [];
+  const currentPoi =
+    selectedPoi ??
+    pois.find((poi) => Number.isInteger(requestedPoiId) && requestedPoiId > 0 && poi.id === requestedPoiId) ??
+    null;
+  const selectedPoiId = currentPoi?.id;
+
+  const imagesQuery = useQuery({
+    queryKey: ['content-workspace', 'media-by-poi', selectedPoiId],
+    queryFn: () =>
+      selectedPoiId
+        ? mediaApi.getMediaByPoi(selectedPoiId, { page: 1, pageSize: contentPageSize, approvalStatus: 'all' })
+        : Promise.resolve({ items: [], page: 1, pageSize: contentPageSize, totalCount: 0, totalPages: 0 }),
+    enabled: Boolean(selectedPoiId),
+  });
+
+  const narrationsQuery = useQuery({
+    queryKey: ['content-workspace', 'narrations-by-poi', selectedPoiId],
+    queryFn: () =>
+      selectedPoiId
+        ? narrationsApi.getNarrationsByPoi(selectedPoiId, { page: 1, pageSize: contentPageSize, status: 'all' })
+        : Promise.resolve({ items: [], page: 1, pageSize: contentPageSize, totalCount: 0, totalPages: 0 }),
+    enabled: Boolean(selectedPoiId),
+  });
+
+  const translationsQuery = useQuery({
+    queryKey: ['content-workspace', 'translations-by-poi', selectedPoiId],
+    queryFn: () => poiTranslationsApi.getByPoiId(selectedPoiId!),
+    enabled: Boolean(selectedPoiId),
+  });
+
+  const languagesQuery = useQuery({
+    queryKey: ['languages'],
+    queryFn: languagesApi.getAll,
+  });
+
+  const images = imagesQuery.data?.items ?? [];
+  const narrations = narrationsQuery.data?.items ?? [];
+  const translations = (translationsQuery.data ?? []) as Translation[];
+  const languages = languagesQuery.data ?? [];
+  const activeLanguages = useMemo(() => languages.filter((language) => language.isActive), [languages]);
+  const contentSummary = useMemo(
+    () => buildContentSummary(images, narrations, translations),
+    [images, narrations, translations],
   );
 
   useEffect(() => {
-    if (selectedPoi || !poisQuery.data?.items.length) {
-      return;
-    }
+    setActiveTab(normalizeWorkspaceTab(searchParams.get('tab')));
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!pois.length || selectedPoi) return;
 
     if (Number.isInteger(requestedPoiId) && requestedPoiId > 0) {
-      const poiFromUrl = poisQuery.data.items.find((poi) => poi.id === requestedPoiId);
+      const poiFromUrl = pois.find((poi) => poi.id === requestedPoiId);
       if (poiFromUrl) {
         setSelectedPoi(poiFromUrl);
+        return;
       }
     }
-  }, [poisQuery.data?.items, requestedPoiId, selectedPoi]);
-  const currentPoi = selectedPoi
-    ?? poisQuery.data?.items.find((poi) => Number.isInteger(requestedPoiId) && poi.id === requestedPoiId)
-    ?? null;
-  const selectedPoiMediaQuery = useQuery({
-    queryKey: ['media', 'by-poi', poiIdForFilter, imageStatus, imagePage],
-    queryFn: () =>
-      poiIdForFilter
-        ? mediaApi.getMediaByPoi(poiIdForFilter, {
-            page: imagePage,
-            pageSize: PAGE_SIZE,
-            approvalStatus: imageStatus,
-          })
-        : Promise.resolve({ items: [], page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 }),
-    enabled: activeTab === 'images' && Boolean(poiIdForFilter),
-  });
-  const narrationsQuery = useNarrationsQuery(narrationFilter, { enabled: activeTab === 'narrations' });
-  const uploadMutation = useUploadMediaMutation();
 
+    if (isVendor && pois.length === 1) {
+      setSelectedPoi(pois[0]!);
+    }
+  }, [isVendor, pois, requestedPoiId, selectedPoi]);
+
+  useEffect(() => {
+    setTranslationForm(null);
+    setTargetLanguageCodes([]);
+    setOverwriteExisting(false);
+  }, [selectedPoiId]);
+
+  const updateWorkspaceQuery = (updates: { tab?: WorkspaceTab; poiId?: number | null }) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (updates.tab) {
+      nextParams.set('tab', updates.tab);
+    }
+    if (typeof updates.poiId !== 'undefined') {
+      if (updates.poiId) {
+        nextParams.set('poiId', String(updates.poiId));
+      } else {
+        nextParams.delete('poiId');
+      }
+    }
+    setSearchParams(nextParams);
+  };
+
+  const selectPoi = (poi: PoiDto | null) => {
+    setSelectedPoi(poi);
+    setNotice(null);
+    updateWorkspaceQuery({ poiId: poi?.id ?? null });
+  };
+
+  const selectTab = (tab: WorkspaceTab) => {
+    setActiveTab(tab);
+    updateWorkspaceQuery({ tab });
+  };
+
+  const invalidateSelectedPoiContent = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['content-workspace', 'media-by-poi', selectedPoiId] }),
+      queryClient.invalidateQueries({ queryKey: ['content-workspace', 'narrations-by-poi', selectedPoiId] }),
+      queryClient.invalidateQueries({ queryKey: ['content-workspace', 'translations-by-poi', selectedPoiId] }),
+      queryClient.invalidateQueries({ queryKey: ['cms-audio-preview', 'poi', selectedPoiId] }),
+      queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all }),
+    ]);
+  };
+
+  const uploadMutation = useUploadMediaMutation();
   const approveImageMutation = useMutation({
     mutationFn: (id: number) => mediaApi.approveMedia(id),
     onSuccess: async () => {
       setNotice('Đã duyệt ảnh.');
-      await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all });
-      await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
+      await invalidateSelectedPoiContent();
     },
   });
-
   const rejectImageMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => mediaApi.rejectMedia(id, reason),
     onSuccess: async () => {
       setNotice('Đã từ chối ảnh.');
-      setRejectImage(null);
+      setRejectTarget(null);
       setRejectReason('');
-      await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all });
-      await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
+      await invalidateSelectedPoiContent();
     },
   });
-
   const createNarrationMutation = useMutation({
     mutationFn: () => {
       if (!currentPoi) {
-        throw new Error('POI is required.');
+        throw new Error('Vui lòng chọn POI/sạp trước khi tạo bản thuyết minh.');
       }
 
       return narrationsApi.createNarration({ ...draftForm, poiId: currentPoi.id });
@@ -201,36 +254,76 @@ export function MediaLibraryPage() {
     onSuccess: async () => {
       setNotice(isVendor ? 'Đã gửi bản thuyết minh chờ duyệt.' : 'Đã tạo bản thuyết minh.');
       setDraftForm({ title: '', languageCode: 'vi', textContent: '', voice: 'female-south' });
-      await queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
+      await invalidateSelectedPoiContent();
     },
   });
-
   const approveNarrationMutation = useMutation({
     mutationFn: (id: number) => narrationsApi.approveNarration(id),
     onSuccess: async () => {
       setNotice('Đã duyệt bản thuyết minh.');
-      await queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
+      await invalidateSelectedPoiContent();
     },
   });
-
   const rejectNarrationMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
-      narrationsApi.rejectNarration(id, reason),
+    mutationFn: ({ id, reason }: { id: number; reason: string }) => narrationsApi.rejectNarration(id, reason),
     onSuccess: async () => {
       setNotice('Đã từ chối bản thuyết minh.');
-      setRejectNarration(null);
+      setRejectTarget(null);
       setRejectReason('');
-      await queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
+      await invalidateSelectedPoiContent();
     },
   });
-
   const uploadNarrationAudioMutation = useMutation({
     mutationFn: ({ draft, file, title }: { draft: NarrationDraftDto; file: File; title?: string }) =>
       narrationsApi.uploadAudio(draft.id, { file, title }),
     onSuccess: async () => {
       setNotice('Đã tải MP3 và gắn audio cho bản thuyết minh.');
       setUploadAudioDraft(null);
-      await queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const saveTranslationMutation = useMutation({
+    mutationFn: (payload: Translation) => {
+      if (!currentPoi) {
+        throw new Error('Vui lòng chọn POI/sạp trước khi lưu bản dịch.');
+      }
+
+      return payload.id
+        ? poiTranslationsApi.update(currentPoi.id, payload.id, payload)
+        : poiTranslationsApi.create(currentPoi.id, payload);
+    },
+    onSuccess: async () => {
+      setNotice('Đã lưu bản dịch.');
+      setTranslationForm(null);
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const deleteTranslationMutation = useMutation({
+    mutationFn: (translationId: number) => poiTranslationsApi.delete(currentPoi!.id, translationId),
+    onSuccess: async () => {
+      setNotice('Đã xóa bản dịch.');
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const generateTranslationsMutation = useMutation({
+    mutationFn: () => {
+      if (!currentPoi) {
+        throw new Error('Vui lòng chọn POI/sạp trước khi tạo bản dịch.');
+      }
+      return poiTranslationsApi.generate({
+        poiId: currentPoi.id,
+        sourceLanguageCode,
+        targetLanguageCodes,
+        overwriteExisting,
+      });
+    },
+    onSuccess: async (result: any) => {
+      const skipped = result?.skippedLanguageCodes?.length
+        ? ` Bỏ qua: ${result.skippedLanguageCodes.join(', ')}.`
+        : '';
+      setNotice(`Đã tạo bản dịch mô phỏng.${skipped}`);
+      setTargetLanguageCodes([]);
+      await invalidateSelectedPoiContent();
     },
   });
 
@@ -249,19 +342,13 @@ export function MediaLibraryPage() {
       await uploadMutation.mutateAsync({ file, poiId: currentPoi.id });
     }
 
-    setImagePage(1);
-    await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
     setNotice(isVendor ? `Đã gửi ${files.length} ảnh chờ duyệt.` : `Đã tải lên ${files.length} ảnh.`);
+    await invalidateSelectedPoiContent();
   };
 
   const handleSubmitNarration = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotice(null);
-    if (!currentPoi) {
-      setNotice('Vui lòng chọn POI/sạp trước khi tạo bản thuyết minh.');
-      return;
-    }
-
     createNarrationMutation.mutate();
   };
 
@@ -272,239 +359,220 @@ export function MediaLibraryPage() {
       return;
     }
 
-    if (rejectImage) {
-      rejectImageMutation.mutate({ id: rejectImage.id, reason });
+    if (rejectTarget?.type === 'image') {
+      rejectImageMutation.mutate({ id: rejectTarget.item.id, reason });
     }
 
-    if (rejectNarration) {
-      rejectNarrationMutation.mutate({ id: rejectNarration.id, reason });
+    if (rejectTarget?.type === 'narration') {
+      rejectNarrationMutation.mutate({ id: rejectTarget.item.id, reason });
     }
   };
-  const queryError = getErrorMessage(
-    mediaQuery.error || poisQuery.error || selectedPoiMediaQuery.error,
-    'Không thể tải thư viện ảnh.',
-  );
-  const narrationError = getErrorMessage(narrationsQuery.error, 'Không thể tải bản thuyết minh.');
-  const mutationError = getErrorMessage(
-    uploadMutation.error ||
-      approveImageMutation.error ||
-      rejectImageMutation.error ||
-      createNarrationMutation.error ||
-      approveNarrationMutation.error ||
-      rejectNarrationMutation.error ||
-      uploadNarrationAudioMutation.error,
-    'Thao tác thất bại. Vui lòng thử lại.',
-  );
+
+  const handleSaveTranslation = () => {
+    if (!translationForm) return;
+    const payload = {
+      ...translationForm,
+      name: translationForm.name.trim(),
+      shortDescription: translationForm.shortDescription.trim(),
+      description: translationForm.description.trim(),
+    };
+
+    if (!payload.languageCode) {
+      setNotice('Vui lòng chọn ngôn ngữ cho bản dịch.');
+      return;
+    }
+
+    if (!payload.name) {
+      setNotice('Vui lòng nhập tên bản dịch.');
+      return;
+    }
+
+    if (!payload.description) {
+      setNotice('Vui lòng nhập mô tả bản dịch.');
+      return;
+    }
+
+    saveTranslationMutation.mutate(payload);
+  };
+
+  const handleDeleteTranslation = (translation: Translation) => {
+    if (!translation.id) return;
+    const ok = window.confirm(`Xóa bản dịch ${formatTranslationLanguage(translation.languageCode, languages)}?`);
+    if (ok) {
+      deleteTranslationMutation.mutate(translation.id);
+    }
+  };
+
+  const handleGenerateTranslations = () => {
+    if (targetLanguageCodes.length === 0) {
+      setNotice('Vui lòng chọn ít nhất một ngôn ngữ đích.');
+      return;
+    }
+
+    generateTranslationsMutation.mutate();
+  };
+
+  const mutationError = getFirstError([
+    uploadMutation.error,
+    approveImageMutation.error,
+    rejectImageMutation.error,
+    createNarrationMutation.error,
+    approveNarrationMutation.error,
+    rejectNarrationMutation.error,
+    uploadNarrationAudioMutation.error,
+    saveTranslationMutation.error,
+    deleteTranslationMutation.error,
+    generateTranslationsMutation.error,
+  ]);
+  const queryError = getFirstError([
+    poisQuery.error,
+    imagesQuery.error,
+    narrationsQuery.error,
+    translationsQuery.error,
+    languagesQuery.error,
+  ]);
 
   return (
     <section className="app-page">
       <div className="app-page-header">
         <div>
-          <h1 className="app-title">Thư viện</h1>
+          <h1 className="app-title">Không gian nội dung POI</h1>
           <p className="app-subtitle">
-            {isVendor
-              ? 'Quản lý ảnh và bản thuyết minh gửi duyệt.'
-              : 'Duyệt ảnh, quản lý bản thuyết minh và tạo âm thanh mô phỏng.'}
+            Chọn một POI/sạp để quản lý hình ảnh, bản thuyết minh, âm thanh bảo vệ và bản dịch theo cùng một luồng.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
-        <TabButton active={activeTab === 'images'} onClick={() => setActiveTab('images')}>
-          Ảnh
-        </TabButton>
-        <TabButton active={activeTab === 'narrations'} onClick={() => setActiveTab('narrations')}>
-          Bản thuyết minh
-        </TabButton>
-      </div>
-
       {notice ? <Alert message={notice} /> : null}
-      {queryError && activeTab === 'images' ? <Alert variant="error" message={queryError} /> : null}
-      {narrationError && activeTab === 'narrations' ? (
-        <Alert variant="error" message={narrationError} />
-      ) : null}
+      {queryError ? <Alert variant="error" message={queryError} /> : null}
       {mutationError ? <Alert variant="error" message={mutationError} /> : null}
 
-      <div className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_280px]">
-        <Input
-          id="poi-search"
-          label="Tìm kiếm POI/sạp"
-          placeholder="Tên hoặc mã POI/sạp"
-          value={imageSearch}
-          onChange={(event) => {
-            setImageSearch(event.target.value);
-            setImagePage(1);
-          }}
-        />
-        <Select
-          id="library-poi-select"
-          label="POI/sạp đang chọn"
-          value={currentPoi ? String(currentPoi.id) : ''}
-          options={poiSelectOptions}
-          onChange={(event) => {
-            const poiId = Number(event.target.value);
-            if (!poiId) {
-              setSelectedPoi(null);
-              return;
-            }
+      <PoiWorkspaceSelector
+        pois={pois}
+        selectedPoi={currentPoi}
+        search={poiSearch}
+        isVendor={isVendor}
+        isLoading={poisQuery.isLoading}
+        onSearchChange={setPoiSearch}
+        onSelect={selectPoi}
+      />
 
-            const poi =
-              poisQuery.data?.items.find((item) => item.id === poiId)
-              ?? (currentPoi?.id === poiId ? currentPoi : null);
-            setSelectedPoi(poi ?? null);
-            setImagePage(1);
-            setNarrationPage(1);
-          }}
-        />
-      </div>
-
-      {activeTab === 'images' ? (
-        <>
-          <div className="app-page-header">
-            <div className="grid flex-1 gap-3 md:grid-cols-[1fr_220px]">
-              <Select
-                id="image-status-filter"
-                label="Trạng thái ảnh"
-                value={imageStatus}
-                options={approvalOptions}
-                onChange={(event) => {
-                  setImageStatus(event.target.value as ApprovalStatusFilter);
-                  setImagePage(1);
-                }}
-              />
-            </div>
-            {isVendor ? (
-            <div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept={imageAccept}
-                multiple
-                className="hidden"
-                onChange={handleUploadImages}
-              />
-              <Button
-                variant="secondary"
-                onClick={() => imageInputRef.current?.click()}
-                isLoading={uploadMutation.isPending}
-              >
-                {currentPoi ? `Tải ảnh cho ${currentPoi.name || currentPoi.code}` : 'Chọn POI để tải ảnh'}
-              </Button>
-            </div>
-            ) : null}
-          </div>
-
-          <PoiImageList
-            pois={poisQuery.data?.items ?? []}
-            mediaItems={mediaQuery.data?.items ?? []}
-            isLoading={poisQuery.isLoading || mediaQuery.isLoading}
-            onSelect={(poi) => {
-              setSelectedPoi(poi);
-              setImageModalOpen(true);
-              setImagePage(1);
-            }}
-          />
-        </>
+      {!currentPoi ? (
+        <EmptyWorkspace isVendor={isVendor} />
       ) : (
         <>
-          {isVendor ? (
-            <NarrationForm
-              form={draftForm}
+          <PoiContentHeader poi={currentPoi} summary={contentSummary} />
+
+          <div className="flex flex-wrap gap-2 border-b border-gray-200">
+            {workspaceTabs.map((tab) => (
+              <TabButton key={tab.key} active={activeTab === tab.key} onClick={() => selectTab(tab.key)}>
+                {tab.label}
+              </TabButton>
+            ))}
+          </div>
+
+          {activeTab === 'overview' ? (
+            <OverviewTab
               poi={currentPoi}
-              isLoading={createNarrationMutation.isPending}
-              onChange={setDraftForm}
-              onSubmit={handleSubmitNarration}
+              summary={contentSummary}
+              narrations={narrations}
+              translations={translations}
+              isVendor={isVendor}
+              onOpenTab={selectTab}
             />
           ) : null}
 
-          <div className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px]">
-            <Input
-              id="narration-search"
-              label="Tìm kiếm"
-              placeholder="Tiêu đề hoặc nội dung"
-              value={narrationSearch}
-              onChange={(event) => {
-                setNarrationSearch(event.target.value);
-                setNarrationPage(1);
+          {activeTab === 'images' ? (
+            <ImagesTab
+              poi={currentPoi}
+              images={images}
+              isLoading={imagesQuery.isLoading}
+              isVendor={isVendor}
+              canUpload={canUploadImages}
+              canReview={canReviewContent}
+              imageInputRef={imageInputRef}
+              uploadLoading={uploadMutation.isPending}
+              busyId={getBusyMutationId(approveImageMutation.variables, rejectImageMutation.variables)}
+              onUpload={handleUploadImages}
+              onPreview={setPreviewMedia}
+              onApprove={(media) => approveImageMutation.mutate(media.id)}
+              onReject={(media) => {
+                setRejectTarget({ type: 'image', item: media });
+                setRejectReason('');
               }}
             />
-            <Select
-              id="narration-status-filter"
-              label="Trạng thái"
-              value={narrationStatus}
-              options={narrationStatusOptions}
-              onChange={(event) => {
-                setNarrationStatus(event.target.value as NarrationStatusFilter);
-                setNarrationPage(1);
+          ) : null}
+
+          {activeTab === 'narrations' ? (
+            <NarrationsTab
+              poi={currentPoi}
+              drafts={narrations}
+              isLoading={narrationsQuery.isLoading}
+              isVendor={isVendor}
+              canCreate={canCreateNarration}
+              canReview={canReviewContent}
+              form={draftForm}
+              createLoading={createNarrationMutation.isPending}
+              busyId={getBusyMutationId(approveNarrationMutation.variables, rejectNarrationMutation.variables)}
+              onFormChange={setDraftForm}
+              onSubmit={handleSubmitNarration}
+              onApprove={(draft) => approveNarrationMutation.mutate(draft.id)}
+              onReject={(draft) => {
+                setRejectTarget({ type: 'narration', item: draft });
+                setRejectReason('');
               }}
+              onView={setViewNarration}
             />
-          </div>
+          ) : null}
 
-          <NarrationTable
-            drafts={narrationsQuery.data?.items ?? []}
-            isLoading={narrationsQuery.isLoading}
-            isVendor={isVendor}
-            busyId={getBusyMutationId(
-              approveNarrationMutation.variables,
-              rejectNarrationMutation.variables,
-              uploadNarrationAudioMutation.variables,
-            )}
-            canUploadAudio={canUploadNarrationAudio}
-            onApprove={(draft) => approveNarrationMutation.mutate(draft.id)}
-            onReject={(draft) => {
-              setRejectNarration(draft);
-              setRejectReason('');
-            }}
-            onView={setViewNarration}
-            onUploadAudio={setUploadAudioDraft}
-          />
+          {activeTab === 'audio' ? (
+            <AudioTab
+              poi={currentPoi}
+              drafts={narrations}
+              isLoading={narrationsQuery.isLoading}
+              canUploadAudio={canUploadNarrationAudio}
+              isVendor={isVendor}
+              busyId={getBusyMutationId(uploadNarrationAudioMutation.variables)}
+              onUploadAudio={setUploadAudioDraft}
+            />
+          ) : null}
 
-          <Pagination
-            page={narrationPage}
-            totalPages={narrationsQuery.data?.totalPages ?? 0}
-            totalCount={narrationsQuery.data?.totalCount}
-            itemLabel="bản thuyết minh"
-            onPageChange={setNarrationPage}
-          />
+          {activeTab === 'translations' ? (
+            <TranslationsTab
+              poi={currentPoi}
+              translations={translations}
+              languages={languages}
+              activeLanguages={activeLanguages}
+              isLoading={translationsQuery.isLoading || languagesQuery.isLoading}
+              isVendor={isVendor}
+              form={translationForm}
+              setForm={setTranslationForm}
+              sourceLanguageCode={sourceLanguageCode}
+              setSourceLanguageCode={setSourceLanguageCode}
+              targetLanguageCodes={targetLanguageCodes}
+              setTargetLanguageCodes={setTargetLanguageCodes}
+              overwriteExisting={overwriteExisting}
+              setOverwriteExisting={setOverwriteExisting}
+              isSaving={saveTranslationMutation.isPending}
+              isDeleting={deleteTranslationMutation.isPending}
+              isGenerating={generateTranslationsMutation.isPending}
+              onSave={handleSaveTranslation}
+              onDelete={handleDeleteTranslation}
+              onGenerate={handleGenerateTranslations}
+            />
+          ) : null}
         </>
       )}
 
-      <PoiImagesModal
-        poi={imageModalOpen ? currentPoi : null}
-        mediaItems={selectedPoiMediaQuery.data?.items ?? []}
-        isLoading={selectedPoiMediaQuery.isLoading}
-        isVendor={isVendor}
-        busyId={getBusyMutationId(
-          approveImageMutation.variables,
-          rejectImageMutation.variables,
-        )}
-        page={imagePage}
-        totalPages={selectedPoiMediaQuery.data?.totalPages ?? 0}
-        totalCount={selectedPoiMediaQuery.data?.totalCount}
-        onClose={() => setImageModalOpen(false)}
-        onPageChange={setImagePage}
-        onUpload={() => imageInputRef.current?.click()}
-        uploadLoading={uploadMutation.isPending}
-        onPreview={setPreviewMedia}
-        onCopy={async (media) => {
-          await navigator.clipboard.writeText(getMediaUrl(media));
-          setNotice('Đã sao chép URL ảnh.');
-        }}
-        onApprove={(media) => approveImageMutation.mutate(media.id)}
-        onReject={(media) => {
-          setRejectImage(media);
-          setRejectReason('');
-        }}
-      />
       <MediaPreviewModal media={previewMedia} onClose={() => setPreviewMedia(null)} />
       <RejectModal
-        open={Boolean(rejectImage || rejectNarration)}
+        open={Boolean(rejectTarget)}
+        title={rejectTarget?.type === 'image' ? 'Lý do từ chối ảnh' : 'Lý do từ chối bản thuyết minh'}
         reason={rejectReason}
         isLoading={rejectImageMutation.isPending || rejectNarrationMutation.isPending}
         onReasonChange={setRejectReason}
         onClose={() => {
-          setRejectImage(null);
-          setRejectNarration(null);
+          setRejectTarget(null);
           setRejectReason('');
         }}
         onSubmit={handleSubmitReject}
@@ -524,298 +592,722 @@ export function MediaLibraryPage() {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`border-b-2 px-4 py-2 text-sm font-medium ${
-        active
-          ? 'border-blue-600 text-blue-700'
-          : 'border-transparent text-gray-500 hover:text-gray-800'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function PoiImageList({
+function PoiWorkspaceSelector({
   pois,
-  mediaItems,
+  selectedPoi,
+  search,
+  isVendor,
   isLoading,
+  onSearchChange,
   onSelect,
 }: {
   pois: PoiDto[];
-  mediaItems: MediaFileDto[];
+  selectedPoi: PoiDto | null;
+  search: string;
+  isVendor: boolean;
   isLoading: boolean;
-  onSelect: (poi: PoiDto) => void;
+  onSearchChange: (value: string) => void;
+  onSelect: (poi: PoiDto | null) => void;
 }) {
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
-        Đang tải danh sách POI/sạp...
-      </div>
-    );
-  }
-
-  if (pois.length === 0) {
-    return (
-      <div className="rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
-        Không có POI/sạp phù hợp.
-      </div>
-    );
-  }
+  const options = [
+    { value: '', label: isLoading ? 'Đang tải POI/sạp...' : 'Chọn POI/sạp...' },
+    ...pois.map((poi) => ({
+      value: String(poi.id),
+      label: `${poi.name || poi.displayName || poi.code} (${poi.code})`,
+    })),
+  ];
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {pois.map((poi) => {
-        const counts = getPoiImageCounts(mediaItems, poi.id);
-        return (
-          <button
-            key={poi.id}
-            type="button"
-            onClick={() => onSelect(poi)}
-            className="rounded-lg border border-gray-100 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-gray-900">{poi.name || poi.displayName || poi.code}</p>
-                <p className="mt-0.5 text-xs text-gray-500">{poi.code}</p>
-              </div>
-              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
-                {counts.total} ảnh
-              </span>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-              <CountPill label="Chờ duyệt" value={counts.pending} className="bg-amber-50 text-amber-700" />
-              <CountPill label="Đã duyệt" value={counts.approved} className="bg-emerald-50 text-emerald-700" />
-              <CountPill label="Từ chối" value={counts.rejected} className="bg-red-50 text-red-700" />
-            </div>
-            <p className="mt-3 text-xs text-gray-500">
-              Vendor: {poi.displayName || poi.userId || '-'}
-            </p>
-          </button>
-        );
-      })}
+    <Card className="p-4">
+      <div className="grid gap-3 lg:grid-cols-[1fr_320px]">
+        <Input
+          id="content-poi-search"
+          label="Tìm kiếm POI/sạp"
+          placeholder="Tên hoặc mã POI/sạp"
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
+        <Select
+          id="content-poi-select"
+          label={isVendor ? 'Sạp của tôi' : 'POI/sạp đang chọn'}
+          value={selectedPoi ? String(selectedPoi.id) : ''}
+          options={options}
+          onChange={(event) => {
+            const poiId = Number(event.target.value);
+            onSelect(pois.find((poi) => poi.id === poiId) ?? null);
+          }}
+        />
+      </div>
+      {selectedPoi ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <StatusPill tone="blue">{getLifecycleLabel(selectedPoi.lifecycleStatus)}</StatusPill>
+          <StatusPill tone="amber">{getPaymentLabel(selectedPoi.paymentStatus)}</StatusPill>
+          <StatusPill tone={getPublicVisibilityStatus(selectedPoi).isPublic ? 'green' : 'gray'}>
+            {getPublicVisibilityStatus(selectedPoi).label}
+          </StatusPill>
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-gray-500">
+          {isVendor
+            ? 'Danh sách này chỉ hiển thị POI/sạp thuộc tài khoản của bạn.'
+            : 'Admin có thể chọn bất kỳ POI/sạp nào để kiểm tra nội dung và duyệt hàng chờ.'}
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function EmptyWorkspace({ isVendor }: { isVendor: boolean }) {
+  return (
+    <Card className="p-8 text-center">
+      <h2 className="text-lg font-semibold text-gray-900">Chưa chọn POI/sạp</h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-600">
+        {isVendor
+          ? 'Chọn sạp của bạn để tải ảnh, tạo bản thuyết minh và bổ sung bản dịch.'
+          : 'Chọn một POI/sạp ở phía trên để mở không gian nội dung, xem hàng chờ duyệt và quản lý audio.'}
+      </p>
+    </Card>
+  );
+}
+
+function PoiContentHeader({ poi, summary }: { poi: PoiDto; summary: ContentSummary }) {
+  const publicStatus = getPublicVisibilityStatus(poi);
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{poi.code}</p>
+          <h2 className="mt-1 text-2xl font-bold text-gray-900">{poi.name || poi.displayName || poi.code}</h2>
+          <p className="mt-1 text-sm text-gray-500">{poi.category || 'Chưa phân loại'}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <StatusPill tone="blue">{getLifecycleLabel(poi.lifecycleStatus)}</StatusPill>
+          <StatusPill tone="amber">{getPaymentLabel(poi.paymentStatus)}</StatusPill>
+          <StatusPill tone={publicStatus.isPublic ? 'green' : 'gray'}>{publicStatus.label}</StatusPill>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Ảnh đã duyệt" value={summary.images.approved} />
+        <MetricCard label="Thuyết minh đã duyệt" value={summary.narrations.approved} />
+        <MetricCard label="Âm thanh đã có" value={summary.audio.generated} />
+        <MetricCard label="Bản dịch" value={summary.translations.total} />
+      </div>
+    </Card>
+  );
+}
+
+function OverviewTab({
+  poi,
+  summary,
+  narrations,
+  translations,
+  isVendor,
+  onOpenTab,
+}: {
+  poi: PoiDto;
+  summary: ContentSummary;
+  narrations: NarrationDraftDto[];
+  translations: Translation[];
+  isVendor: boolean;
+  onOpenTab: (tab: WorkspaceTab) => void;
+}) {
+  const nextAction = getRecommendedAction(summary, isVendor);
+  const languageRows = buildLanguageRows(narrations, translations);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <Card className="p-5">
+        <h3 className="text-base font-semibold text-gray-900">Tình trạng nội dung</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <SummaryLine
+            label="Hình ảnh"
+            value={`${summary.images.approved} đã duyệt, ${summary.images.pending} chờ duyệt, ${summary.images.rejected} bị từ chối`}
+            actionLabel="Mở hình ảnh"
+            onAction={() => onOpenTab('images')}
+          />
+          <SummaryLine
+            label="Bản thuyết minh"
+            value={`${summary.narrations.approved} đã duyệt, ${summary.narrations.pending} chờ duyệt`}
+            actionLabel="Mở thuyết minh"
+            onAction={() => onOpenTab('narrations')}
+          />
+          <SummaryLine
+            label="Âm thanh"
+            value={`${summary.audio.generated} đã có audio, ${summary.audio.missing} còn thiếu`}
+            actionLabel="Mở âm thanh"
+            onAction={() => onOpenTab('audio')}
+          />
+          <SummaryLine
+            label="Bản dịch"
+            value={`${summary.translations.total} ngôn ngữ đã có bản dịch`}
+            actionLabel="Mở bản dịch"
+            onAction={() => onOpenTab('translations')}
+          />
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="text-base font-semibold text-gray-900">Gợi ý bước tiếp theo</h3>
+        <p className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
+          {nextAction}
+        </p>
+        <div className="mt-4 grid gap-3 text-sm text-gray-600">
+          <InfoRow label="Hiển thị công khai" value={getPublicVisibilityStatus(poi).reason} />
+          <InfoRow label="Ngôn ngữ có nội dung" value={languageRows.length ? `${languageRows.length} ngôn ngữ` : 'Chưa có'} />
+        </div>
+      </Card>
+
+      <Card className="p-5 xl:col-span-2">
+        <h3 className="text-base font-semibold text-gray-900">Nội dung theo ngôn ngữ</h3>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+              <tr>
+                <th className="px-4 py-3">Ngôn ngữ</th>
+                <th className="px-4 py-3">Thuyết minh</th>
+                <th className="px-4 py-3">Âm thanh</th>
+                <th className="px-4 py-3">Bản dịch</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {languageRows.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-center text-gray-500" colSpan={4}>
+                    Chưa có nội dung ngôn ngữ nào cho POI/sạp này.
+                  </td>
+                </tr>
+              ) : (
+                languageRows.map((row) => (
+                  <tr key={row.languageCode}>
+                    <td className="px-4 py-3 font-medium text-gray-900">{formatLanguageLabel(row.languageCode)}</td>
+                    <td className="px-4 py-3"><NarrationStatusPill status={row.narrationStatus} /></td>
+                    <td className="px-4 py-3">{row.hasAudio ? 'Đã có audio' : 'Chưa có audio'}</td>
+                    <td className="px-4 py-3">{row.hasTranslation ? 'Đã có bản dịch' : 'Chưa có bản dịch'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
 
-function CountPill({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: number;
-  className: string;
-}) {
-  return (
-    <span className={`rounded-md px-2 py-1 font-medium ${className}`}>
-      {label}: {value}
-    </span>
-  );
-}
-
-function PoiImagesModal({
+function ImagesTab({
   poi,
-  mediaItems,
+  images,
   isLoading,
   isVendor,
-  busyId,
-  page,
-  totalPages,
-  totalCount,
+  canUpload,
+  canReview,
+  imageInputRef,
   uploadLoading,
-  onClose,
-  onPageChange,
+  busyId,
   onUpload,
   onPreview,
-  onCopy,
   onApprove,
   onReject,
 }: {
-  poi: PoiDto | null;
-  mediaItems: MediaFileDto[];
+  poi: PoiDto;
+  images: MediaFileDto[];
   isLoading: boolean;
   isVendor: boolean;
-  busyId: number | null;
-  page: number;
-  totalPages: number;
-  totalCount?: number;
+  canUpload: boolean;
+  canReview: boolean;
+  imageInputRef: React.RefObject<HTMLInputElement | null>;
   uploadLoading: boolean;
-  onClose: () => void;
-  onPageChange: (page: number) => void;
-  onUpload: () => void;
+  busyId: number | null;
+  onUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onPreview: (media: MediaFileDto) => void;
-  onCopy: (media: MediaFileDto) => void;
   onApprove: (media: MediaFileDto) => void;
   onReject: (media: MediaFileDto) => void;
 }) {
-  return (
-    <Modal open={Boolean(poi)} onClose={onClose} title={poi ? `Ảnh của ${poi.name || poi.code}` : 'Ảnh POI'} scrollable>
-      {poi ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 text-sm">
-            <div>
-              <p className="font-semibold text-gray-900">{poi.name || poi.displayName || poi.code}</p>
-              <p className="text-xs text-gray-500">{poi.code}</p>
-            </div>
-            {isVendor ? (
-              <Button variant="secondary" onClick={onUpload} isLoading={uploadLoading}>
-                Tải ảnh cho POI này
-              </Button>
-            ) : null}
-          </div>
+  const grouped = groupMediaByStatus(images);
 
-          <ImageTable
-            mediaItems={mediaItems}
-            isLoading={isLoading}
-            isVendor={isVendor}
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Hình ảnh của {poi.name || poi.code}</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Ảnh được tải qua API media và xem bằng endpoint CMS bảo vệ.
+            </p>
+          </div>
+          {canUpload ? (
+            <div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept={imageAccept}
+                multiple
+                className="hidden"
+                onChange={onUpload}
+              />
+              <Button onClick={() => imageInputRef.current?.click()} isLoading={uploadLoading}>
+                Tải ảnh lên
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Admin tập trung duyệt ảnh đang chờ.</p>
+          )}
+        </div>
+        {isVendor ? (
+          <p className="mt-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Ảnh vendor tải lên sẽ ở trạng thái chờ duyệt trước khi hiển thị công khai.
+          </p>
+        ) : null}
+      </Card>
+
+      {isLoading ? <LoadingCard message="Đang tải hình ảnh..." /> : null}
+      {!isLoading && images.length === 0 ? <EmptyCard message="Chưa có ảnh nào cho POI/sạp này." /> : null}
+
+      {!isLoading ? (
+        <div className="grid gap-4 xl:grid-cols-3">
+          <ImageStatusGroup
+            title="Chờ duyệt"
+            mediaItems={grouped.Pending}
+            tone="amber"
+            canReview={canReview}
             busyId={busyId}
             onPreview={onPreview}
-            onCopy={onCopy}
             onApprove={onApprove}
             onReject={onReject}
           />
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            itemLabel="ảnh"
-            onPageChange={onPageChange}
+          <ImageStatusGroup
+            title="Đã duyệt"
+            mediaItems={grouped.Approved}
+            tone="green"
+            canReview={canReview}
+            busyId={busyId}
+            onPreview={onPreview}
+            onApprove={onApprove}
+            onReject={onReject}
+          />
+          <ImageStatusGroup
+            title="Bị từ chối"
+            mediaItems={grouped.Rejected}
+            tone="red"
+            canReview={canReview}
+            busyId={busyId}
+            onPreview={onPreview}
+            onApprove={onApprove}
+            onReject={onReject}
           />
         </div>
       ) : null}
-    </Modal>
+    </div>
   );
 }
 
-function getPoiImageCounts(mediaItems: MediaFileDto[], poiId: number) {
-  return mediaItems.reduce(
-    (counts, media) => {
-      if (media.poiId !== poiId) {
-        return counts;
-      }
-
-      counts.total += 1;
-      if (media.approvalStatus === 'Pending') counts.pending += 1;
-      if (media.approvalStatus === 'Approved') counts.approved += 1;
-      if (media.approvalStatus === 'Rejected') counts.rejected += 1;
-      return counts;
-    },
-    { total: 0, pending: 0, approved: 0, rejected: 0 },
-  );
-}
-
-function ImageTable({
-  mediaItems,
+function NarrationsTab({
+  poi,
+  drafts,
   isLoading,
   isVendor,
+  canCreate,
+  canReview,
+  form,
+  createLoading,
   busyId,
-  onPreview,
-  onCopy,
+  onFormChange,
+  onSubmit,
   onApprove,
   onReject,
+  onView,
 }: {
-  mediaItems: MediaFileDto[];
+  poi: PoiDto;
+  drafts: NarrationDraftDto[];
   isLoading: boolean;
   isVendor: boolean;
+  canCreate: boolean;
+  canReview: boolean;
+  form: { title: string; languageCode: string; textContent: string; voice: string };
+  createLoading: boolean;
   busyId: number | null;
-  onPreview: (media: MediaFileDto) => void;
-  onCopy: (media: MediaFileDto) => void;
-  onApprove: (media: MediaFileDto) => void;
-  onReject: (media: MediaFileDto) => void;
+  onFormChange: (form: { title: string; languageCode: string; textContent: string; voice: string }) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onApprove: (draft: NarrationDraftDto) => void;
+  onReject: (draft: NarrationDraftDto) => void;
+  onView: (draft: NarrationDraftDto) => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Tên gốc</th>
-              <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3">Ngày tải lên</th>
-              <th className="px-4 py-3">Người tải</th>
-              <th className="px-4 py-3">Lý do từ chối</th>
-              <th className="px-4 py-3 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {isLoading ? (
+    <div className="space-y-4">
+      {canCreate ? (
+        <NarrationForm
+          form={form}
+          poi={poi}
+          isVendor={isVendor}
+          isLoading={createLoading}
+          onChange={onFormChange}
+          onSubmit={onSubmit}
+        />
+      ) : null}
+
+      <NarrationList
+        drafts={drafts}
+        isLoading={isLoading}
+        canReview={canReview}
+        busyId={busyId}
+        onApprove={onApprove}
+        onReject={onReject}
+        onView={onView}
+      />
+    </div>
+  );
+}
+
+function AudioTab({
+  poi,
+  drafts,
+  isLoading,
+  canUploadAudio,
+  isVendor,
+  busyId,
+  onUploadAudio,
+}: {
+  poi: PoiDto;
+  drafts: NarrationDraftDto[];
+  isLoading: boolean;
+  canUploadAudio: boolean;
+  isVendor: boolean;
+  busyId: number | null;
+  onUploadAudio: (draft: NarrationDraftDto) => void;
+}) {
+  const approvedDrafts = drafts.filter((draft) => draft.status === 'Approved' || draft.status === 'AudioGenerated');
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <h3 className="text-base font-semibold text-gray-900">Preview âm thanh bảo vệ</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          CMS phát thử qua endpoint audio-preview được bảo vệ, không hiển thị đường dẫn file thô.
+        </p>
+        <CmsAudioPreviewPlayer poiId={poi.id} />
+      </Card>
+
+      <Card className="p-0">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-base font-semibold text-gray-900">Âm thanh theo ngôn ngữ</h3>
+          {isVendor ? (
+            <p className="mt-1 text-sm text-gray-500">Vendor có thể theo dõi trạng thái, MP3 do admin tải lên sau khi duyệt.</p>
+          ) : (
+            <p className="mt-1 text-sm text-gray-500">Admin tải MP3 sau khi bản thuyết minh đã được duyệt.</p>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
               <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={6}>
-                  Đang tải ảnh...
-                </td>
+                <th className="px-4 py-3">Ngôn ngữ</th>
+                <th className="px-4 py-3">Bản thuyết minh</th>
+                <th className="px-4 py-3">Trạng thái audio</th>
+                <th className="px-4 py-3">Thời lượng</th>
+                {canUploadAudio ? <th className="px-4 py-3 text-right">Thao tác</th> : null}
               </tr>
-            ) : null}
-            {!isLoading && mediaItems.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={6}>
-                  Không có ảnh nào.
-                </td>
-              </tr>
-            ) : null}
-            {mediaItems.map((media) => (
-              <tr key={media.id}>
-                <td className="max-w-[260px] truncate px-4 py-3 font-medium text-gray-900">
-                  {media.originalFileName}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={media.approvalStatus} />
-                </td>
-                <td className="px-4 py-3 text-gray-600">{formatDate(media.uploadedAt)}</td>
-                <td className="px-4 py-3 text-gray-600">
-                  {media.uploadedByUsername ?? media.uploadedByUserId ?? '-'}
-                </td>
-                <td className="max-w-[280px] px-4 py-3 text-gray-600">
-                  {media.rejectionReason ?? '-'}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => onPreview(media)}>
-                      Xem
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onCopy(media)}>
-                      Sao chép URL
-                    </Button>
-                    {!isVendor && media.approvalStatus !== 'Approved' ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        isLoading={busyId === media.id}
-                        onClick={() => onApprove(media)}
-                      >
-                        Duyệt
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? (
+                <TableMessage colSpan={canUploadAudio ? 5 : 4} message="Đang tải trạng thái âm thanh..." />
+              ) : null}
+              {!isLoading && approvedDrafts.length === 0 ? (
+                <TableMessage colSpan={canUploadAudio ? 5 : 4} message="Chưa có bản thuyết minh đã duyệt để gắn MP3." />
+              ) : null}
+              {approvedDrafts.map((draft) => (
+                <tr key={draft.id}>
+                  <td className="px-4 py-3 font-medium text-gray-900">{formatLanguageLabel(draft.languageCode)}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-900">{draft.title}</p>
+                    <p className="line-clamp-2 text-xs text-gray-500">{draft.textContent}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    {draft.generatedAudioTrackId ? (
+                      <StatusPill tone="green">Đã có MP3</StatusPill>
+                    ) : (
+                      <StatusPill tone="amber">Chưa có MP3</StatusPill>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{formatAudioDuration(draft.generatedAudioDurationSeconds)}</td>
+                  {canUploadAudio ? (
+                    <td className="px-4 py-3 text-right">
+                      <Button size="sm" isLoading={busyId === draft.id} onClick={() => onUploadAudio(draft)}>
+                        {draft.generatedAudioTrackId ? 'Thay MP3' : 'Tải MP3'}
                       </Button>
-                    ) : null}
-                    {!isVendor && media.approvalStatus !== 'Rejected' ? (
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function TranslationsTab({
+  poi,
+  translations,
+  languages,
+  activeLanguages,
+  isLoading,
+  isVendor,
+  form,
+  setForm,
+  sourceLanguageCode,
+  setSourceLanguageCode,
+  targetLanguageCodes,
+  setTargetLanguageCodes,
+  overwriteExisting,
+  setOverwriteExisting,
+  isSaving,
+  isDeleting,
+  isGenerating,
+  onSave,
+  onDelete,
+  onGenerate,
+}: {
+  poi: PoiDto;
+  translations: Translation[];
+  languages: LanguageDto[];
+  activeLanguages: LanguageDto[];
+  isLoading: boolean;
+  isVendor: boolean;
+  form: Translation | null;
+  setForm: (form: Translation | null) => void;
+  sourceLanguageCode: string;
+  setSourceLanguageCode: (code: string) => void;
+  targetLanguageCodes: string[];
+  setTargetLanguageCodes: (codes: string[]) => void;
+  overwriteExisting: boolean;
+  setOverwriteExisting: (value: boolean) => void;
+  isSaving: boolean;
+  isDeleting: boolean;
+  isGenerating: boolean;
+  onSave: () => void;
+  onDelete: (translation: Translation) => void;
+  onGenerate: () => void;
+}) {
+  const translatedCodes = new Set(translations.map((translation) => translation.languageCode));
+  const availableLanguages = activeLanguages.filter((language) => !translatedCodes.has(language.code));
+  const targetLanguages = activeLanguages.filter(
+    (language) => language.code !== sourceLanguageCode && (overwriteExisting || !translatedCodes.has(language.code)),
+  );
+
+  const startAdd = () => {
+    setForm({
+      ...emptyTranslation,
+      languageCode: availableLanguages[0]?.code ?? '',
+      name: poi.name || poi.displayName || poi.code,
+      shortDescription: poi.shortDescription ?? '',
+      description: poi.description ?? '',
+    });
+  };
+
+  const startEdit = (translation: Translation) => {
+    setForm({
+      id: translation.id,
+      languageCode: translation.languageCode,
+      name: translation.name ?? '',
+      shortDescription: translation.shortDescription ?? '',
+      description: translation.description ?? '',
+    });
+  };
+
+  const toggleTargetLanguage = (code: string) => {
+    setTargetLanguageCodes(
+      targetLanguageCodes.includes(code)
+        ? targetLanguageCodes.filter((item) => item !== code)
+        : [...targetLanguageCodes, code],
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Bản dịch POI</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {isVendor
+                ? 'Bổ sung bản dịch cho sạp của bạn theo từng ngôn ngữ.'
+                : 'Admin có thể quản lý bản dịch cho mọi POI/sạp được chọn.'}
+            </p>
+          </div>
+          <Button onClick={startAdd} disabled={availableLanguages.length === 0}>
+            Thêm bản dịch
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="border-indigo-100 bg-indigo-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-indigo-950">Tạo bản dịch tự động</h3>
+            <p className="mt-1 text-sm text-indigo-800">
+              Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.
+            </p>
+          </div>
+          <Button onClick={onGenerate} isLoading={isGenerating} disabled={targetLanguages.length === 0}>
+            Tạo bản dịch mô phỏng
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
+          <Select
+            label="Ngôn ngữ nguồn"
+            value={sourceLanguageCode}
+            options={activeLanguages.map((language) => ({
+              value: language.code,
+              label: formatTranslationLanguage(language.code, languages),
+            }))}
+            onChange={(event) => {
+              setSourceLanguageCode(event.target.value);
+              setTargetLanguageCodes([]);
+            }}
+          />
+          <div>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-medium text-gray-700">Ngôn ngữ đích</span>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={overwriteExisting}
+                  onChange={(event) => {
+                    setOverwriteExisting(event.target.checked);
+                    setTargetLanguageCodes([]);
+                  }}
+                />
+                Ghi đè bản dịch đã có
+              </label>
+            </div>
+            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-indigo-100 bg-white/70 p-2">
+              {targetLanguages.length === 0 ? (
+                <span className="text-sm text-gray-500">Không còn ngôn ngữ đích phù hợp.</span>
+              ) : (
+                targetLanguages.map((language) => (
+                  <label
+                    key={language.code}
+                    className="flex cursor-pointer items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={targetLanguageCodes.includes(language.code)}
+                      onChange={() => toggleTargetLanguage(language.code)}
+                    />
+                    {formatTranslationLanguage(language.code, languages)}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {form ? (
+        <Card className="p-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Select
+              label="Ngôn ngữ"
+              value={form.languageCode}
+              disabled={Boolean(form.id)}
+              options={(form.id ? activeLanguages : availableLanguages).map((language) => ({
+                value: language.code,
+                label: formatTranslationLanguage(language.code, languages),
+              }))}
+              placeholder="-- Chọn ngôn ngữ --"
+              onChange={(event) => setForm({ ...form, languageCode: event.target.value })}
+            />
+            <Input
+              label="Tên bản dịch"
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+            />
+            <div className="lg:col-span-2">
+              <label htmlFor="translation-short" className="mb-1 block text-sm font-medium text-gray-700">
+                Mô tả ngắn
+              </label>
+              <textarea
+                id="translation-short"
+                rows={3}
+                value={form.shortDescription}
+                onChange={(event) => setForm({ ...form, shortDescription: event.target.value })}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <label htmlFor="translation-description" className="mb-1 block text-sm font-medium text-gray-700">
+                Mô tả
+              </label>
+              <textarea
+                id="translation-description"
+                rows={6}
+                value={form.description}
+                onChange={(event) => setForm({ ...form, description: event.target.value })}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setForm(null)}>
+              Hủy
+            </Button>
+            <Button onClick={onSave} isLoading={isSaving}>
+              Lưu bản dịch
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
+      <Card className="p-0">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+              <tr>
+                <th className="px-4 py-3">Ngôn ngữ</th>
+                <th className="px-4 py-3">Tên</th>
+                <th className="px-4 py-3">Mô tả ngắn</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {isLoading ? <TableMessage colSpan={4} message="Đang tải bản dịch..." /> : null}
+              {!isLoading && translations.length === 0 ? (
+                <TableMessage colSpan={4} message="Chưa có bản dịch cho POI/sạp này." />
+              ) : null}
+              {translations.map((translation) => (
+                <tr key={translation.id ?? translation.languageCode}>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {formatTranslationLanguage(translation.languageCode, languages)}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{translation.name}</td>
+                  <td className="max-w-[360px] px-4 py-3 text-gray-500">
+                    <span className="line-clamp-2">{translation.shortDescription || '-'}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => startEdit(translation)}>
+                        Sửa
+                      </Button>
                       <Button
+                        size="sm"
                         variant="danger"
-                        size="sm"
-                        isLoading={busyId === media.id}
-                        onClick={() => onReject(media)}
+                        onClick={() => onDelete(translation)}
+                        isLoading={isDeleting}
                       >
-                        Từ chối
+                        Xóa
                       </Button>
-                    ) : null}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -823,12 +1315,14 @@ function ImageTable({
 function NarrationForm({
   form,
   poi,
+  isVendor,
   isLoading,
   onChange,
   onSubmit,
 }: {
   form: { title: string; languageCode: string; textContent: string; voice: string };
-  poi: PoiDto | null;
+  poi: PoiDto;
+  isVendor: boolean;
   isLoading: boolean;
   onChange: (form: { title: string; languageCode: string; textContent: string; voice: string }) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -836,11 +1330,11 @@ function NarrationForm({
   return (
     <form className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm" onSubmit={onSubmit}>
       <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3 text-sm">
-        <p className="font-semibold text-gray-900">
-          {poi ? poi.name || poi.displayName || poi.code : 'Chưa chọn POI/sạp'}
-        </p>
-        <p className="text-xs text-gray-500">
-          {poi ? poi.code : 'Chọn POI/sạp ở phần chọn POI phía trên.'}
+        <p className="font-semibold text-gray-900">{poi.name || poi.displayName || poi.code}</p>
+        <p className="mt-1 text-xs text-gray-500">
+          {isVendor
+            ? 'Bản thuyết minh sau khi gửi sẽ chờ admin duyệt.'
+            : 'Admin có thể tạo bản nháp hoặc duyệt nội dung do vendor gửi.'}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -879,8 +1373,8 @@ function NarrationForm({
           onChange={(event) => onChange({ ...form, voice: event.target.value })}
         />
         <div className="flex items-end">
-          <Button type="submit" isLoading={isLoading} disabled={!poi}>
-            Tạo bản thuyết minh mới
+          <Button type="submit" isLoading={isLoading}>
+            Tạo bản thuyết minh
           </Button>
         </div>
       </div>
@@ -888,220 +1382,281 @@ function NarrationForm({
   );
 }
 
-function NarrationTable({
+function NarrationList({
   drafts,
   isLoading,
-  isVendor,
+  canReview,
   busyId,
-  canUploadAudio,
   onApprove,
   onReject,
   onView,
-  onUploadAudio,
 }: {
   drafts: NarrationDraftDto[];
   isLoading: boolean;
-  isVendor: boolean;
+  canReview: boolean;
   busyId: number | null;
-  canUploadAudio: boolean;
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
   onView: (draft: NarrationDraftDto) => void;
-  onUploadAudio: (draft: NarrationDraftDto) => void;
 }) {
-  const groupedDrafts = groupDraftsByPoi(drafts);
-
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+    <Card className="p-0">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
             <tr>
-              <th className="px-4 py-3">POI/sạp</th>
-              <th className="px-4 py-3">Tiêu đề</th>
               <th className="px-4 py-3">Ngôn ngữ</th>
-              <th className="px-4 py-3">Giọng đọc</th>
+              <th className="px-4 py-3">Tiêu đề</th>
               <th className="px-4 py-3">Trạng thái</th>
               <th className="px-4 py-3">Người gửi</th>
-              <th className="px-4 py-3">Lý do từ chối</th>
-              {!isVendor ? <th className="px-4 py-3 text-right">Thao tác</th> : null}
+              <th className="px-4 py-3">Cập nhật</th>
+              <th className="px-4 py-3 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {isLoading ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 7 : 8}>
-                  Đang tải bản thuyết minh...
-                </td>
-              </tr>
-            ) : null}
+            {isLoading ? <TableMessage colSpan={6} message="Đang tải bản thuyết minh..." /> : null}
             {!isLoading && drafts.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 7 : 8}>
-                  Không có bản thuyết minh nào.
+              <TableMessage colSpan={6} message="Chưa có bản thuyết minh cho POI/sạp này." />
+            ) : null}
+            {drafts.map((draft) => (
+              <tr key={draft.id}>
+                <td className="px-4 py-3 font-medium text-gray-900">{formatLanguageLabel(draft.languageCode)}</td>
+                <td className="max-w-[360px] px-4 py-3">
+                  <p className="font-medium text-gray-900">{draft.title}</p>
+                  <p className="line-clamp-2 text-xs text-gray-500">{draft.textContent}</p>
+                  {draft.rejectionReason ? (
+                    <p className="mt-1 text-xs text-red-600">Lý do từ chối: {draft.rejectionReason}</p>
+                  ) : null}
+                </td>
+                <td className="px-4 py-3"><NarrationStatusPill status={draft.status} /></td>
+                <td className="px-4 py-3 text-gray-600">{draft.submittedByUsername ?? draft.submittedByUserId}</td>
+                <td className="px-4 py-3 text-gray-500">{formatDate(draft.updatedAt ?? draft.createdAt)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => onView(draft)}>
+                      Xem nội dung
+                    </Button>
+                    {canReview && draft.status !== 'Approved' && draft.status !== 'AudioGenerated' ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={busyId === draft.id}
+                        onClick={() => onApprove(draft)}
+                      >
+                        Duyệt
+                      </Button>
+                    ) : null}
+                    {canReview && draft.status !== 'Rejected' && draft.status !== 'AudioGenerated' ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        isLoading={busyId === draft.id}
+                        onClick={() => onReject(draft)}
+                      >
+                        Từ chối
+                      </Button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
-            ) : null}
-            {groupedDrafts.flatMap((group) => [
-                <tr key={`group-${group.key}`} className="bg-gray-50/70">
-                  <td className="px-4 py-2 text-xs font-semibold uppercase text-gray-500" colSpan={isVendor ? 7 : 8}>
-                    {group.label}
-                  </td>
-                </tr>,
-                ...group.items.map((draft) => (
-                  <tr key={draft.id}>
-                    <td className="px-4 py-3 text-gray-700">
-                      <p className="font-medium text-gray-900">{draft.poiName || draft.poiCode || `POI #${draft.poiId}`}</p>
-                      <p className="text-xs text-gray-500">{draft.poiCode ?? `#${draft.poiId}`}</p>
-                    </td>
-                    <td className="max-w-[260px] px-4 py-3">
-                      <p className="font-medium text-gray-900">{draft.title}</p>
-                      <p className="line-clamp-2 text-xs text-gray-500">{draft.textContent}</p>
-                      {draft.simulatedAudioUrl ? (
-                        <p className="mt-1 text-xs text-blue-600">
-                          TTS mô phỏng / chưa kết nối dịch vụ thật
-                        </p>
-                      ) : null}
-                      {draft.generatedAudioTrackId ? (
-                        <p className="mt-1 text-xs font-medium text-emerald-700">
-                          Đã có audio • AudioTrack #{draft.generatedAudioTrackId} • {formatAudioDuration(draft.generatedAudioDurationSeconds)} • {formatLanguageLabel(draft.languageCode)}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{formatLanguageLabel(draft.languageCode)}</td>
-                    <td className="px-4 py-3 text-gray-600">{draft.voice}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={draft.status} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {draft.submittedByUsername ?? draft.submittedByUserId}
-                    </td>
-                    <td className="max-w-[240px] px-4 py-3 text-gray-600">
-                      {draft.rejectionReason ?? '-'}
-                    </td>
-                    {!isVendor ? (
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => onView(draft)}>
-                            Xem nội dung
-                          </Button>
-                          {draft.status !== 'Approved' && draft.status !== 'AudioGenerated' ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              isLoading={busyId === draft.id}
-                              onClick={() => onApprove(draft)}
-                            >
-                              Duyệt
-                            </Button>
-                          ) : null}
-                          {draft.status !== 'Rejected' && draft.status !== 'AudioGenerated' ? (
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              isLoading={busyId === draft.id}
-                              onClick={() => onReject(draft)}
-                            >
-                              Từ chối
-                            </Button>
-                          ) : null}
-                          {canUploadAudio && (draft.status === 'Approved' || draft.status === 'AudioGenerated') ? (
-                            <Button
-                              size="sm"
-                              isLoading={busyId === draft.id}
-                              onClick={() => onUploadAudio(draft)}
-                            >
-                              Tải MP3
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
-                    ) : null}
-                  </tr>
-                )),
-              ])}
+            ))}
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  totalCount,
-  itemLabel,
-  onPageChange,
+function ImageStatusGroup({
+  title,
+  mediaItems,
+  tone,
+  canReview,
+  busyId,
+  onPreview,
+  onApprove,
+  onReject,
 }: {
-  page: number;
-  totalPages: number;
-  totalCount?: number;
-  itemLabel: string;
-  onPageChange: (page: number) => void;
+  title: string;
+  mediaItems: MediaFileDto[];
+  tone: 'amber' | 'green' | 'red';
+  canReview: boolean;
+  busyId: number | null;
+  onPreview: (media: MediaFileDto) => void;
+  onApprove: (media: MediaFileDto) => void;
+  onReject: (media: MediaFileDto) => void;
 }) {
   return (
-    <div className="flex items-center justify-between text-sm text-gray-600">
-      <span>{typeof totalCount === 'number' ? `${totalCount} ${itemLabel}` : `Đang tải ${itemLabel}`}</span>
-      <div className="flex items-center gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-        >
-          Trước
-        </Button>
-        <span>
-          Trang {page} / {Math.max(1, totalPages)}
-        </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={totalPages === 0 || page >= totalPages}
-          onClick={() => onPageChange(page + 1)}
-        >
-          Sau
-        </Button>
+    <Card className="p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <StatusPill tone={tone}>{mediaItems.length}</StatusPill>
       </div>
+      <div className="grid gap-3">
+        {mediaItems.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-200 px-3 py-6 text-center text-sm text-gray-500">
+            Không có ảnh.
+          </p>
+        ) : (
+          mediaItems.map((media) => (
+            <div key={media.id} className="overflow-hidden rounded-lg border border-gray-100">
+              <button type="button" className="block h-40 w-full bg-gray-50" onClick={() => onPreview(media)}>
+                <SecureImage
+                  src={getMediaUrl(media)}
+                  alt={media.originalFileName}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+              <div className="space-y-2 p-3">
+                <p className="truncate text-sm font-medium text-gray-900">{media.originalFileName}</p>
+                <p className="text-xs text-gray-500">{formatDate(media.uploadedAt)}</p>
+                {media.rejectionReason ? (
+                  <p className="text-xs text-red-600">Lý do: {media.rejectionReason}</p>
+                ) : null}
+                {canReview ? (
+                  <div className="flex flex-wrap gap-2">
+                    {media.approvalStatus !== 'Approved' ? (
+                      <Button size="sm" variant="secondary" isLoading={busyId === media.id} onClick={() => onApprove(media)}>
+                        Duyệt
+                      </Button>
+                    ) : null}
+                    {media.approvalStatus !== 'Rejected' ? (
+                      <Button size="sm" variant="danger" isLoading={busyId === media.id} onClick={() => onReject(media)}>
+                        Từ chối
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? 'border-blue-600 text-blue-700'
+          : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-900'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatusPill({
+  tone,
+  children,
+}: {
+  tone: 'blue' | 'amber' | 'green' | 'red' | 'gray';
+  children: ReactNode;
+}) {
+  const classes = {
+    blue: 'bg-blue-50 text-blue-700',
+    amber: 'bg-amber-50 text-amber-700',
+    green: 'bg-green-50 text-green-700',
+    red: 'bg-red-50 text-red-700',
+    gray: 'bg-gray-100 text-gray-700',
+  };
+
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classes[tone]}`}>{children}</span>;
+}
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );
 }
 
-function groupDraftsByPoi(drafts: NarrationDraftDto[]) {
-  const groups = new Map<string, { key: string; label: string; items: NarrationDraftDto[] }>();
-
-  for (const draft of drafts) {
-    const key = String(draft.poiId);
-    const label = draft.poiName || draft.poiCode || `POI #${draft.poiId}`;
-    const group = groups.get(key);
-    if (group) {
-      group.items.push(draft);
-    } else {
-      groups.set(key, { key, label, items: [draft] });
-    }
-  }
-
-  return Array.from(groups.values());
+function SummaryLine({
+  label,
+  value,
+  actionLabel,
+  onAction,
+}: {
+  label: string;
+  value: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 p-4">
+      <p className="text-sm font-semibold text-gray-900">{label}</p>
+      <p className="mt-1 text-sm text-gray-600">{value}</p>
+      <Button className="mt-3" size="sm" variant="secondary" onClick={onAction}>
+        {actionLabel}
+      </Button>
+    </div>
+  );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === 'Approved' || status === 'AudioGenerated'
-      ? 'bg-emerald-50 text-emerald-700'
-      : status === 'Rejected'
-        ? 'bg-red-50 text-red-700'
-        : 'bg-amber-50 text-amber-700';
-
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <span className={`rounded-full px-2 py-1 text-xs font-medium ${tone}`}>
-      {statusLabel(status)}
-    </span>
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 px-3 py-2">
+      <span className="text-gray-500">{label}</span>
+      <span className="text-right font-medium text-gray-900">{value}</span>
+    </div>
+  );
+}
+
+function LoadingCard({ message }: { message: string }) {
+  return <Card className="p-6 text-sm text-gray-500">{message}</Card>;
+}
+
+function EmptyCard({ message }: { message: string }) {
+  return (
+    <Card className="p-6 text-center text-sm text-gray-500">
+      {message}
+    </Card>
+  );
+}
+
+function TableMessage({ colSpan, message }: { colSpan: number; message: string }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-4 py-6 text-center text-gray-500">
+        {message}
+      </td>
+    </tr>
+  );
+}
+
+function MediaPreviewModal({ media, onClose }: { media: MediaFileDto | null; onClose: () => void }) {
+  return (
+    <Modal open={Boolean(media)} onClose={onClose} title={media?.originalFileName ?? 'Xem trước'}>
+      {media ? (
+        <SecureImage
+          src={getMediaUrl(media)}
+          alt={media.originalFileName}
+          className="max-h-[70vh] w-full rounded-md object-contain"
+        />
+      ) : null}
+    </Modal>
   );
 }
 
 function RejectModal({
   open,
+  title,
   reason,
   isLoading,
   onReasonChange,
@@ -1109,6 +1664,7 @@ function RejectModal({
   onSubmit,
 }: {
   open: boolean;
+  title: string;
   reason: string;
   isLoading: boolean;
   onReasonChange: (reason: string) => void;
@@ -1116,12 +1672,13 @@ function RejectModal({
   onSubmit: () => void;
 }) {
   return (
-    <Modal open={open} onClose={onClose} title="Lý do từ chối">
+    <Modal open={open} onClose={onClose} title={title}>
       <div className="space-y-4">
         <textarea
           rows={4}
           value={reason}
           onChange={(event) => onReasonChange(event.target.value)}
+          placeholder="Nhập lý do để người gửi hiểu cần chỉnh gì."
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div className="flex justify-end gap-2">
@@ -1137,18 +1694,11 @@ function RejectModal({
   );
 }
 
-function NarrationTextModal({
-  draft,
-  onClose,
-}: {
-  draft: NarrationDraftDto | null;
-  onClose: () => void;
-}) {
+function NarrationTextModal({ draft, onClose }: { draft: NarrationDraftDto | null; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     if (!draft) return;
-
     await navigator.clipboard.writeText(draft.textContent);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
@@ -1160,9 +1710,7 @@ function NarrationTextModal({
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
             <p className="font-semibold text-gray-900">{draft.title}</p>
-            <p className="text-xs text-gray-500">
-              {draft.poiName || draft.poiCode || `POI #${draft.poiId}`} • {formatLanguageLabel(draft.languageCode)}
-            </p>
+            <p className="text-xs text-gray-500">{formatLanguageLabel(draft.languageCode)}</p>
           </div>
           <textarea
             readOnly
@@ -1174,9 +1722,7 @@ function NarrationTextModal({
             <Button variant="secondary" onClick={onClose}>
               Đóng
             </Button>
-            <Button onClick={handleCopy}>
-              {copied ? 'Đã sao chép' : 'Sao chép nội dung'}
-            </Button>
+            <Button onClick={handleCopy}>{copied ? 'Đã sao chép' : 'Sao chép nội dung'}</Button>
           </div>
         </div>
       ) : null}
@@ -1205,12 +1751,10 @@ function UploadNarrationAudioModal({
       setError('Vui lòng chọn file MP3.');
       return;
     }
-
     if (!file.name.toLowerCase().endsWith('.mp3')) {
       setError('Chỉ hỗ trợ file .mp3.');
       return;
     }
-
     onSubmit(file, title.trim() || undefined);
   };
 
@@ -1227,21 +1771,7 @@ function UploadNarrationAudioModal({
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
             <p className="font-semibold text-gray-900">{draft.title}</p>
-            <p className="text-xs text-gray-500">
-              {draft.poiName || draft.poiCode || `POI #${draft.poiId}`} • {formatLanguageLabel(draft.languageCode)}
-            </p>
-          </div>
-          <div>
-            <label htmlFor="upload-audio-narration-text" className="mb-1 block text-sm font-medium text-gray-700">
-              Nội dung để tạo MP3
-            </label>
-            <textarea
-              id="upload-audio-narration-text"
-              readOnly
-              value={draft.textContent}
-              rows={6}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-800 shadow-sm focus:outline-none"
-            />
+            <p className="text-xs text-gray-500">{formatLanguageLabel(draft.languageCode)}</p>
           </div>
           {error ? <Alert variant="error" message={error} /> : null}
           <Input
@@ -1251,9 +1781,6 @@ function UploadNarrationAudioModal({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-          <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            Thời lượng sẽ được tự động nhận diện sau khi tải lên.
-          </p>
           <div>
             <label htmlFor="audio-file" className="mb-1 block text-sm font-medium text-gray-700">
               File MP3
@@ -1266,6 +1793,9 @@ function UploadNarrationAudioModal({
               className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
+          <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            Sau khi tải lên, audio sẽ được preview qua endpoint CMS bảo vệ.
+          </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={handleClose}>
               Hủy
@@ -1280,24 +1810,169 @@ function UploadNarrationAudioModal({
   );
 }
 
-function MediaPreviewModal({
-  media,
-  onClose,
-}: {
-  media: MediaFileDto | null;
-  onClose: () => void;
-}) {
-  return (
-    <Modal open={Boolean(media)} onClose={onClose} title={media?.originalFileName ?? 'Xem trước'}>
-      {media ? (
-        <SecureImage
-          src={getMediaUrl(media)}
-          alt={media.originalFileName}
-          className="max-h-[70vh] w-full rounded-md object-contain"
-        />
-      ) : null}
-    </Modal>
-  );
+interface ContentSummary {
+  images: { total: number; pending: number; approved: number; rejected: number };
+  narrations: { total: number; pending: number; approved: number; rejected: number; audioGenerated: number };
+  audio: { generated: number; missing: number };
+  translations: { total: number };
+}
+
+function buildContentSummary(
+  images: MediaFileDto[],
+  narrations: NarrationDraftDto[],
+  translations: Translation[],
+): ContentSummary {
+  const approvedNarrations = narrations.filter((draft) => draft.status === 'Approved' || draft.status === 'AudioGenerated');
+  const audioGenerated = narrations.filter((draft) => Boolean(draft.generatedAudioTrackId) || draft.status === 'AudioGenerated').length;
+
+  return {
+    images: {
+      total: images.length,
+      pending: images.filter((media) => media.approvalStatus === 'Pending').length,
+      approved: images.filter((media) => media.approvalStatus === 'Approved').length,
+      rejected: images.filter((media) => media.approvalStatus === 'Rejected').length,
+    },
+    narrations: {
+      total: narrations.length,
+      pending: narrations.filter((draft) => draft.status === 'Pending').length,
+      approved: narrations.filter((draft) => draft.status === 'Approved' || draft.status === 'AudioGenerated').length,
+      rejected: narrations.filter((draft) => draft.status === 'Rejected').length,
+      audioGenerated,
+    },
+    audio: {
+      generated: audioGenerated,
+      missing: Math.max(approvedNarrations.length - audioGenerated, 0),
+    },
+    translations: {
+      total: translations.length,
+    },
+  };
+}
+
+function groupMediaByStatus(images: MediaFileDto[]): Record<ApprovalStatus, MediaFileDto[]> {
+  return {
+    Pending: images.filter((media) => media.approvalStatus === 'Pending'),
+    Approved: images.filter((media) => media.approvalStatus === 'Approved'),
+    Rejected: images.filter((media) => media.approvalStatus === 'Rejected'),
+  };
+}
+
+function buildLanguageRows(narrations: NarrationDraftDto[], translations: Translation[]) {
+  const codes = new Set<string>();
+  narrations.forEach((draft) => codes.add(draft.languageCode));
+  translations.forEach((translation) => codes.add(translation.languageCode));
+
+  return Array.from(codes).sort().map((languageCode) => {
+    const draft = narrations.find((item) => item.languageCode === languageCode);
+    const translation = translations.find((item) => item.languageCode === languageCode);
+    return {
+      languageCode,
+      narrationStatus: draft?.status,
+      hasAudio: Boolean(draft?.generatedAudioTrackId) || draft?.status === 'AudioGenerated',
+      hasTranslation: Boolean(translation),
+    };
+  });
+}
+
+function getRecommendedAction(summary: ContentSummary, isVendor: boolean): string {
+  if (summary.images.approved === 0 && summary.images.pending === 0) {
+    return isVendor ? 'Cần thêm ảnh đầu tiên để admin duyệt.' : 'Chưa có ảnh, hãy nhắc vendor bổ sung hình ảnh.';
+  }
+  if (summary.narrations.total === 0) {
+    return isVendor ? 'Cần tạo bản thuyết minh cho ít nhất một ngôn ngữ.' : 'Chưa có bản thuyết minh để duyệt.';
+  }
+  if (summary.narrations.pending > 0) {
+    return isVendor ? 'Bản thuyết minh đang chờ admin duyệt.' : 'Có bản thuyết minh đang chờ duyệt.';
+  }
+  if (summary.audio.missing > 0) {
+    return isVendor ? 'Đang chờ admin tải MP3 cho bản thuyết minh đã duyệt.' : 'Cần tải MP3 cho bản thuyết minh đã duyệt.';
+  }
+  if (summary.translations.total === 0) {
+    return 'Cần bổ sung bản dịch để phục vụ khách dùng ngôn ngữ khác.';
+  }
+  return 'Nội dung chính đã tương đối đầy đủ. Tiếp tục kiểm tra chất lượng ảnh, audio và bản dịch.';
+}
+
+function getLifecycleLabel(status: unknown): string {
+  if (status === 'Approved' || Number(status) === 1) return 'Đã duyệt';
+  if (status === 'PendingPayment' || Number(status) === 2) return 'Chờ thanh toán';
+  if (status === 'Active' || Number(status) === 3) return 'Đang hoạt động';
+  if (status === 'Expired' || Number(status) === 4) return 'Hết hạn';
+  if (status === 'Rejected' || Number(status) === 5) return 'Bị từ chối';
+  return 'Chờ duyệt';
+}
+
+function getPaymentLabel(status: unknown): string {
+  if (status === 'PendingPayment' || Number(status) === 1) return 'Chờ thanh toán';
+  if (status === 'Paid' || Number(status) === 2) return 'Đã thanh toán';
+  if (status === 'Waived' || Number(status) === 3) return 'Miễn thanh toán';
+  return 'Không yêu cầu';
+}
+
+function getPublicVisibilityStatus(poi: PoiDto): { isPublic: boolean; label: string; reason: string } {
+  const deletedAt = (poi as PoiDto & { deletedAt?: string | null }).deletedAt;
+  const now = Date.now();
+  const lifecycleActive = poi.lifecycleStatus === 'Active' || Number(poi.lifecycleStatus) === 3;
+  const validFromOk = !poi.validFrom || new Date(poi.validFrom).getTime() <= now;
+  const validUntilOk = !poi.validUntil || new Date(poi.validUntil).getTime() >= now;
+  const isPublic = !deletedAt && lifecycleActive && poi.isActive && validFromOk && validUntilOk;
+
+  if (isPublic) return { isPublic: true, label: 'Đang công khai', reason: 'Đủ điều kiện hiển thị công khai.' };
+  if (deletedAt) return { isPublic: false, label: 'Đã xóa', reason: 'POI đã bị xóa mềm.' };
+  if (!lifecycleActive) return { isPublic: false, label: 'Chưa công khai', reason: `Lifecycle hiện tại: ${getLifecycleLabel(poi.lifecycleStatus)}.` };
+  if (!poi.isActive) return { isPublic: false, label: 'Tạm tắt', reason: 'POI đang tạm tắt.' };
+  if (!validFromOk) return { isPublic: false, label: 'Chưa đến hiệu lực', reason: 'Chưa đến thời gian hiển thị.' };
+  if (!validUntilOk) return { isPublic: false, label: 'Hết hiệu lực', reason: 'Đã quá thời gian hiển thị.' };
+  return { isPublic: false, label: 'Chưa công khai', reason: 'Chưa đủ điều kiện hiển thị.' };
+}
+
+function NarrationStatusPill({ status }: { status?: NarrationStatus }) {
+  if (!status) {
+    return <StatusPill tone="gray">Chưa có</StatusPill>;
+  }
+
+  const tone = status === 'Approved' || status === 'AudioGenerated'
+    ? 'green'
+    : status === 'Rejected'
+      ? 'red'
+      : 'amber';
+
+  return <StatusPill tone={tone}>{statusLabel(status)}</StatusPill>;
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'Pending':
+      return 'Chờ duyệt';
+    case 'Approved':
+      return 'Đã duyệt';
+    case 'Rejected':
+      return 'Từ chối';
+    case 'AudioGenerated':
+      return 'Đã có âm thanh';
+    default:
+      return status;
+  }
+}
+
+function normalizeWorkspaceTab(value: string | null): WorkspaceTab {
+  if (value === 'images' || value === 'narrations' || value === 'audio' || value === 'translations') {
+    return value;
+  }
+  return 'overview';
+}
+
+function getFirstError(errors: unknown[]): string | null {
+  const error = errors.find(Boolean);
+  if (!error) return null;
+  const message = extractApiError(error);
+  if (/Request failed with status code/i.test(message)) {
+    return 'Thao tác thất bại. Vui lòng kiểm tra dữ liệu và thử lại.';
+  }
+  if (/POI is required/i.test(message)) {
+    return 'Vui lòng chọn POI/sạp trước khi thao tác.';
+  }
+  return message;
 }
 
 function getBusyMutationId(...values: unknown[]): number | null {
@@ -1316,34 +1991,28 @@ function getBusyMutationId(...values: unknown[]): number | null {
   return null;
 }
 
-function statusLabel(status: string): string {
-  switch (status) {
-    case 'Pending':
-      return 'Chờ duyệt';
-    case 'Approved':
-      return 'Đã duyệt';
-    case 'Rejected':
-      return 'Từ chối';
-    case 'AudioGenerated':
-      return 'Đã tạo âm thanh';
-    default:
-      return status;
-  }
+function formatTranslationLanguage(code: string, languages: LanguageDto[]): string {
+  const language = languages.find((item) => item.code === code);
+  return language ? `${language.name} (${language.nativeName})` : formatLanguageLabel(code);
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+function formatDate(value?: string | null): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatAudioDuration(durationSeconds?: number | null): string {
   if (!durationSeconds || durationSeconds <= 0) {
-    return 'Chưa rõ thời lượng';
+    return 'Chưa rõ';
   }
 
   const minutes = Math.floor(durationSeconds / 60);
@@ -1351,8 +2020,4 @@ function formatAudioDuration(durationSeconds?: number | null): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function getErrorMessage(error: unknown, fallback: string): string | null {
-  if (!error) return null;
-  if (error instanceof ApiClientError) return error.message;
-  return fallback;
-}
+export default MediaLibraryPage;
