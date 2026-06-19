@@ -56,7 +56,7 @@ export function PoiDetailPage({ lang }: Props) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <Link to={ROUTES.POIS} className="text-emerald-400 hover:text-emerald-300 text-sm mb-6 inline-flex items-center gap-1 transition-colors">
-        Tất cả địa điểm
+        Quay lại danh sách địa điểm
       </Link>
 
       {poi.imageUrl ? (
@@ -85,7 +85,24 @@ export function PoiDetailPage({ lang }: Props) {
           )}
 
           <div className="prose prose-invert prose-sm max-w-none">
-            <p className="text-gray-300 leading-relaxed whitespace-pre-line">{poi.description}</p>
+            <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+              {poi.description || 'Thông tin địa điểm đang được cập nhật.'}
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              to={`${ROUTES.MAP}?lat=${poi.latitude}&lng=${poi.longitude}&poi=${poi.id}`}
+              className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              Mở trên bản đồ
+            </Link>
+            <Link
+              to={accessRecord?.accessToken && !clientExpired ? '#audio' : ROUTES.PACKAGES}
+              className="rounded-xl border border-gray-700 bg-gray-800 px-5 py-3 text-sm font-semibold text-gray-100 transition-colors hover:bg-gray-700"
+            >
+              {accessRecord?.accessToken && !clientExpired ? 'Nghe thuyết minh' : 'Chọn gói nghe / quét QR'}
+            </Link>
           </div>
         </div>
 
@@ -94,7 +111,7 @@ export function PoiDetailPage({ lang }: Props) {
             <h3 className="text-white font-semibold mb-3 text-sm">Vị trí</h3>
             <div className="bg-gray-900 rounded-lg h-40 flex items-center justify-center text-gray-600 text-sm mb-3">
               <div className="text-center">
-                <div className="text-2xl mb-2">Map</div>
+                <div className="text-2xl mb-2">Bản đồ</div>
                 <p>
                   {poi.latitude.toFixed(6)}, {poi.longitude.toFixed(6)}
                 </p>
@@ -108,14 +125,14 @@ export function PoiDetailPage({ lang }: Props) {
             </Link>
           </div>
 
-          <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <div id="audio" className="bg-gray-800 rounded-xl p-4 border border-gray-700">
             <h3 className="text-white font-semibold mb-3 text-sm">Nghe thuyết minh</h3>
             {clientExpired ? (
               <AccessExpiredPanel />
             ) : !accessRecord?.accessToken ? (
               <AccessRequiredPanel
-                title="Cần vé để nghe thuyết minh"
-                message="Quét mã QR tại địa điểm để thanh toán mô phỏng và mở khóa phần thuyết minh."
+                title="Cần mã nghe"
+                message="Quét QR tại địa điểm hoặc chọn gói thuyết minh để mở quyền nghe."
               />
             ) : audioTourQuery.isLoading ? (
               <Spinner />
@@ -149,13 +166,14 @@ export function PoiDetailPage({ lang }: Props) {
                         <ProtectedAudioPlayer
                           key={track.audioTrackId ?? track.id}
                           track={track}
+                          poiName={poi.name}
                           accessToken={accessRecord.accessToken}
                           onUnauthorized={handleExpired}
                         />
                       ))
                   ) : (
                     <div className="rounded-lg bg-gray-900 p-3 text-xs text-gray-400">
-                      Audio đang được cập nhật.
+                      Điểm này chưa có bản thuyết minh.
                     </div>
                   )}
                 </div>

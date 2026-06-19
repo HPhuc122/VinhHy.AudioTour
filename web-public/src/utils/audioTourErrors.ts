@@ -22,11 +22,11 @@ export function getAudioTourErrorKind(error: unknown): AudioTourErrorKind {
 export function getAudioTourErrorMessage(kind: AudioTourErrorKind): string {
   switch (kind) {
     case 'unauthorized':
-      return 'Cần GuestAccessPass hợp lệ để nghe thuyết minh.';
+      return 'Không thể phát audio vì mã nghe đã hết hạn hoặc không hợp lệ.';
     case 'forbidden':
-      return 'GuestAccessPass không áp dụng cho nội dung này.';
+      return 'Mã nghe hiện tại không áp dụng cho nội dung này.';
     case 'notfound':
-      return 'Audio hoặc địa điểm hiện không khả dụng công khai.';
+      return 'Điểm này chưa có bản thuyết minh hoặc không còn khả dụng.';
     default:
       return 'Không thể tải audio. Vui lòng thử lại sau.';
   }

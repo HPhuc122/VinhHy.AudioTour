@@ -28,7 +28,7 @@ export function PoisPage({ lang }: Props) {
       {/* Header */}
       <div className="mb-10">
         <h1 className="text-3xl font-bold text-white mb-2">Địa điểm</h1>
-        <p className="text-gray-400">Khám phá tất cả địa điểm tại phố ẩm thực Vĩnh Hy</p>
+        <p className="text-gray-400">Chọn địa điểm để xem vị trí, hình ảnh và trạng thái thuyết minh.</p>
       </div>
 
       {/* Category filter */}
@@ -52,9 +52,9 @@ export function PoisPage({ lang }: Props) {
       {isLoading ? (
         <Spinner />
       ) : isError ? (
-        <div className="text-center py-20 text-gray-500">Không thể tải danh sách địa điểm</div>
+        <div className="text-center py-20 text-gray-500">Không thể tải danh sách địa điểm. Vui lòng thử lại sau.</div>
       ) : items.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">Không có địa điểm nào</div>
+        <div className="text-center py-20 text-gray-500">Không tìm thấy địa điểm phù hợp</div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

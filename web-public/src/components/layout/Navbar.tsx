@@ -40,17 +40,17 @@ export function Navbar({ lang, setLang }: Props) {
           <NavLink to={ROUTES.HOME} className={navLinkClass} end>
             Trang chủ
           </NavLink>
-          <NavLink to={ROUTES.POIS} className={navLinkClass}>
-            Địa điểm
+          <NavLink to={ROUTES.MAP} className={navLinkClass}>
+            Bản đồ
           </NavLink>
           <NavLink to={ROUTES.TOURS} className={navLinkClass}>
             Tour
           </NavLink>
           <NavLink to={ROUTES.PACKAGES} className={navLinkClass}>
-            Gói AudioTour
+            Gói nghe / Quét QR
           </NavLink>
-          <NavLink to={ROUTES.MAP} className={navLinkClass}>
-            Bản đồ
+          <NavLink to={ROUTES.POIS} className={navLinkClass}>
+            Địa điểm
           </NavLink>
         </div>
 
@@ -113,17 +113,17 @@ export function Navbar({ lang, setLang }: Props) {
           <NavLink to={ROUTES.HOME} className={navLinkClass} end onClick={() => setMenuOpen(false)}>
             Trang chủ
           </NavLink>
-          <NavLink to={ROUTES.POIS} className={navLinkClass} onClick={() => setMenuOpen(false)}>
-            Địa điểm
+          <NavLink to={ROUTES.MAP} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Bản đồ
           </NavLink>
           <NavLink to={ROUTES.TOURS} className={navLinkClass} onClick={() => setMenuOpen(false)}>
             Tour
           </NavLink>
           <NavLink to={ROUTES.PACKAGES} className={navLinkClass} onClick={() => setMenuOpen(false)}>
-            Gói AudioTour
+            Gói nghe / Quét QR
           </NavLink>
-          <NavLink to={ROUTES.MAP} className={navLinkClass} onClick={() => setMenuOpen(false)}>
-            Bản đồ
+          <NavLink to={ROUTES.POIS} className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Địa điểm
           </NavLink>
           <select
             value={lang}

@@ -37,8 +37,11 @@ export function MapPage({ lang }: Props) {
   const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [clientExpired, setClientExpired] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   const tourId = searchParams.get('tour');
+  const focusPoiId = Number(searchParams.get('poi'));
   const focusLat = searchParams.get('lat');
   const focusLng = searchParams.get('lng');
 
@@ -153,15 +156,59 @@ export function MapPage({ lang }: Props) {
   }, [mapReady, poisData, tourDetail, focusLat, focusLng]);
 
   const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
+  const selectedDistance = selectedPoi && userLocation
+    ? getDistanceMeters(userLocation.latitude, userLocation.longitude, selectedPoi.latitude, selectedPoi.longitude)
+    : null;
+
+  useEffect(() => {
+    if (!listedPois.length || !Number.isInteger(focusPoiId) || focusPoiId <= 0) {
+      return;
+    }
+
+    const poi = listedPois.find((item) => item.id === focusPoiId);
+    if (poi) {
+      setSelectedPoi(poi);
+      leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_FOCUS_ZOOM);
+    }
+  }, [focusPoiId, listedPois]);
+
+  const requestLocation = () => {
+    setLocationMessage(null);
+    if (!navigator.geolocation) {
+      setLocationMessage('Trình duyệt chưa hỗ trợ định vị.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setUserLocation(nextLocation);
+        leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+      },
+      () => setLocationMessage('Không thể lấy vị trí hiện tại. Bạn vẫn có thể chọn POI trên bản đồ.'),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  };
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
       <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-gray-800 bg-gray-900">
         <div className="border-b border-gray-800 p-4">
-          <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : 'All POIs'}</h2>
+          <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : 'Bản đồ địa điểm'}</h2>
           <p className="mt-0.5 text-xs text-gray-400">
-            {tourDetail ? `${tourDetail.pois.length} POIs` : `${poisData?.totalCount ?? '-'} POIs`}
+            {tourDetail ? `${tourDetail.pois.length} điểm dừng` : `${poisData?.totalCount ?? '-'} địa điểm`}
           </p>
+          <button
+            type="button"
+            onClick={requestLocation}
+            className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
+          >
+            Dùng vị trí của tôi
+          </button>
+          {locationMessage ? <p className="mt-2 text-xs leading-5 text-amber-300">{locationMessage}</p> : null}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -200,6 +247,7 @@ export function MapPage({ lang }: Props) {
         {selectedPoi && (
           <PublicPoiInfoPanel
             poi={selectedPoi}
+            distanceMeters={selectedDistance}
             accessRecord={accessRecord}
             audioTourQuery={audioTourQuery}
             clientExpired={clientExpired}
@@ -219,6 +267,7 @@ export function MapPage({ lang }: Props) {
 
 function PublicPoiInfoPanel({
   poi,
+  distanceMeters,
   accessRecord,
   audioTourQuery,
   clientExpired,
@@ -226,12 +275,15 @@ function PublicPoiInfoPanel({
   onExpired,
 }: {
   poi: PublicPoiDto;
+  distanceMeters: number | null;
   accessRecord: GuestAccessRecord | null;
   audioTourQuery: ReturnType<typeof useQuery>;
   clientExpired: boolean;
   onClose: () => void;
   onExpired: () => void;
 }) {
+  const hasAccess = Boolean(accessRecord?.accessToken) && !clientExpired;
+
   return (
     <div className="absolute bottom-4 left-4 right-4 z-[1000] max-h-[82vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl sm:left-auto sm:right-4 sm:w-96">
       <button onClick={onClose} className="absolute right-3 top-3 text-gray-500 hover:text-white">X</button>
@@ -244,6 +296,16 @@ function PublicPoiInfoPanel({
         <div className="min-w-0 flex-1">
           {poi.category && <p className="mb-1 text-xs text-emerald-500">{poi.category}</p>}
           <h3 className="text-base font-semibold text-white">{poi.name}</h3>
+          <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+            {distanceMeters !== null ? (
+              <span className="rounded-full bg-sky-500/15 px-2 py-1 text-sky-200">
+                Cách bạn {formatDistance(distanceMeters)}
+              </span>
+            ) : null}
+            <span className={`rounded-full px-2 py-1 ${hasAccess ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'}`}>
+              {hasAccess ? 'Đã mở quyền nghe' : 'Cần gói nghe / QR'}
+            </span>
+          </div>
           <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-gray-400">
             {poi.shortDescription ?? poi.description}
           </p>
@@ -251,24 +313,32 @@ function PublicPoiInfoPanel({
       </div>
 
       <p className="mt-4 line-clamp-5 text-sm leading-relaxed text-gray-300">
-        {poi.description || poi.shortDescription || 'Description is being updated.'}
+        {poi.description || poi.shortDescription || 'Thông tin địa điểm đang được cập nhật.'}
       </p>
 
-      <Link
-        to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
-        className="mt-4 block rounded-lg bg-emerald-600 py-2 text-center text-xs text-white transition-colors hover:bg-emerald-700"
-      >
-        View details
-      </Link>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Link
+          to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
+          className="block rounded-lg bg-emerald-600 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-emerald-700"
+        >
+          Xem chi tiết
+        </Link>
+        <Link
+          to={hasAccess ? ROUTES.POI_DETAIL.replace(':id', String(poi.id)) : ROUTES.PACKAGES}
+          className="block rounded-lg border border-gray-700 bg-gray-800 py-2 text-center text-xs font-medium text-gray-100 transition-colors hover:bg-gray-700"
+        >
+          {hasAccess ? 'Nghe thuyết minh' : 'Mở quyền nghe'}
+        </Link>
+      </div>
 
       <div className="mt-4">
-        <h4 className="mb-2 text-sm font-semibold text-white">Audio narration</h4>
+        <h4 className="mb-2 text-sm font-semibold text-white">Thuyết minh audio</h4>
         {clientExpired ? (
           <AccessExpiredPanel />
         ) : !accessRecord?.accessToken ? (
           <AccessRequiredPanel
-            title="GuestAccessPass required"
-            message="Scan the POI QR code to unlock protected audio playback."
+            title="Cần mã nghe"
+            message="Quét QR tại địa điểm hoặc chọn gói nghe để phát audio bảo vệ."
           />
         ) : audioTourQuery.isLoading ? (
           <Spinner />
@@ -293,12 +363,13 @@ function PublicPoiInfoPanel({
                   <ProtectedAudioPlayer
                     key={track.audioTrackId ?? track.id}
                     track={track}
+                    poiName={poi.name}
                     accessToken={accessRecord.accessToken}
                     onUnauthorized={onExpired}
                   />
                 ))
             ) : (
-              <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">Audio is being updated.</div>
+              <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">Điểm này chưa có bản thuyết minh.</div>
             )}
           </div>
         )}
@@ -342,4 +413,24 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const earthRadiusMeters = 6371000;
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(distanceMeters: number): string {
+  if (distanceMeters >= 1000) {
+    return `${(distanceMeters / 1000).toFixed(1)} km`;
+  }
+
+  return `${Math.round(distanceMeters)} m`;
 }

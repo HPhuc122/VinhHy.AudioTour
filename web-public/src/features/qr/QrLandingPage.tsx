@@ -147,13 +147,13 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-sm text-center">
           <div className="mb-4 text-6xl">!</div>
-          <h1 className="mb-2 text-xl font-bold text-white">Invalid QR code</h1>
-          <p className="mb-6 text-sm text-gray-400">This QR code is inactive or does not exist.</p>
+          <h1 className="mb-2 text-xl font-bold text-white">Mã QR không khả dụng</h1>
+          <p className="mb-6 text-sm text-gray-400">Mã này đã tắt hoặc không tồn tại.</p>
           <Link
             to={ROUTES.HOME}
             className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm text-white transition-colors hover:bg-emerald-700"
           >
-            Home
+            Về trang chủ
           </Link>
         </div>
       </div>
@@ -174,7 +174,7 @@ export function QrLandingPage({ lang }: Props) {
             currency={startAccessQuery.data.currency}
             durationMinutes={startAccessQuery.data.accessDurationMinutes}
             isPaying={paymentMutation.isPending}
-            errorMessage={paymentMutation.isError ? 'Simulated payment failed.' : null}
+            errorMessage={paymentMutation.isError ? 'Không thể thanh toán mô phỏng.' : null}
             onPay={() => paymentMutation.mutate()}
           />
           <div className="mt-6 text-center">
@@ -203,13 +203,13 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-sm text-center">
           <div className="mb-4 text-6xl">!</div>
-          <h1 className="mb-2 text-xl font-bold text-white">Access unavailable</h1>
-          <p className="mb-6 text-sm text-gray-400">This access pass is expired or invalid.</p>
+          <h1 className="mb-2 text-xl font-bold text-white">Không thể mở quyền nghe</h1>
+          <p className="mb-6 text-sm text-gray-400">Mã nghe đã hết hạn hoặc không hợp lệ.</p>
           <Link
             to={ROUTES.HOME}
             className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm text-white transition-colors hover:bg-emerald-700"
           >
-            Home
+            Về trang chủ
           </Link>
         </div>
       </div>
@@ -272,13 +272,13 @@ export function QrLandingPage({ lang }: Props) {
                   to={ROUTES.TOUR_DETAIL.replace(':id', String(tour.id))}
                   className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
                 >
-                  View tour details
+                  Xem chi tiết tour
                 </Link>
                 <Link
                   to={ROUTES.TOUR_ROUTE.replace(':id', String(tour.id))}
                   className="block rounded-xl bg-gray-700 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-gray-600"
                 >
-                  View route
+                  Xem lộ trình
                 </Link>
               </div>
             </div>
@@ -306,7 +306,7 @@ export function QrLandingPage({ lang }: Props) {
                 to={ROUTES.POI_DETAIL.replace(':id', String(poi.poiId))}
                 className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
               >
-                View POI details
+                Xem chi tiết địa điểm
               </Link>
             </div>
           </div>
