@@ -110,7 +110,7 @@ public class PublicAudioTourService : IPublicAudioTourService
             AudioTrackId = track.Id,
             LanguageCode = track.LanguageCode,
             Language = track.LanguageCode,
-            Title = $"{poiName} - {track.LanguageCode}",
+            Title = string.IsNullOrWhiteSpace(track.Title) ? $"{poiName} - {track.LanguageCode}" : track.Title,
             AudioType = track.AudioType,
             DurationSeconds = track.DurationSeconds,
             Duration = track.DurationSeconds,

@@ -14,6 +14,9 @@ export interface NarrationDraftDto {
   languageCode: string;
   textContent: string;
   voice: string;
+  poiId: number;
+  poiCode?: string | null;
+  poiName?: string | null;
   status: NarrationStatus;
   submittedByUserId: number;
   submittedByUsername?: string | null;
@@ -34,13 +37,21 @@ export interface NarrationSearchFilter {
   pageSize?: number;
   status?: NarrationStatusFilter;
   search?: string;
+  poiId?: number;
 }
 
 export interface CreateNarrationDraftRequest {
+  poiId: number;
   title: string;
   languageCode: string;
   textContent: string;
   voice: string;
+}
+
+export interface UploadNarrationAudioRequest {
+  file: File;
+  title?: string;
+  durationSeconds?: number;
 }
 
 export function createNarrationsApi(httpClient: AxiosInstance) {
@@ -48,6 +59,23 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
     async searchNarrations(filter: NarrationSearchFilter = {}): Promise<PagedResult<NarrationDraftDto>> {
       const response = await httpClient.get<ApiResponse<PagedResult<NarrationDraftDto>>>(
         NARRATIONS_BASE,
+        {
+          params: {
+            page: filter.page ?? 1,
+            pageSize: filter.pageSize ?? 20,
+            status: filter.status && filter.status !== 'all' ? filter.status : undefined,
+            search: filter.search || undefined,
+            poiId: filter.poiId,
+          },
+        },
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async getNarrationsByPoi(poiId: number, filter: NarrationSearchFilter = {}): Promise<PagedResult<NarrationDraftDto>> {
+      const response = await httpClient.get<ApiResponse<PagedResult<NarrationDraftDto>>>(
+        `${NARRATIONS_BASE}/by-poi/${poiId}`,
         {
           params: {
             page: filter.page ?? 1,
@@ -90,6 +118,25 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
     async generateAudio(id: number): Promise<NarrationDraftDto> {
       const response = await httpClient.post<ApiResponse<NarrationDraftDto>>(
         `${NARRATIONS_BASE}/${id}/generate-audio`,
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async uploadAudio(id: number, request: UploadNarrationAudioRequest): Promise<NarrationDraftDto> {
+      const formData = new FormData();
+      formData.append('file', request.file);
+      if (request.title?.trim()) {
+        formData.append('title', request.title.trim());
+      }
+      if (typeof request.durationSeconds === 'number') {
+        formData.append('durationSeconds', String(request.durationSeconds));
+      }
+
+      const response = await httpClient.post<ApiResponse<NarrationDraftDto>>(
+        `${NARRATIONS_BASE}/${id}/upload-audio`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
       );
 
       return unwrapApiResponse(response.data);

@@ -8,6 +8,8 @@ public class AudioTrackDto
 
     public string LanguageCode { get; set; } = null!;
 
+    public string? Title { get; set; }
+
     public string AudioType { get; set; } = null!;
 
     public string? FileUrl { get; set; }

@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+﻿import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Select } from '@/components/ui/Select';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { ROLE_VENDOR } from '@/features/auth/roleAccess';
+import { ROLE_VENDOR, isAdminRole } from '@/features/auth/roleAccess';
 import {
   createMediaApi,
   getMediaUrl,
@@ -16,6 +16,7 @@ import {
 } from '@/features/media/api/mediaApi';
 import { useMediaQuery, mediaQueryKeys } from '@/features/media/hooks/useMediaQuery';
 import { useUploadMediaMutation } from '@/features/media/hooks/useUploadMediaMutation';
+import { createPoisApi, type PoiDto } from '@/features/pois/api/poisApi';
 import {
   createNarrationsApi,
   type NarrationDraftDto,
@@ -25,6 +26,7 @@ import {
   narrationQueryKeys,
   useNarrationsQuery,
 } from '@/features/narrations/hooks/useNarrationsQuery';
+import { formatLanguageLabel, languageOptions } from '@/features/languages/utils/languageLabels';
 
 const PAGE_SIZE = 20;
 const imageAccept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
@@ -43,15 +45,6 @@ const narrationStatusOptions: Array<{ value: NarrationStatusFilter; label: strin
   { value: 'AudioGenerated', label: 'Đã tạo âm thanh' },
 ];
 
-const languageOptions = [
-  { value: 'vi', label: 'Tiếng Việt' },
-  { value: 'en', label: 'English' },
-  { value: 'zh', label: '中文' },
-  { value: 'ko', label: '한국어' },
-  { value: 'ja', label: '日本語' },
-  { value: 'fr', label: 'Français' },
-];
-
 const voiceOptions = [
   { value: 'female-north', label: 'Nữ miền Bắc' },
   { value: 'female-south', label: 'Nữ miền Nam' },
@@ -62,14 +55,20 @@ const voiceOptions = [
 export function MediaLibraryPage() {
   const { user, httpClient } = useAuth();
   const isVendor = user?.role === ROLE_VENDOR;
+  const canUploadNarrationAudio = isAdminRole(user?.role);
   const queryClient = useQueryClient();
   const mediaApi = useMemo(() => createMediaApi(httpClient), [httpClient]);
   const narrationsApi = useMemo(() => createNarrationsApi(httpClient), [httpClient]);
+  const poisApi = useMemo(() => createPoisApi(httpClient), [httpClient]);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('images');
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    new URLSearchParams(window.location.search).get('tab') === 'narrations' ? 'narrations' : 'images',
+  );
   const [imageSearch, setImageSearch] = useState('');
   const [imageStatus, setImageStatus] = useState<ApprovalStatusFilter>('all');
   const [imagePage, setImagePage] = useState(1);
+  const [selectedPoi, setSelectedPoi] = useState<PoiDto | null>(null);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
   const [narrationSearch, setNarrationSearch] = useState('');
   const [narrationStatus, setNarrationStatus] = useState<NarrationStatusFilter>('all');
   const [narrationPage, setNarrationPage] = useState(1);
@@ -77,6 +76,8 @@ export function MediaLibraryPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [rejectImage, setRejectImage] = useState<MediaFileDto | null>(null);
   const [rejectNarration, setRejectNarration] = useState<NarrationDraftDto | null>(null);
+  const [viewNarration, setViewNarration] = useState<NarrationDraftDto | null>(null);
+  const [uploadAudioDraft, setUploadAudioDraft] = useState<NarrationDraftDto | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [draftForm, setDraftForm] = useState({
     title: '',
@@ -86,17 +87,28 @@ export function MediaLibraryPage() {
   });
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const requestedPoiId = Number(new URLSearchParams(window.location.search).get('poiId'));
+  const poiIdForFilter = selectedPoi?.id
+    ?? (Number.isInteger(requestedPoiId) && requestedPoiId > 0 ? requestedPoiId : undefined);
 
   const mediaFilter = useMemo(
     () => ({
-      page: imagePage,
-      pageSize: PAGE_SIZE,
-      search: imageSearch.trim() || undefined,
+      page: 1,
+      pageSize: 2000,
       fileType: 'image' as const,
-      approvalStatus: imageStatus,
       includeDeleted: false,
     }),
-    [imagePage, imageSearch, imageStatus],
+    [],
+  );
+
+  const poiFilter = useMemo(
+    () => ({
+      page: 1,
+      pageSize: 500,
+      search: imageSearch.trim() || undefined,
+      includeDeleted: false,
+    }),
+    [imageSearch],
   );
 
   const narrationFilter = useMemo(
@@ -105,12 +117,33 @@ export function MediaLibraryPage() {
       pageSize: PAGE_SIZE,
       search: narrationSearch.trim() || undefined,
       status: narrationStatus,
+      poiId: poiIdForFilter,
     }),
-    [narrationPage, narrationSearch, narrationStatus],
+    [narrationPage, narrationSearch, narrationStatus, poiIdForFilter],
   );
 
   const mediaQuery = useMediaQuery(mediaFilter);
-  const narrationsQuery = useNarrationsQuery(narrationFilter);
+  const poisQuery = useQuery({
+    queryKey: ['library-pois', poiFilter],
+    queryFn: () => poisApi.getPois(poiFilter),
+    enabled: activeTab === 'images' || activeTab === 'narrations',
+  });
+  const currentPoi = selectedPoi
+    ?? poisQuery.data?.items.find((poi) => Number.isInteger(requestedPoiId) && poi.id === requestedPoiId)
+    ?? null;
+  const selectedPoiMediaQuery = useQuery({
+    queryKey: ['media', 'by-poi', poiIdForFilter, imageStatus, imagePage],
+    queryFn: () =>
+      poiIdForFilter
+        ? mediaApi.getMediaByPoi(poiIdForFilter, {
+            page: imagePage,
+            pageSize: PAGE_SIZE,
+            approvalStatus: imageStatus,
+          })
+        : Promise.resolve({ items: [], page: 1, pageSize: PAGE_SIZE, totalCount: 0, totalPages: 0 }),
+    enabled: activeTab === 'images' && Boolean(poiIdForFilter),
+  });
+  const narrationsQuery = useNarrationsQuery(narrationFilter, { enabled: activeTab === 'narrations' });
   const uploadMutation = useUploadMediaMutation();
 
   const approveImageMutation = useMutation({
@@ -118,6 +151,7 @@ export function MediaLibraryPage() {
     onSuccess: async () => {
       setNotice('Đã duyệt ảnh.');
       await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
     },
   });
 
@@ -128,11 +162,18 @@ export function MediaLibraryPage() {
       setRejectImage(null);
       setRejectReason('');
       await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
     },
   });
 
   const createNarrationMutation = useMutation({
-    mutationFn: () => narrationsApi.createNarration(draftForm),
+    mutationFn: () => {
+      if (!currentPoi) {
+        throw new Error('POI is required.');
+      }
+
+      return narrationsApi.createNarration({ ...draftForm, poiId: currentPoi.id });
+    },
     onSuccess: async () => {
       setNotice(isVendor ? 'Đã gửi bản thuyết minh chờ duyệt.' : 'Đã tạo bản thuyết minh.');
       setDraftForm({ title: '', languageCode: 'vi', textContent: '', voice: 'female-south' });
@@ -159,10 +200,12 @@ export function MediaLibraryPage() {
     },
   });
 
-  const generateAudioMutation = useMutation({
-    mutationFn: (id: number) => narrationsApi.generateAudio(id),
+  const uploadNarrationAudioMutation = useMutation({
+    mutationFn: ({ draft, file, title, durationSeconds }: { draft: NarrationDraftDto; file: File; title?: string; durationSeconds?: number }) =>
+      narrationsApi.uploadAudio(draft.id, { file, title, durationSeconds }),
     onSuccess: async () => {
-      setNotice('Đã tạo âm thanh mô phỏng. TTS mô phỏng / chưa kết nối dịch vụ thật.');
+      setNotice('Đã tải MP3 và gắn audio cho bản thuyết minh.');
+      setUploadAudioDraft(null);
       await queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
     },
   });
@@ -173,17 +216,28 @@ export function MediaLibraryPage() {
     if (files.length === 0) return;
 
     setNotice(null);
+    if (!currentPoi) {
+      setNotice('Vui lòng chọn POI/sạp trước khi tải ảnh.');
+      return;
+    }
+
     for (const file of files) {
-      await uploadMutation.mutateAsync(file);
+      await uploadMutation.mutateAsync({ file, poiId: currentPoi.id });
     }
 
     setImagePage(1);
+    await queryClient.invalidateQueries({ queryKey: ['media', 'by-poi'] });
     setNotice(isVendor ? `Đã gửi ${files.length} ảnh chờ duyệt.` : `Đã tải lên ${files.length} ảnh.`);
   };
 
   const handleSubmitNarration = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setNotice(null);
+    if (!currentPoi) {
+      setNotice('Vui lòng chọn POI/sạp trước khi tạo bản thuyết minh.');
+      return;
+    }
+
     createNarrationMutation.mutate();
   };
 
@@ -202,8 +256,10 @@ export function MediaLibraryPage() {
       rejectNarrationMutation.mutate({ id: rejectNarration.id, reason });
     }
   };
-
-  const queryError = getErrorMessage(mediaQuery.error, 'Không thể tải thư viện ảnh.');
+  const queryError = getErrorMessage(
+    mediaQuery.error || poisQuery.error || selectedPoiMediaQuery.error,
+    'Không thể tải thư viện ảnh.',
+  );
   const narrationError = getErrorMessage(narrationsQuery.error, 'Không thể tải bản thuyết minh.');
   const mutationError = getErrorMessage(
     uploadMutation.error ||
@@ -212,7 +268,7 @@ export function MediaLibraryPage() {
       createNarrationMutation.error ||
       approveNarrationMutation.error ||
       rejectNarrationMutation.error ||
-      generateAudioMutation.error,
+      uploadNarrationAudioMutation.error,
     'Thao tác thất bại. Vui lòng thử lại.',
   );
 
@@ -251,8 +307,8 @@ export function MediaLibraryPage() {
             <div className="grid flex-1 gap-3 md:grid-cols-[1fr_220px]">
               <Input
                 id="image-search"
-                label="Tìm kiếm"
-                placeholder="Tên file hoặc tên gốc"
+                label="Tìm kiếm POI/sạp"
+                placeholder="Tên hoặc mã POI/sạp"
                 value={imageSearch}
                 onChange={(event) => {
                   setImageSearch(event.target.value);
@@ -261,7 +317,7 @@ export function MediaLibraryPage() {
               />
               <Select
                 id="image-status-filter"
-                label="Trạng thái"
+                label="Trạng thái ảnh"
                 value={imageStatus}
                 options={approvalOptions}
                 onChange={(event) => {
@@ -270,6 +326,7 @@ export function MediaLibraryPage() {
                 }}
               />
             </div>
+            {isVendor ? (
             <div>
               <input
                 ref={imageInputRef}
@@ -284,47 +341,34 @@ export function MediaLibraryPage() {
                 onClick={() => imageInputRef.current?.click()}
                 isLoading={uploadMutation.isPending}
               >
-                Tải nhiều ảnh
+                {currentPoi ? `Tải ảnh cho ${currentPoi.name || currentPoi.code}` : 'Chọn POI để tải ảnh'}
               </Button>
             </div>
+            ) : null}
           </div>
 
-          <ImageTable
+          <PoiImageList
+            pois={poisQuery.data?.items ?? []}
             mediaItems={mediaQuery.data?.items ?? []}
-            isLoading={mediaQuery.isLoading}
-            isVendor={isVendor}
-            busyId={getBusyMutationId(
-              approveImageMutation.variables,
-              rejectImageMutation.variables,
-            )}
-            onPreview={setPreviewMedia}
-            onCopy={async (media) => {
-              await navigator.clipboard.writeText(getMediaUrl(media));
-              setNotice('Đã sao chép URL ảnh.');
+            isLoading={poisQuery.isLoading || mediaQuery.isLoading}
+            onSelect={(poi) => {
+              setSelectedPoi(poi);
+              setImageModalOpen(true);
+              setImagePage(1);
             }}
-            onApprove={(media) => approveImageMutation.mutate(media.id)}
-            onReject={(media) => {
-              setRejectImage(media);
-              setRejectReason('');
-            }}
-          />
-
-          <Pagination
-            page={imagePage}
-            totalPages={mediaQuery.data?.totalPages ?? 0}
-            totalCount={mediaQuery.data?.totalCount}
-            itemLabel="ảnh"
-            onPageChange={setImagePage}
           />
         </>
       ) : (
         <>
-          <NarrationForm
-            form={draftForm}
-            isLoading={createNarrationMutation.isPending}
-            onChange={setDraftForm}
-            onSubmit={handleSubmitNarration}
-          />
+          {isVendor ? (
+            <NarrationForm
+              form={draftForm}
+              poi={currentPoi}
+              isLoading={createNarrationMutation.isPending}
+              onChange={setDraftForm}
+              onSubmit={handleSubmitNarration}
+            />
+          ) : null}
 
           <div className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_220px]">
             <Input
@@ -356,14 +400,16 @@ export function MediaLibraryPage() {
             busyId={getBusyMutationId(
               approveNarrationMutation.variables,
               rejectNarrationMutation.variables,
-              generateAudioMutation.variables,
+              uploadNarrationAudioMutation.variables,
             )}
+            canUploadAudio={canUploadNarrationAudio}
             onApprove={(draft) => approveNarrationMutation.mutate(draft.id)}
             onReject={(draft) => {
               setRejectNarration(draft);
               setRejectReason('');
             }}
-            onGenerateAudio={(draft) => generateAudioMutation.mutate(draft.id)}
+            onView={setViewNarration}
+            onUploadAudio={setUploadAudioDraft}
           />
 
           <Pagination
@@ -376,6 +422,33 @@ export function MediaLibraryPage() {
         </>
       )}
 
+      <PoiImagesModal
+        poi={imageModalOpen ? currentPoi : null}
+        mediaItems={selectedPoiMediaQuery.data?.items ?? []}
+        isLoading={selectedPoiMediaQuery.isLoading}
+        isVendor={isVendor}
+        busyId={getBusyMutationId(
+          approveImageMutation.variables,
+          rejectImageMutation.variables,
+        )}
+        page={imagePage}
+        totalPages={selectedPoiMediaQuery.data?.totalPages ?? 0}
+        totalCount={selectedPoiMediaQuery.data?.totalCount}
+        onClose={() => setImageModalOpen(false)}
+        onPageChange={setImagePage}
+        onUpload={() => imageInputRef.current?.click()}
+        uploadLoading={uploadMutation.isPending}
+        onPreview={setPreviewMedia}
+        onCopy={async (media) => {
+          await navigator.clipboard.writeText(getMediaUrl(media));
+          setNotice('Đã sao chép URL ảnh.');
+        }}
+        onApprove={(media) => approveImageMutation.mutate(media.id)}
+        onReject={(media) => {
+          setRejectImage(media);
+          setRejectReason('');
+        }}
+      />
       <MediaPreviewModal media={previewMedia} onClose={() => setPreviewMedia(null)} />
       <RejectModal
         open={Boolean(rejectImage || rejectNarration)}
@@ -388,6 +461,17 @@ export function MediaLibraryPage() {
           setRejectReason('');
         }}
         onSubmit={handleSubmitReject}
+      />
+      <NarrationTextModal draft={viewNarration} onClose={() => setViewNarration(null)} />
+      <UploadNarrationAudioModal
+        draft={uploadAudioDraft}
+        isLoading={uploadNarrationAudioMutation.isPending}
+        onClose={() => setUploadAudioDraft(null)}
+        onSubmit={(file, title, durationSeconds) => {
+          if (uploadAudioDraft) {
+            uploadNarrationAudioMutation.mutate({ draft: uploadAudioDraft, file, title, durationSeconds });
+          }
+        }}
       />
     </section>
   );
@@ -414,6 +498,176 @@ function TabButton({
     >
       {children}
     </button>
+  );
+}
+
+function PoiImageList({
+  pois,
+  mediaItems,
+  isLoading,
+  onSelect,
+}: {
+  pois: PoiDto[];
+  mediaItems: MediaFileDto[];
+  isLoading: boolean;
+  onSelect: (poi: PoiDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
+        Đang tải danh sách POI/sạp...
+      </div>
+    );
+  }
+
+  if (pois.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
+        Không có POI/sạp phù hợp.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {pois.map((poi) => {
+        const counts = getPoiImageCounts(mediaItems, poi.id);
+        return (
+          <button
+            key={poi.id}
+            type="button"
+            onClick={() => onSelect(poi)}
+            className="rounded-lg border border-gray-100 bg-white p-4 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-gray-900">{poi.name || poi.displayName || poi.code}</p>
+                <p className="mt-0.5 text-xs text-gray-500">{poi.code}</p>
+              </div>
+              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                {counts.total} ảnh
+              </span>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <CountPill label="Chờ duyệt" value={counts.pending} className="bg-amber-50 text-amber-700" />
+              <CountPill label="Đã duyệt" value={counts.approved} className="bg-emerald-50 text-emerald-700" />
+              <CountPill label="Từ chối" value={counts.rejected} className="bg-red-50 text-red-700" />
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Vendor: {poi.displayName || poi.userId || '-'}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CountPill({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number;
+  className: string;
+}) {
+  return (
+    <span className={`rounded-md px-2 py-1 font-medium ${className}`}>
+      {label}: {value}
+    </span>
+  );
+}
+
+function PoiImagesModal({
+  poi,
+  mediaItems,
+  isLoading,
+  isVendor,
+  busyId,
+  page,
+  totalPages,
+  totalCount,
+  uploadLoading,
+  onClose,
+  onPageChange,
+  onUpload,
+  onPreview,
+  onCopy,
+  onApprove,
+  onReject,
+}: {
+  poi: PoiDto | null;
+  mediaItems: MediaFileDto[];
+  isLoading: boolean;
+  isVendor: boolean;
+  busyId: number | null;
+  page: number;
+  totalPages: number;
+  totalCount?: number;
+  uploadLoading: boolean;
+  onClose: () => void;
+  onPageChange: (page: number) => void;
+  onUpload: () => void;
+  onPreview: (media: MediaFileDto) => void;
+  onCopy: (media: MediaFileDto) => void;
+  onApprove: (media: MediaFileDto) => void;
+  onReject: (media: MediaFileDto) => void;
+}) {
+  return (
+    <Modal open={Boolean(poi)} onClose={onClose} title={poi ? `Ảnh của ${poi.name || poi.code}` : 'Ảnh POI'}>
+      {poi ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 text-sm">
+            <div>
+              <p className="font-semibold text-gray-900">{poi.name || poi.displayName || poi.code}</p>
+              <p className="text-xs text-gray-500">{poi.code}</p>
+            </div>
+            {isVendor ? (
+              <Button variant="secondary" onClick={onUpload} isLoading={uploadLoading}>
+                Tải ảnh cho POI này
+              </Button>
+            ) : null}
+          </div>
+
+          <ImageTable
+            mediaItems={mediaItems}
+            isLoading={isLoading}
+            isVendor={isVendor}
+            busyId={busyId}
+            onPreview={onPreview}
+            onCopy={onCopy}
+            onApprove={onApprove}
+            onReject={onReject}
+          />
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            itemLabel="ảnh"
+            onPageChange={onPageChange}
+          />
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
+function getPoiImageCounts(mediaItems: MediaFileDto[], poiId: number) {
+  return mediaItems.reduce(
+    (counts, media) => {
+      if (media.poiId !== poiId) {
+        return counts;
+      }
+
+      counts.total += 1;
+      if (media.approvalStatus === 'Pending') counts.pending += 1;
+      if (media.approvalStatus === 'Approved') counts.approved += 1;
+      if (media.approvalStatus === 'Rejected') counts.rejected += 1;
+      return counts;
+    },
+    { total: 0, pending: 0, approved: 0, rejected: 0 },
   );
 }
 
@@ -521,17 +775,27 @@ function ImageTable({
 
 function NarrationForm({
   form,
+  poi,
   isLoading,
   onChange,
   onSubmit,
 }: {
   form: { title: string; languageCode: string; textContent: string; voice: string };
+  poi: PoiDto | null;
   isLoading: boolean;
   onChange: (form: { title: string; languageCode: string; textContent: string; voice: string }) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
     <form className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm" onSubmit={onSubmit}>
+      <div className="mb-4 rounded-lg bg-gray-50 px-4 py-3 text-sm">
+        <p className="font-semibold text-gray-900">
+          {poi ? poi.name || poi.displayName || poi.code : 'Chưa chọn POI/sạp'}
+        </p>
+        <p className="text-xs text-gray-500">
+          {poi ? poi.code : 'Chọn POI/sạp trong thẻ Ảnh hoặc mở từ danh sách POI.'}
+        </p>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Input
           id="narration-title"
@@ -568,7 +832,7 @@ function NarrationForm({
           onChange={(event) => onChange({ ...form, voice: event.target.value })}
         />
         <div className="flex items-end">
-          <Button type="submit" isLoading={isLoading}>
+          <Button type="submit" isLoading={isLoading} disabled={!poi}>
             Tạo bản thuyết minh mới
           </Button>
         </div>
@@ -582,24 +846,31 @@ function NarrationTable({
   isLoading,
   isVendor,
   busyId,
+  canUploadAudio,
   onApprove,
   onReject,
-  onGenerateAudio,
+  onView,
+  onUploadAudio,
 }: {
   drafts: NarrationDraftDto[];
   isLoading: boolean;
   isVendor: boolean;
   busyId: number | null;
+  canUploadAudio: boolean;
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
-  onGenerateAudio: (draft: NarrationDraftDto) => void;
+  onView: (draft: NarrationDraftDto) => void;
+  onUploadAudio: (draft: NarrationDraftDto) => void;
 }) {
+  const groupedDrafts = groupDraftsByPoi(drafts);
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
             <tr>
+              <th className="px-4 py-3">POI/sạp</th>
               <th className="px-4 py-3">Tiêu đề</th>
               <th className="px-4 py-3">Ngôn ngữ</th>
               <th className="px-4 py-3">Giọng đọc</th>
@@ -612,77 +883,96 @@ function NarrationTable({
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 6 : 7}>
+                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 7 : 8}>
                   Đang tải bản thuyết minh...
                 </td>
               </tr>
             ) : null}
             {!isLoading && drafts.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 6 : 7}>
+                <td className="px-4 py-6 text-center text-gray-600" colSpan={isVendor ? 7 : 8}>
                   Không có bản thuyết minh nào.
                 </td>
               </tr>
             ) : null}
-            {drafts.map((draft) => (
-              <tr key={draft.id}>
-                <td className="max-w-[260px] px-4 py-3">
-                  <p className="font-medium text-gray-900">{draft.title}</p>
-                  <p className="line-clamp-2 text-xs text-gray-500">{draft.textContent}</p>
-                  {draft.simulatedAudioUrl ? (
-                    <p className="mt-1 text-xs text-blue-600">
-                      TTS mô phỏng / chưa kết nối dịch vụ thật
-                    </p>
-                  ) : null}
-                </td>
-                <td className="px-4 py-3 text-gray-600">{draft.languageCode}</td>
-                <td className="px-4 py-3 text-gray-600">{draft.voice}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={draft.status} />
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {draft.submittedByUsername ?? draft.submittedByUserId}
-                </td>
-                <td className="max-w-[240px] px-4 py-3 text-gray-600">
-                  {draft.rejectionReason ?? '-'}
-                </td>
-                {!isVendor ? (
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {draft.status !== 'Approved' && draft.status !== 'AudioGenerated' ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          isLoading={busyId === draft.id}
-                          onClick={() => onApprove(draft)}
-                        >
-                          Duyệt
-                        </Button>
-                      ) : null}
-                      {draft.status !== 'Rejected' && draft.status !== 'AudioGenerated' ? (
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          isLoading={busyId === draft.id}
-                          onClick={() => onReject(draft)}
-                        >
-                          Từ chối
-                        </Button>
-                      ) : null}
-                      {draft.status === 'Approved' ? (
-                        <Button
-                          size="sm"
-                          isLoading={busyId === draft.id}
-                          onClick={() => onGenerateAudio(draft)}
-                        >
-                          Tạo âm thanh
-                        </Button>
-                      ) : null}
-                    </div>
+            {groupedDrafts.flatMap((group) => [
+                <tr key={`group-${group.key}`} className="bg-gray-50/70">
+                  <td className="px-4 py-2 text-xs font-semibold uppercase text-gray-500" colSpan={isVendor ? 7 : 8}>
+                    {group.label}
                   </td>
-                ) : null}
-              </tr>
-            ))}
+                </tr>,
+                ...group.items.map((draft) => (
+                  <tr key={draft.id}>
+                    <td className="px-4 py-3 text-gray-700">
+                      <p className="font-medium text-gray-900">{draft.poiName || draft.poiCode || `POI #${draft.poiId}`}</p>
+                      <p className="text-xs text-gray-500">{draft.poiCode ?? `#${draft.poiId}`}</p>
+                    </td>
+                    <td className="max-w-[260px] px-4 py-3">
+                      <p className="font-medium text-gray-900">{draft.title}</p>
+                      <p className="line-clamp-2 text-xs text-gray-500">{draft.textContent}</p>
+                      {draft.simulatedAudioUrl ? (
+                        <p className="mt-1 text-xs text-blue-600">
+                          TTS mô phỏng / chưa kết nối dịch vụ thật
+                        </p>
+                      ) : null}
+                      {draft.generatedAudioTrackId ? (
+                        <p className="mt-1 text-xs font-medium text-emerald-700">
+                          Đã có audio • AudioTrack #{draft.generatedAudioTrackId} • {formatLanguageLabel(draft.languageCode)}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{formatLanguageLabel(draft.languageCode)}</td>
+                    <td className="px-4 py-3 text-gray-600">{draft.voice}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={draft.status} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {draft.submittedByUsername ?? draft.submittedByUserId}
+                    </td>
+                    <td className="max-w-[240px] px-4 py-3 text-gray-600">
+                      {draft.rejectionReason ?? '-'}
+                    </td>
+                    {!isVendor ? (
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => onView(draft)}>
+                            Xem nội dung
+                          </Button>
+                          {draft.status !== 'Approved' && draft.status !== 'AudioGenerated' ? (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              isLoading={busyId === draft.id}
+                              onClick={() => onApprove(draft)}
+                            >
+                              Duyệt
+                            </Button>
+                          ) : null}
+                          {draft.status !== 'Rejected' && draft.status !== 'AudioGenerated' ? (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              isLoading={busyId === draft.id}
+                              onClick={() => onReject(draft)}
+                            >
+                              Từ chối
+                            </Button>
+                          ) : null}
+                          {canUploadAudio && (draft.status === 'Approved' || draft.status === 'AudioGenerated') ? (
+                            <Button
+                              size="sm"
+                              isLoading={busyId === draft.id}
+                              onClick={() => onUploadAudio(draft)}
+                            >
+                              Tải MP3
+                            </Button>
+                          ) : null}
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                )),
+              ])}
           </tbody>
         </table>
       </div>
@@ -729,6 +1019,23 @@ function Pagination({
       </div>
     </div>
   );
+}
+
+function groupDraftsByPoi(drafts: NarrationDraftDto[]) {
+  const groups = new Map<string, { key: string; label: string; items: NarrationDraftDto[] }>();
+
+  for (const draft of drafts) {
+    const key = String(draft.poiId);
+    const label = draft.poiName || draft.poiCode || `POI #${draft.poiId}`;
+    const group = groups.get(key);
+    if (group) {
+      group.items.push(draft);
+    } else {
+      groups.set(key, { key, label, items: [draft] });
+    }
+  }
+
+  return Array.from(groups.values());
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -783,6 +1090,162 @@ function RejectModal({
   );
 }
 
+function NarrationTextModal({
+  draft,
+  onClose,
+}: {
+  draft: NarrationDraftDto | null;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!draft) return;
+
+    await navigator.clipboard.writeText(draft.textContent);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <Modal open={Boolean(draft)} onClose={onClose} title="Nội dung thuyết minh">
+      {draft ? (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
+            <p className="font-semibold text-gray-900">{draft.title}</p>
+            <p className="text-xs text-gray-500">
+              {draft.poiName || draft.poiCode || `POI #${draft.poiId}`} • {formatLanguageLabel(draft.languageCode)}
+            </p>
+          </div>
+          <textarea
+            readOnly
+            value={draft.textContent}
+            rows={10}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-800 shadow-sm focus:outline-none"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>
+              Đóng
+            </Button>
+            <Button onClick={handleCopy}>
+              {copied ? 'Đã sao chép' : 'Sao chép nội dung'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
+function UploadNarrationAudioModal({
+  draft,
+  isLoading,
+  onClose,
+  onSubmit,
+}: {
+  draft: NarrationDraftDto | null;
+  isLoading: boolean;
+  onClose: () => void;
+  onSubmit: (file: File, title?: string, durationSeconds?: number) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [duration, setDuration] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = () => {
+    setError(null);
+    if (!file) {
+      setError('Vui lòng chọn file MP3.');
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.mp3')) {
+      setError('Chỉ hỗ trợ file .mp3.');
+      return;
+    }
+
+    const durationSeconds = duration.trim() ? Number(duration) : undefined;
+    if (durationSeconds !== undefined && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) {
+      setError('Thời lượng phải là số giây lớn hơn 0.');
+      return;
+    }
+
+    onSubmit(file, title.trim() || undefined, durationSeconds);
+  };
+
+  const handleClose = () => {
+    setFile(null);
+    setTitle('');
+    setDuration('');
+    setError(null);
+    onClose();
+  };
+
+  return (
+    <Modal open={Boolean(draft)} onClose={handleClose} title="Tải MP3 cho thuyết minh">
+      {draft ? (
+        <div className="space-y-4">
+          <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
+            <p className="font-semibold text-gray-900">{draft.title}</p>
+            <p className="text-xs text-gray-500">
+              {draft.poiName || draft.poiCode || `POI #${draft.poiId}`} • {formatLanguageLabel(draft.languageCode)}
+            </p>
+          </div>
+          <div>
+            <label htmlFor="upload-audio-narration-text" className="mb-1 block text-sm font-medium text-gray-700">
+              Nội dung để tạo MP3
+            </label>
+            <textarea
+              id="upload-audio-narration-text"
+              readOnly
+              value={draft.textContent}
+              rows={6}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-800 shadow-sm focus:outline-none"
+            />
+          </div>
+          {error ? <Alert variant="error" message={error} /> : null}
+          <Input
+            id="audio-title"
+            label="Tiêu đề audio"
+            placeholder={draft.title}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+          <Input
+            id="audio-duration"
+            label="Thời lượng (giây)"
+            type="number"
+            min="1"
+            value={duration}
+            onChange={(event) => setDuration(event.target.value)}
+          />
+          <div>
+            <label htmlFor="audio-file" className="mb-1 block text-sm font-medium text-gray-700">
+              File MP3
+            </label>
+            <input
+              id="audio-file"
+              type="file"
+              accept=".mp3,audio/mpeg"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={handleClose}>
+              Hủy
+            </Button>
+            <Button isLoading={isLoading} onClick={handleSubmit}>
+              Tải MP3
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
 function MediaPreviewModal({
   media,
   onClose,
@@ -809,6 +1272,10 @@ function getBusyMutationId(...values: unknown[]): number | null {
     if (typeof value === 'object' && value !== null && 'id' in value) {
       const id = (value as { id?: unknown }).id;
       if (typeof id === 'number') return id;
+    }
+    if (typeof value === 'object' && value !== null && 'draft' in value) {
+      const draft = (value as { draft?: { id?: unknown } }).draft;
+      if (typeof draft?.id === 'number') return draft.id;
     }
   }
 

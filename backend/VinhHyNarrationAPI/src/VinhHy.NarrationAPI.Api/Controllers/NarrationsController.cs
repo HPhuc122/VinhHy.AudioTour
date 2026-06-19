@@ -84,6 +84,37 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
         return this.ApiOk(draft, "TTS simulated. No real audio provider is connected.");
     }
 
+    [HttpPost("{id:int}/upload-audio")]
+    [Authorize(Roles = RoleGroups.AdminOnly)]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadAudio(
+        int id,
+        [FromForm] UploadNarrationAudioForm form,
+        CancellationToken cancellationToken)
+    {
+        if (form.File is null)
+        {
+            throw new ValidationException(nameof(form.File), "MP3 file is required.");
+        }
+
+        await using var fileStream = form.File.OpenReadStream();
+        var draft = await narrationDraftService.UploadAudioAsync(
+            id,
+            new UploadNarrationAudioRequest
+            {
+                FileContent = fileStream,
+                OriginalFileName = form.File.FileName,
+                ContentType = form.File.ContentType,
+                FileSize = form.File.Length,
+                Title = form.Title,
+                DurationSeconds = form.DurationSeconds
+            },
+            GetRequiredCurrentUserId(),
+            cancellationToken);
+
+        return this.ApiOk(draft, "Narration audio uploaded");
+    }
+
     private bool IsVendor() => User.IsInRole(RoleNames.Vendor);
 
     private int GetRequiredCurrentUserId()
@@ -93,4 +124,13 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
             ? userId
             : throw new UnauthorizedException("Missing authenticated user id.");
     }
+}
+
+public class UploadNarrationAudioForm
+{
+    public IFormFile? File { get; set; }
+
+    public string? Title { get; set; }
+
+    public int? DurationSeconds { get; set; }
 }

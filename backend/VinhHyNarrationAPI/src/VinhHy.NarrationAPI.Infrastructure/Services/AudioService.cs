@@ -67,6 +67,7 @@ public class AudioService : IAudioService
             ?? throw new NotFoundException(nameof(AudioTrack), id);
 
         if (request.AudioType is not null) track.AudioType = request.AudioType;
+        if (request.Title is not null) track.Title = request.Title;
         if (request.FileUrl is not null) track.FileUrl = request.FileUrl;
         if (request.TTSText is not null) track.TTSText = request.TTSText;
         if (request.DurationSeconds.HasValue) track.DurationSeconds = request.DurationSeconds;

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
@@ -12,8 +13,13 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 public class NarrationDraftService : INarrationDraftService
 {
     private readonly ApplicationDbContext _db;
+    private readonly IHostEnvironment _environment;
 
-    public NarrationDraftService(ApplicationDbContext db) => _db = db;
+    public NarrationDraftService(ApplicationDbContext db, IHostEnvironment environment)
+    {
+        _db = db;
+        _environment = environment;
+    }
 
     public async Task<PagedResult<NarrationDraftDto>> SearchAsync(
         NarrationDraftListRequest request,
@@ -152,10 +158,35 @@ public class NarrationDraftService : INarrationDraftService
         int reviewerUserId,
         CancellationToken cancellationToken = default)
     {
+        await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
+        throw new ValidationException(nameof(id), "Manual MP3 upload is required. Use /api/v1/narrations/{id}/upload-audio.");
+    }
+
+    public async Task<NarrationDraftDto> UploadAudioAsync(
+        int id,
+        UploadNarrationAudioRequest request,
+        int uploadedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateAudioUpload(request);
+
         var draft = await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
         if (draft.Status != NarrationDraftStatuses.Approved && draft.Status != NarrationDraftStatuses.AudioGenerated)
         {
-            throw new ValidationException(nameof(id), "Only approved narration text can generate audio.");
+            throw new ValidationException(nameof(id), "MP3 upload is allowed only for approved narration.");
+        }
+
+        var extension = Path.GetExtension(request.OriginalFileName).ToLowerInvariant();
+        var fileName = $"{Guid.NewGuid():N}{extension}";
+        var relativePath = Path.Combine("uploads", "audio", fileName).Replace('\\', '/');
+        var uploadDirectory = Path.Combine(_environment.ContentRootPath, "uploads", "audio");
+        var absolutePath = Path.Combine(uploadDirectory, fileName);
+
+        Directory.CreateDirectory(uploadDirectory);
+
+        await using (var output = new FileStream(absolutePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            await request.FileContent.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
         }
 
         var now = DateTime.UtcNow;
@@ -173,32 +204,31 @@ public class NarrationDraftService : INarrationDraftService
             {
                 POIId = draft.PoiId,
                 LanguageCode = draft.LanguageCode,
-                AudioType = "tts",
-                TTSText = draft.TextContent,
-                FileUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}",
-                MimeType = "audio/mp4",
-                IsActive = true,
-                CreatedAt = now,
-                UpdatedAt = now
+                CreatedAt = now
             };
             await _db.AudioTracks.AddAsync(audioTrack, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            audioTrack.AudioType = "tts";
-            audioTrack.TTSText = draft.TextContent;
-            audioTrack.FileUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}";
-            audioTrack.MimeType = "audio/mp4";
-            audioTrack.IsActive = true;
-            audioTrack.UpdatedAt = now;
+            audioTrack.Version++;
         }
 
+        audioTrack.Title = string.IsNullOrWhiteSpace(request.Title) ? draft.Title : request.Title.Trim();
+        audioTrack.AudioType = "prerecorded";
+        audioTrack.FileUrl = relativePath;
+        audioTrack.TTSText = null;
+        audioTrack.DurationSeconds = request.DurationSeconds;
+        audioTrack.FileSizeBytes = request.FileSize;
+        audioTrack.MimeType = "audio/mpeg";
+        audioTrack.IsActive = true;
+        audioTrack.UpdatedAt = now;
+
         draft.Status = NarrationDraftStatuses.AudioGenerated;
-        draft.ReviewedByUserId ??= reviewerUserId;
-        draft.ReviewedAt ??= now;
-        draft.AudioGeneratedAt = now;
-        draft.SimulatedAudioUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}";
         draft.GeneratedAudioTrack = audioTrack;
+        draft.AudioGeneratedAt = now;
+        draft.ReviewedByUserId ??= uploadedByUserId;
+        draft.ReviewedAt ??= now;
+        draft.SimulatedAudioUrl = null;
         draft.UpdatedAt = now;
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -235,6 +265,34 @@ public class NarrationDraftService : INarrationDraftService
             throw new ValidationException(nameof(request.TextContent), "Narration text is required.");
         if (string.IsNullOrWhiteSpace(request.Voice))
             throw new ValidationException(nameof(request.Voice), "Voice is required.");
+    }
+
+    private static void ValidateAudioUpload(UploadNarrationAudioRequest request)
+    {
+        if (request.FileContent is null)
+        {
+            throw new ValidationException(nameof(request.FileContent), "MP3 file is required.");
+        }
+
+        if (request.FileSize <= 0)
+        {
+            throw new ValidationException(nameof(request.FileSize), "MP3 file must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.OriginalFileName))
+        {
+            throw new ValidationException(nameof(request.OriginalFileName), "Original file name is required.");
+        }
+
+        if (!string.Equals(Path.GetExtension(request.OriginalFileName), ".mp3", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ValidationException(nameof(request.OriginalFileName), "Only MP3 files are allowed.");
+        }
+
+        if (request.DurationSeconds.HasValue && request.DurationSeconds.Value <= 0)
+        {
+            throw new ValidationException(nameof(request.DurationSeconds), "Duration must be greater than 0.");
+        }
     }
 
     private static string? NormalizeStatus(string? status)

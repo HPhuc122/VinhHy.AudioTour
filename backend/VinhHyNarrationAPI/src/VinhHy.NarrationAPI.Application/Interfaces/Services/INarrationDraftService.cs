@@ -31,4 +31,10 @@ public interface INarrationDraftService
         int id,
         int reviewerUserId,
         CancellationToken cancellationToken = default);
+
+    Task<NarrationDraftDto> UploadAudioAsync(
+        int id,
+        UploadNarrationAudioRequest request,
+        int uploadedByUserId,
+        CancellationToken cancellationToken = default);
 }

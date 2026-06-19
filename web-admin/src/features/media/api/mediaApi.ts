@@ -22,6 +22,9 @@ export interface MediaFileDto {
   uploadedAt: string;
   uploadedByUserId?: number | null;
   uploadedByUsername?: string | null;
+  poiId?: number | null;
+  poiCode?: string | null;
+  poiName?: string | null;
   approvalStatus: ApprovalStatus;
   submittedAt?: string | null;
   reviewedByUserId?: number | null;
@@ -37,11 +40,13 @@ export interface MediaSearchFilter {
   search?: string;
   fileType?: MediaFilterType;
   approvalStatus?: ApprovalStatusFilter;
+  poiId?: number;
   includeDeleted?: boolean;
 }
 
 export interface UploadMediaRequest {
   file: File;
+  poiId?: number;
 }
 
 export function createMediaApi(httpClient: AxiosInstance) {
@@ -60,7 +65,26 @@ export function createMediaApi(httpClient: AxiosInstance) {
               filter.approvalStatus && filter.approvalStatus !== 'all'
                 ? filter.approvalStatus
                 : undefined,
+            poiId: filter.poiId,
             includeDeleted: filter.includeDeleted,
+          },
+        },
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async getMediaByPoi(poiId: number, filter: MediaSearchFilter = {}): Promise<PagedResult<MediaFileDto>> {
+      const response = await httpClient.get<ApiResponse<PagedResult<MediaFileDto>>>(
+        `${MEDIA_BASE}/by-poi/${poiId}`,
+        {
+          params: {
+            page: filter.page ?? 1,
+            pageSize: filter.pageSize ?? 100,
+            approvalStatus:
+              filter.approvalStatus && filter.approvalStatus !== 'all'
+                ? filter.approvalStatus
+                : undefined,
           },
         },
       );
@@ -71,6 +95,9 @@ export function createMediaApi(httpClient: AxiosInstance) {
     async uploadMedia(request: UploadMediaRequest): Promise<MediaFileDto> {
       const form = new FormData();
       form.append('file', request.file);
+      if (request.poiId) {
+        form.append('poiId', String(request.poiId));
+      }
 
       const response = await httpClient.post<ApiResponse<MediaFileDto>>(
         `${MEDIA_BASE}/upload`,

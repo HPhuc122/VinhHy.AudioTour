@@ -8,6 +8,8 @@ public class AudioTrack : SyncableEntity
 
     public string LanguageCode { get; set; } = null!;
 
+    public string? Title { get; set; }
+
     public string AudioType { get; set; } = "tts";
 
     public string? FileUrl { get; set; }

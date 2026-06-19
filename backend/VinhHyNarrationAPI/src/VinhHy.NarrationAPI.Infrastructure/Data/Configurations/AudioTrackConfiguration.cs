@@ -13,6 +13,7 @@ public class AudioTrackConfiguration : IEntityTypeConfiguration<AudioTrack>
         builder.HasKey(e => e.Id);
 
         builder.Property(e => e.LanguageCode).HasMaxLength(10).IsRequired();
+        builder.Property(e => e.Title).HasMaxLength(200);
         builder.Property(e => e.AudioType).HasMaxLength(20).HasDefaultValue("tts");
         builder.Property(e => e.FileUrl).HasMaxLength(500);
         builder.Property(e => e.MimeType).HasMaxLength(50).HasDefaultValue("audio/mp4");
