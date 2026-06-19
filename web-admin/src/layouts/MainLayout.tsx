@@ -13,6 +13,7 @@ interface NavItem {
 const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
 const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'TourOperator'];
 const MEDIA_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', ROLE_VENDOR];
+const VENDOR_ROLES = [ROLE_VENDOR];
 
 const NAV_ITEMS: NavItem[] = [
   { to: routes.dashboard, label: 'Bảng điều khiển', icon: 'D' },
@@ -22,7 +23,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: routes.languages, label: 'Ngôn ngữ', icon: 'L', roles: ADMIN_ROLES },
   { to: routes.tours, label: 'Tour', icon: 'T', roles: CONTENT_ROLES },
   { to: routes.qr, label: 'Mã QR', icon: 'Q', roles: CONTENT_ROLES },
-  { to: routes.media, label: 'Thư viện ảnh', icon: 'M', roles: MEDIA_ROLES },
+  { to: routes.media, label: 'Thư viện', icon: 'M', roles: MEDIA_ROLES },
+  { to: routes.registerPoi, label: 'Đăng ký địa điểm sạp', icon: 'S', roles: VENDOR_ROLES },
 ];
 
 export function MainLayout() {

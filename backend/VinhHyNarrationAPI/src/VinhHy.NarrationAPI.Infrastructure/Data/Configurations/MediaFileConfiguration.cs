@@ -37,7 +37,7 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<MediaFile>
         builder.HasOne(e => e.ReviewedByUser)
             .WithMany()
             .HasForeignKey(e => e.ReviewedByUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.ToTable(t =>
         {

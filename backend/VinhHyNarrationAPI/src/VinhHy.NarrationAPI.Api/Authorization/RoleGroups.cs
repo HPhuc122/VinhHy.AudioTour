@@ -13,6 +13,12 @@ public static class RoleGroups
     public const string VendorMedia =
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.Vendor}";
 
+    public const string VendorPoiAccess =
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.TourOperator},{RoleNames.Vendor}";
+
+    public const string VendorPoiRegistration =
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.Vendor}";
+
     public const string TourOperations =
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.TourOperator}";
 

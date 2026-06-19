@@ -190,7 +190,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
           ? String(values.minDwellSeconds)
           : '5',
       );
-      formData.append('IsActive', values.isActive ? 'true' : 'false');
+      formData.append('IsActive', isVendorMode ? 'false' : values.isActive ? 'true' : 'false');
 
       const imageFiles = Array.isArray(values.imageFiles) ? values.imageFiles : [];
       if (imageFiles.length > 0) {
@@ -201,11 +201,14 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
 
       if (isEdit && editPoi?.id) {
         await updateMutation.mutateAsync({ id: editPoi.id, data: formData });
-        toast('Cập nhật địa điểm thành công', 'success');
+        toast(
+          isVendorMode ? 'Đã cập nhật đăng ký và chuyển về trạng thái chờ duyệt' : 'Cập nhật địa điểm thành công',
+          'success',
+        );
       } else {
         formData.append('ApprovalStatus', isVendorMode ? '0' : '1');
         await createMutation.mutateAsync(formData);
-        toast('Tạo địa điểm thành công', 'success');
+        toast(isVendorMode ? 'Đã gửi đăng ký địa điểm sạp chờ duyệt' : 'Tạo địa điểm thành công', 'success');
       }
 
       onClose();
@@ -221,7 +224,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
     <Modal
       open={open}
       onClose={onClose}
-      title={isEdit ? 'Chỉnh sửa địa điểm' : 'Thêm địa điểm mới'}
+      title={isVendorMode ? (isEdit ? 'Chỉnh sửa đăng ký sạp' : 'Đăng ký địa điểm sạp') : isEdit ? 'Chỉnh sửa địa điểm' : 'Thêm địa điểm mới'}
       size="lg"
       scrollable
       footer={
@@ -230,7 +233,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
             Hủy
           </Button>
           <Button onClick={form.handleSubmit(handleSubmit as any)} loading={isSaving}>
-            {isSaving ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Tạo địa điểm'}
+            {isSaving ? 'Đang lưu...' : isVendorMode ? 'Gửi đăng ký' : isEdit ? 'Lưu thay đổi' : 'Tạo địa điểm'}
           </Button>
         </>
       }
@@ -319,14 +322,16 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
           {...form.register('category')}
         />
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-blue-600"
-            {...form.register('isActive')}
-          />
-          Đang hoạt động
-        </label>
+        {!isVendorMode ? (
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600"
+              {...form.register('isActive')}
+            />
+            Đang hoạt động
+          </label>
+        ) : null}
 
         <div className="flex gap-4">
           <div className="flex-1">

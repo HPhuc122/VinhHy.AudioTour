@@ -10,6 +10,14 @@ public enum ApprovalStatus : byte
     Rejected = 2     // Từ chối
 }
 
+public enum PoiPaymentStatus : byte
+{
+    NotRequired = 0,
+    PendingPayment = 1,
+    Paid = 2,
+    Waived = 3
+}
+
 public class Poi : SyncableEntity
 {
     public string Code { get; set; } = null!;
@@ -37,6 +45,16 @@ public class Poi : SyncableEntity
     public int Priority { get; set; } = 1;
 
     public bool IsActive { get; set; } = true;
+
+    public bool PaymentRequired { get; set; }
+
+    public PoiPaymentStatus PaymentStatus { get; set; } = PoiPaymentStatus.NotRequired;
+
+    public DateTime? ActivatedAt { get; set; }
+
+    public int? ActivatedByUserId { get; set; }
+
+    public virtual User? ActivatedByUser { get; set; }
 
     public string? ImageUrl { get; set; }
 

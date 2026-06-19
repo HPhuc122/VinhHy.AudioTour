@@ -22,6 +22,8 @@ public class UpdatePoiRequest
 
     public bool? IsActive { get; set; }
 
+    public bool? PaymentRequired { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public IFormFile? Image { get; set; }

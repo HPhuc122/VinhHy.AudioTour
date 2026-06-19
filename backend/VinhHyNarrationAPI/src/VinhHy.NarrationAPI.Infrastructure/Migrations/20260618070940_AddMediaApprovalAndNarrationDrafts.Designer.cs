@@ -1371,7 +1371,7 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "ReviewedByUser")
                         .WithMany()
                         .HasForeignKey("ReviewedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "UploadedByUser")
                         .WithMany()

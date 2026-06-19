@@ -15,6 +15,10 @@ export interface PoiDto {
   userId?: number | null;
   displayName?: string | null;
   isActive: boolean;
+  paymentRequired: boolean;
+  paymentStatus: number | string;
+  activatedAt?: string | null;
+  activatedByUserId?: number | null;
   category?: string | null;
   imageUrl?: string | null;
   audioUrl?: string | null;
@@ -89,6 +93,16 @@ export const poisApi = {
       { approvalStatus },
     );
 
+    return unwrapApiResponse(response.data);
+  },
+
+  async markPaid(id: number): Promise<PoiDto> {
+    const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/mark-paid`);
+    return unwrapApiResponse(response.data);
+  },
+
+  async waivePayment(id: number): Promise<PoiDto> {
+    const response = await httpClient.post<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}/waive-payment`);
     return unwrapApiResponse(response.data);
   },
 

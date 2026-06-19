@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using VinhHy.NarrationAPI.Api.Authorization;
 using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Exceptions;
@@ -11,7 +12,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/pois")]
-[Authorize(Roles = RoleGroups.AdminOrTourOrContent)]
+[Authorize(Roles = RoleGroups.VendorPoiAccess)]
 public class PoisController(IPoiService poiService) : ControllerBase
 {
     [HttpGet("{id:int}")]
@@ -54,7 +55,7 @@ public class PoisController(IPoiService poiService) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
+    [Authorize(Roles = RoleGroups.VendorPoiRegistration)]
     // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
     public async Task<IActionResult> Create([FromForm] CreatePoiRequest request, CancellationToken cancellationToken)
     {
@@ -63,7 +64,7 @@ public class PoisController(IPoiService poiService) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = RoleGroups.ContentManagement)]
+    [Authorize(Roles = RoleGroups.VendorPoiRegistration)]
     public async Task<IActionResult> Update(
         int id,
         // Đổi [FromBody] thành [FromForm] ở dòng dưới này:
@@ -85,6 +86,22 @@ public class PoisController(IPoiService poiService) : ControllerBase
         return this.ApiOk(poi, "POI approval status updated");
     }
 
+    [HttpPost("{id:int}/mark-paid")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> MarkPaid(int id, CancellationToken cancellationToken)
+    {
+        var poi = await poiService.MarkPaidAsync(id, GetRequiredCurrentUserId(), cancellationToken);
+        return this.ApiOk(poi, "POI marked as paid and activated");
+    }
+
+    [HttpPost("{id:int}/waive-payment")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> WaivePayment(int id, CancellationToken cancellationToken)
+    {
+        var poi = await poiService.WaivePaymentAsync(id, GetRequiredCurrentUserId(), cancellationToken);
+        return this.ApiOk(poi, "POI payment waived and activated");
+    }
+
     [HttpDelete("{id:int}")]
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
@@ -99,5 +116,13 @@ public class PoisController(IPoiService poiService) : ControllerBase
     {
         await poiService.RestoreAsync(id, cancellationToken);
         return NoContent();
+    }
+
+    private int GetRequiredCurrentUserId()
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(value, out var userId)
+            ? userId
+            : throw new UnauthorizedException("Missing authenticated user id.");
     }
 }

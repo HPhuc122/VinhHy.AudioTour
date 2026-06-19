@@ -8,6 +8,7 @@ import { buildAssetUrl } from '../../../utils/assetUrl';
 import PoiTranslationModal from './PoiTranslationModal';
 
 type ApprovalStatusValue = 0 | 1 | 2;
+type PaymentStatusValue = 0 | 1 | 2 | 3;
 
 const APPROVAL_STATUS_OPTIONS: Array<{
   value: ApprovalStatusValue;
@@ -45,6 +46,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [updatingApprovalId, setUpdatingApprovalId] = useState<number | null>(null);
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<number | null>(null);
   const [viewingImages, setViewingImages] = useState<string[] | null>(null);
   const [currentImgIndex, setCurrentImgIndex] = useState(0);
   const [translatingPoi, setTranslatingPoi] = useState<any>(null);
@@ -62,6 +64,16 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
   const updateApprovalStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: ApprovalStatusValue }) =>
       poisApi.updateApprovalStatus(id, status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (id: number) => poisApi.markPaid(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
+  });
+
+  const waivePaymentMutation = useMutation({
+    mutationFn: (id: number) => poisApi.waivePayment(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pois'] }),
   });
 
@@ -95,6 +107,29 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     }
   };
 
+  const handlePaymentAction = async (poi: any, action: 'paid' | 'waived') => {
+    const label = action === 'paid' ? 'đã thanh toán' : 'miễn/thanh toán trực tiếp';
+    const ok = window.confirm(`Xác nhận ${poi.name || poi.code} là "${label}" và kích hoạt POI?`);
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setUpdatingPaymentId(poi.id);
+      if (action === 'paid') {
+        await markPaidMutation.mutateAsync(poi.id);
+      } else {
+        await waivePaymentMutation.mutateAsync(poi.id);
+      }
+      toast('Đã kích hoạt POI', 'success');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Lỗi khi cập nhật thanh toán POI';
+      toast(msg, 'error');
+    } finally {
+      setUpdatingPaymentId(null);
+    }
+  };
+
   if (isLoading) {
     return <div>Đang tải dữ liệu...</div>;
   }
@@ -105,7 +140,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
 
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="min-w-[1120px] bg-white divide-y divide-gray-100">
+      <table className="min-w-[1240px] bg-white divide-y divide-gray-100">
         <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
           <tr>
             <th className="px-4 py-3 text-left">Mã địa điểm</th>
@@ -114,6 +149,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
             <th className="px-4 py-3 text-left">Phân loại</th>
             <th className="px-4 py-3 text-left">Tọa độ</th>
             <th className="px-4 py-3 text-left">Trạng thái duyệt</th>
+            <th className="px-4 py-3 text-left">Thanh toán</th>
             <th className="px-4 py-3 text-left">Hoạt động</th>
             <th className="px-4 py-3 text-right">Thao tác</th>
           </tr>
@@ -121,13 +157,21 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
         <tbody className="divide-y divide-gray-100 text-sm">
           {data?.items.length === 0 ? (
             <tr>
-              <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
+              <td colSpan={9} className="px-4 py-6 text-center text-gray-500">
                 Không có địa điểm
               </td>
             </tr>
           ) : (
             data?.items.map((poi: any) => {
               const isDeleted = !!poi.deletedAt;
+              const approvalStatus = getApprovalStatusValue(poi.approvalStatus);
+              const paymentStatus = getPaymentStatusValue(poi.paymentStatus);
+              const canVendorEdit = isVendorMode && approvalStatus !== 1 && !isDeleted;
+              const canActivatePayment = !isVendorMode
+                && !isDeleted
+                && approvalStatus === 1
+                && paymentStatus === 1
+                && !poi.isActive;
               return (
                 <tr key={poi.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'bg-red-50 opacity-80' : ''}`}>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
@@ -181,12 +225,12 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                   <td className="px-4 py-3">
                     <div className="min-w-[150px]">
                       {isVendorMode ? (
-                        <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getApprovalStatusBadgeClassName(poi.approvalStatus)}`}>
-                          {getApprovalStatusLabel(getApprovalStatusValue(poi.approvalStatus))}
+                        <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getVendorRegistrationBadgeClassName(poi)}`}>
+                          {getVendorRegistrationLabel(poi)}
                         </span>
                       ) : (
                         <select
-                          value={getApprovalStatusValue(poi.approvalStatus)}
+                          value={approvalStatus}
                           disabled={isDeleted || updatingApprovalId === poi.id}
                           className={`w-full rounded-md border px-2 py-1 text-xs font-medium shadow-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${getApprovalStatusClassName(poi.approvalStatus)}`}
                           onChange={(event) => {
@@ -204,6 +248,34 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           ))}
                         </select>
                       )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex min-w-[170px] flex-col items-start gap-2">
+                      <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getPaymentStatusBadgeClassName(paymentStatus)}`}>
+                        {getPaymentStatusLabel(paymentStatus)}
+                      </span>
+                      {canActivatePayment ? (
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            disabled={updatingPaymentId === poi.id}
+                            loading={updatingPaymentId === poi.id}
+                            onClick={() => void handlePaymentAction(poi, 'paid')}
+                          >
+                            Đã thanh toán
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={updatingPaymentId === poi.id}
+                            onClick={() => void handlePaymentAction(poi, 'waived')}
+                          >
+                            Miễn/Trực tiếp
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -227,14 +299,26 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           + Dịch thuật
                         </Button>
                       ) : null}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => onEdit?.(poi)}
-                      >
-                        Sửa
-                      </Button>
-                      {isDeleted ? (
+                      {isVendorMode ? (
+                        canVendorEdit ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onEdit?.(poi)}
+                          >
+                            Sửa
+                          </Button>
+                        ) : null
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => onEdit?.(poi)}
+                        >
+                          Sửa
+                        </Button>
+                      )}
+                      {!isVendorMode && isDeleted ? (
                         <Button
                           size="sm"
                           variant="primary"
@@ -257,7 +341,8 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                         >
                           Khôi phục
                         </Button>
-                      ) : (
+                      ) : null}
+                      {!isVendorMode && !isDeleted ? (
                         <Button
                           size="sm"
                           variant="danger"
@@ -281,7 +366,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                         >
                           Xóa
                         </Button>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -388,25 +473,95 @@ function getApprovalStatusLabel(status: ApprovalStatusValue): string {
   return APPROVAL_STATUS_OPTIONS.find((option) => option.value === status)?.label ?? 'Chờ duyệt';
 }
 
+function getPaymentStatusValue(status: unknown): PaymentStatusValue {
+  if (status === 'NotRequired') {
+    return 0;
+  }
+
+  if (status === 'PendingPayment') {
+    return 1;
+  }
+
+  if (status === 'Paid') {
+    return 2;
+  }
+
+  if (status === 'Waived') {
+    return 3;
+  }
+
+  const value = Number(status);
+  return value === 1 || value === 2 || value === 3 ? value : 0;
+}
+
+function getPaymentStatusLabel(status: PaymentStatusValue): string {
+  switch (status) {
+    case 1:
+      return 'Chờ thanh toán';
+    case 2:
+      return 'Đã thanh toán';
+    case 3:
+      return 'Miễn/Trực tiếp';
+    default:
+      return 'Không yêu cầu';
+  }
+}
+
+function getPaymentStatusBadgeClassName(status: PaymentStatusValue): string {
+  switch (status) {
+    case 1:
+      return 'border-amber-200 bg-amber-100 text-amber-800';
+    case 2:
+      return 'border-green-200 bg-green-100 text-green-800';
+    case 3:
+      return 'border-blue-200 bg-blue-100 text-blue-800';
+    default:
+      return 'border-gray-200 bg-gray-100 text-gray-700';
+  }
+}
+
+function getVendorRegistrationLabel(poi: any): string {
+  const approvalStatus = getApprovalStatusValue(poi.approvalStatus);
+  const paymentStatus = getPaymentStatusValue(poi.paymentStatus);
+
+  if (approvalStatus === 2) {
+    return 'Từ chối';
+  }
+
+  if (poi.isActive) {
+    return 'Đã kích hoạt';
+  }
+
+  if (approvalStatus === 1 && paymentStatus === 1) {
+    return 'Đã duyệt - Chờ thanh toán';
+  }
+
+  return 'Chờ duyệt';
+}
+
+function getVendorRegistrationBadgeClassName(poi: any): string {
+  const label = getVendorRegistrationLabel(poi);
+
+  if (label === 'Đã kích hoạt') {
+    return 'border-green-200 bg-green-100 text-green-800';
+  }
+
+  if (label === 'Đã duyệt - Chờ thanh toán') {
+    return 'border-amber-200 bg-amber-100 text-amber-800';
+  }
+
+  if (label === 'Từ chối') {
+    return 'border-red-200 bg-red-100 text-red-800';
+  }
+
+  return 'border-yellow-200 bg-yellow-100 text-yellow-800';
+}
+
 function getApprovalStatusClassName(status: unknown): string {
   const value = getApprovalStatusValue(status);
   const fallbackClassName = 'border-yellow-300 bg-yellow-50 text-yellow-800 focus:ring-yellow-400';
   return APPROVAL_STATUS_OPTIONS.find((option) => option.value === value)?.selectClassName
     ?? fallbackClassName;
-}
-
-function getApprovalStatusBadgeClassName(status: unknown): string {
-  const value = getApprovalStatusValue(status);
-
-  if (value === 1) {
-    return 'border-green-200 bg-green-100 text-green-800';
-  }
-
-  if (value === 2) {
-    return 'border-red-200 bg-red-100 text-red-800';
-  }
-
-  return 'border-yellow-200 bg-yellow-100 text-yellow-800';
 }
 
 function getPoiImageUrls(poi: any): string[] {

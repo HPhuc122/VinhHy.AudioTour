@@ -38,12 +38,14 @@ public class PoiService : IPoiService
     public async Task<PoiDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var poi = await _uow.Pois.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
+        EnsureVendorCanView(poi);
         return poi is null ? null : _mapper.Map<PoiDto>(poi);
     }
 
     public async Task<PoiDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         var poi = await _uow.Pois.GetByCodeAsync(code, cancellationToken).ConfigureAwait(false);
+        EnsureVendorCanView(poi);
         return poi is null ? null : _mapper.Map<PoiDto>(poi);
     }
 
@@ -65,8 +67,8 @@ public class PoiService : IPoiService
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        // Delegate to repository which already applies filters and supports includeDeleted/IgnoreQueryFilters.
-        var ownerUserId = IsCurrentUserVendor() ? GetCurrentUserId() : null;
+        var isVendor = IsCurrentUserVendor();
+        int? ownerUserId = isVendor ? GetRequiredCurrentUserId("list POIs") : null;
         var (items, total) = await _uow.Pois.GetPagedAsync(
             page,
             pageSize,
@@ -75,7 +77,7 @@ public class PoiService : IPoiService
             isActive,
             approvalStatus,
             ownerUserId,
-            includeDeleted,
+            isVendor ? false : includeDeleted,
             cancellationToken).ConfigureAwait(false);
 
         return PagedResult<PoiDto>.Create(
@@ -93,9 +95,29 @@ public class PoiService : IPoiService
             .ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
+        var isVendor = IsCurrentUserVendor();
         var poi = _mapper.Map<Poi>(request);
         poi.Code = await GenerateUniqueCodeAsync("POI", cancellationToken).ConfigureAwait(false);
         poi.UserId = ResolveOwnerUserIdForCreate(request.UserId);
+        if (isVendor)
+        {
+            poi.ApprovalStatus = ApprovalStatus.Pending;
+            poi.IsActive = false;
+            poi.PaymentRequired = true;
+            poi.PaymentStatus = PoiPaymentStatus.PendingPayment;
+            poi.ActivatedAt = null;
+            poi.ActivatedByUserId = null;
+        }
+        else
+        {
+            var paymentRequired = request.PaymentRequired ?? false;
+            poi.ApprovalStatus = ApprovalStatus.Approved;
+            poi.PaymentRequired = paymentRequired;
+            poi.PaymentStatus = paymentRequired ? PoiPaymentStatus.PendingPayment : PoiPaymentStatus.NotRequired;
+            poi.IsActive = !paymentRequired;
+            poi.ActivatedAt = paymentRequired ? null : now;
+            poi.ActivatedByUserId = paymentRequired ? null : GetCurrentUserId();
+        }
         poi.ImageUrl = imageUrls.FirstOrDefault();
         poi.ImageUrls = SerializeImageUrls(imageUrls);
         poi.CreatedAt = now;
@@ -117,6 +139,7 @@ public class PoiService : IPoiService
 
         var isVendor = IsCurrentUserVendor();
         ApplyOwnerUserIdForUpdate(poi, request.UserId);
+        EnsureVendorCanEdit(poi);
 
         var hasNewImages = request.Images.Any(image => image.Length > 0) ||
             (request.Image is not null && request.Image.Length > 0);
@@ -129,7 +152,29 @@ public class PoiService : IPoiService
         if (request.Longitude.HasValue) poi.Longitude = request.Longitude.Value;
         if (request.RadiusMeters.HasValue) poi.RadiusMeters = request.RadiusMeters.Value;
         if (request.Priority.HasValue) poi.Priority = request.Priority.Value;
-        if (request.IsActive.HasValue) poi.IsActive = request.IsActive.Value;
+        if (!isVendor && request.PaymentRequired.HasValue)
+        {
+            poi.PaymentRequired = request.PaymentRequired.Value;
+            if (!poi.PaymentRequired && poi.PaymentStatus == PoiPaymentStatus.PendingPayment)
+            {
+                poi.PaymentStatus = PoiPaymentStatus.NotRequired;
+            }
+        }
+
+        if (!isVendor && request.IsActive.HasValue)
+        {
+            if (request.IsActive.Value && !CanActivate(poi))
+            {
+                throw new ValidationException(nameof(request.IsActive), "POI must be approved and paid, waived, or not payment-required before activation.");
+            }
+
+            poi.IsActive = request.IsActive.Value;
+            if (poi.IsActive)
+            {
+                poi.ActivatedAt ??= DateTime.UtcNow;
+                poi.ActivatedByUserId ??= GetCurrentUserId();
+            }
+        }
 
         if (hasNewImages)
         {
@@ -150,7 +195,15 @@ public class PoiService : IPoiService
         if (request.Category is not null) poi.Category = request.Category;
         if (request.CooldownSeconds.HasValue) poi.CooldownSeconds = request.CooldownSeconds.Value;
         if (request.MinDwellSeconds.HasValue) poi.MinDwellSeconds = request.MinDwellSeconds.Value;
-        if (shouldResetApprovalStatus) poi.ApprovalStatus = ApprovalStatus.Pending;
+        if (shouldResetApprovalStatus)
+        {
+            poi.ApprovalStatus = ApprovalStatus.Pending;
+            poi.IsActive = false;
+            poi.PaymentRequired = true;
+            poi.PaymentStatus = PoiPaymentStatus.PendingPayment;
+            poi.ActivatedAt = null;
+            poi.ActivatedByUserId = null;
+        }
 
         poi.Version++;
         poi.UpdatedAt = DateTime.UtcNow;
@@ -165,6 +218,8 @@ public class PoiService : IPoiService
         UpdatePoiApprovalStatusRequest request,
         CancellationToken cancellationToken = default)
     {
+        EnsureCurrentUserIsNotVendor("approve or reject POIs");
+
         if (!Enum.IsDefined(request.ApprovalStatus))
         {
             throw new ValidationException(nameof(request.ApprovalStatus), "Approval status is invalid.");
@@ -174,6 +229,97 @@ public class PoiService : IPoiService
             ?? throw new NotFoundException(nameof(Poi), id);
 
         poi.ApprovalStatus = request.ApprovalStatus;
+        if (request.ApprovalStatus == ApprovalStatus.Approved)
+        {
+            if (poi.PaymentRequired)
+            {
+                if (poi.PaymentStatus is PoiPaymentStatus.Paid or PoiPaymentStatus.Waived)
+                {
+                    poi.IsActive = true;
+                    poi.ActivatedAt ??= DateTime.UtcNow;
+                    poi.ActivatedByUserId ??= GetCurrentUserId();
+                }
+                else
+                {
+                    poi.PaymentStatus = PoiPaymentStatus.PendingPayment;
+                    poi.IsActive = false;
+                    poi.ActivatedAt = null;
+                    poi.ActivatedByUserId = null;
+                }
+            }
+            else
+            {
+                poi.PaymentStatus = PoiPaymentStatus.NotRequired;
+                poi.IsActive = true;
+                poi.ActivatedAt ??= DateTime.UtcNow;
+                poi.ActivatedByUserId ??= GetCurrentUserId();
+            }
+        }
+        else
+        {
+            poi.IsActive = false;
+            poi.ActivatedAt = null;
+            poi.ActivatedByUserId = null;
+        }
+        poi.Version++;
+        poi.UpdatedAt = DateTime.UtcNow;
+
+        _uow.Pois.Update(poi);
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        return _mapper.Map<PoiDto>(poi);
+    }
+
+    public async Task<PoiDto> MarkPaidAsync(
+        int id,
+        int activatedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await ActivateAfterPaymentAsync(
+            id,
+            PoiPaymentStatus.Paid,
+            activatedByUserId,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<PoiDto> WaivePaymentAsync(
+        int id,
+        int activatedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return await ActivateAfterPaymentAsync(
+            id,
+            PoiPaymentStatus.Waived,
+            activatedByUserId,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<PoiDto> ActivateAfterPaymentAsync(
+        int id,
+        PoiPaymentStatus paymentStatus,
+        int activatedByUserId,
+        CancellationToken cancellationToken)
+    {
+        EnsureCurrentUserIsNotVendor("activate POI payments");
+
+        if (paymentStatus is not (PoiPaymentStatus.Paid or PoiPaymentStatus.Waived))
+        {
+            throw new ValidationException(nameof(paymentStatus), "Payment status must be Paid or Waived.");
+        }
+
+        var poi = await _uow.Pois.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Poi), id);
+
+        if (poi.ApprovalStatus != ApprovalStatus.Approved)
+        {
+            throw new ValidationException(nameof(poi.ApprovalStatus), "Only approved POIs can be activated.");
+        }
+
+        poi.PaymentRequired = paymentStatus == PoiPaymentStatus.Paid;
+        poi.PaymentStatus = paymentStatus;
+        poi.IsActive = true;
+        poi.ActivatedAt = DateTime.UtcNow;
+        poi.ActivatedByUserId = activatedByUserId;
         poi.Version++;
         poi.UpdatedAt = DateTime.UtcNow;
 
@@ -185,6 +331,8 @@ public class PoiService : IPoiService
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
+        EnsureCurrentUserIsNotVendor("delete POIs");
+
         var poi = await _uow.Pois.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Poi), id);
 
@@ -196,6 +344,8 @@ public class PoiService : IPoiService
 
     public async Task RestoreAsync(int id, CancellationToken cancellationToken = default)
     {
+        EnsureCurrentUserIsNotVendor("restore POIs");
+
         var poi = await _uow.Pois.GetByIdAsync(id, includeDeleted: true, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Poi), id);
 
@@ -234,6 +384,47 @@ public class PoiService : IPoiService
         return int.TryParse(value, out var userId) ? userId : null;
     }
 
+    private int GetRequiredCurrentUserId(string action)
+    {
+        return GetCurrentUserId()
+            ?? throw new UnauthorizedException($"Current user id is required to {action}.");
+    }
+
+    private void EnsureVendorCanView(Poi? poi)
+    {
+        if (poi is null || !IsCurrentUserVendor())
+        {
+            return;
+        }
+
+        var currentUserId = GetRequiredCurrentUserId("view this POI");
+        if (poi.UserId != currentUserId)
+        {
+            throw new UnauthorizedException("You are not allowed to view this POI.");
+        }
+    }
+
+    private void EnsureVendorCanEdit(Poi poi)
+    {
+        if (!IsCurrentUserVendor())
+        {
+            return;
+        }
+
+        if (poi.ApprovalStatus == ApprovalStatus.Approved)
+        {
+            throw new UnauthorizedException("Approved POIs cannot be edited by vendors.");
+        }
+    }
+
+    private void EnsureCurrentUserIsNotVendor(string action)
+    {
+        if (IsCurrentUserVendor())
+        {
+            throw new UnauthorizedException($"Vendors are not allowed to {action}.");
+        }
+    }
+
     private int? ResolveOwnerUserIdForCreate(int? requestedUserId)
     {
         return IsCurrentUserVendor()
@@ -264,6 +455,10 @@ public class PoiService : IPoiService
 
     private static int? NormalizeOwnerUserId(int? userId) =>
         userId.GetValueOrDefault() > 0 ? userId : null;
+
+    private static bool CanActivate(Poi poi) =>
+        poi.ApprovalStatus == ApprovalStatus.Approved &&
+        (!poi.PaymentRequired || poi.PaymentStatus is PoiPaymentStatus.NotRequired or PoiPaymentStatus.Paid or PoiPaymentStatus.Waived);
 
     private static bool HasApprovalSensitiveUpdate(Poi poi, UpdatePoiRequest request, bool hasNewImages)
     {

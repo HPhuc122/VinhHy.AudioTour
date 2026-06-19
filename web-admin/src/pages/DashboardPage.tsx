@@ -24,14 +24,21 @@ const poiMarkerIcon = L.divIcon({
   popupAnchor: [0, -8],
 });
 
+const ownedPoiMarkerIcon = L.divIcon({
+  className: '',
+  html: '<span style="display:block;width:22px;height:22px;border-radius:9999px;background:#f59e0b;border:4px solid #ffffff;box-shadow:0 4px 14px rgba(245,158,11,.55);"></span>',
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -10],
+});
+
 export function DashboardPage() {
   const { user } = useAuth();
   const isVendor = user?.role === ROLE_VENDOR;
   const dashboardQuery = useDashboardStatsQuery({ enabled: !isVendor });
   const poisQuery = useQuery({
-    queryKey: ['dashboard', 'poi-map'],
+    queryKey: ['dashboard', 'poi-map', isVendor],
     queryFn: () => poisApi.getAll({ page: 1, pageSize: 500 }),
-    enabled: !isVendor,
   });
   const vendorImagesAll = useMediaQuery(
     { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'all' },
@@ -67,7 +74,10 @@ export function DashboardPage() {
   );
   const stats = dashboardQuery.data;
   const errorMessage = getErrorMessage(dashboardQuery.error);
-  const poiPoints = useMemo(() => getPoiMapPoints(poisQuery.data?.items ?? []), [poisQuery.data]);
+  const poiPoints = useMemo(
+    () => getPoiMapPoints(poisQuery.data?.items ?? [], user?.userId),
+    [poisQuery.data, user?.userId],
+  );
 
   if (isVendor) {
     const isLoading =
@@ -99,6 +109,31 @@ export function DashboardPage() {
           <DashboardCard label="Thuyết minh từ chối" value={vendorNarrationsRejected.data?.totalCount} isLoading={isLoading} />
           <DashboardCard label="Đã tạo âm thanh" value={vendorNarrationsAudio.data?.totalCount} isLoading={isLoading} />
         </div>
+
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Bản đồ sạp của bạn</h2>
+            <p className="text-sm text-gray-500">
+              Các điểm màu vàng là POI/sạp thuộc tài khoản vendor hiện tại.
+            </p>
+          </div>
+
+          {getErrorMessage(poisQuery.error) ? (
+            <Alert variant="error" message={getErrorMessage(poisQuery.error) ?? ''} />
+          ) : null}
+
+          <Card className="overflow-hidden p-0">
+            <div className="relative h-[360px] w-full">
+              {poisQuery.isLoading ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                  Đang tải bản đồ sạp...
+                </div>
+              ) : (
+                <PoiDashboardMap points={poiPoints} />
+              )}
+            </div>
+          </Card>
+        </section>
       </section>
     );
   }
@@ -205,6 +240,7 @@ interface PoiMapPoint {
   name: string;
   category?: string | null;
   isActive: boolean;
+  isOwned: boolean;
   latitude: number;
   longitude: number;
 }
@@ -220,7 +256,7 @@ function PoiDashboardMap({ points }: { points: PoiMapPoint[] }) {
       <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
       <FitPoiBounds points={points} />
       {points.map((poi) => (
-        <Marker key={poi.id} position={[poi.latitude, poi.longitude]} icon={poiMarkerIcon}>
+        <Marker key={poi.id} position={[poi.latitude, poi.longitude]} icon={poi.isOwned ? ownedPoiMarkerIcon : poiMarkerIcon}>
           <Popup>
             <div className="min-w-40 text-sm">
               <p className="font-semibold text-gray-900">{poi.name || poi.code}</p>
@@ -265,7 +301,7 @@ function FitPoiBounds({ points }: { points: PoiMapPoint[] }) {
   return null;
 }
 
-function getPoiMapPoints(pois: PoiDto[]): PoiMapPoint[] {
+function getPoiMapPoints(pois: PoiDto[], currentUserId?: number): PoiMapPoint[] {
   return pois.reduce<PoiMapPoint[]>((points, poi) => {
     const latitude = parseCoordinate(poi.latitude);
     const longitude = parseCoordinate(poi.longitude);
@@ -280,6 +316,7 @@ function getPoiMapPoints(pois: PoiDto[]): PoiMapPoint[] {
       name: poi.name || poi.displayName || poi.code,
       category: poi.category,
       isActive: poi.isActive,
+      isOwned: Boolean(currentUserId && poi.userId === currentUserId),
       latitude,
       longitude,
     });

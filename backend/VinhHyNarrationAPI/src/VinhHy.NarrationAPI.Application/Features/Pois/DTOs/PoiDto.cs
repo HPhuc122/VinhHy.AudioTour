@@ -30,6 +30,14 @@ public class PoiDto
 
     public bool IsActive { get; set; }
 
+    public bool PaymentRequired { get; set; }
+
+    public PoiPaymentStatus PaymentStatus { get; set; }
+
+    public DateTime? ActivatedAt { get; set; }
+
+    public int? ActivatedByUserId { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public IReadOnlyList<string> ImageUrls { get; set; } = [];

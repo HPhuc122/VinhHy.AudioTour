@@ -147,8 +147,7 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                 table: "MediaFiles",
                 column: "ReviewedByUserId",
                 principalTable: "Users",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+                principalColumn: "Id");
         }
 
         /// <inheritdoc />

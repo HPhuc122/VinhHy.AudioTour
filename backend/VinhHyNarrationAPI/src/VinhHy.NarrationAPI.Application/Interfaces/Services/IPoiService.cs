@@ -33,6 +33,16 @@ public interface IPoiService
         UpdatePoiApprovalStatusRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<PoiDto> MarkPaidAsync(
+        int id,
+        int activatedByUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<PoiDto> WaivePaymentAsync(
+        int id,
+        int activatedByUserId,
+        CancellationToken cancellationToken = default);
+
     Task DeleteAsync(int id, CancellationToken cancellationToken = default);
 
     Task RestoreAsync(int id, CancellationToken cancellationToken = default);

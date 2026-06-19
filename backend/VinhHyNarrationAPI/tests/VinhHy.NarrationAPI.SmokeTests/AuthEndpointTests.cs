@@ -75,7 +75,7 @@ public class AuthEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/users")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/roles")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/qr")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/pois")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/api/v1/pois")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await _client.GetAsync("/api/v1/tours")).StatusCode);
 
         using var audioUpload = new MultipartFormDataContent();

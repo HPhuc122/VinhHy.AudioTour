@@ -17,10 +17,12 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { ROLE_VENDOR } from '@/features/auth/roleAccess';
 
 const ADMIN_ROLES = ['Admin', 'SuperAdmin'];
 const CONTENT_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'TourOperator'];
 const MEDIA_ROLES = ['Admin', 'SuperAdmin', 'ContentAdmin', 'Vendor'];
+const VENDOR_ROLES = [ROLE_VENDOR];
 
 export function AppRoutes() {
   return (
@@ -40,6 +42,9 @@ export function AppRoutes() {
               <Route path={routes.qrCreate} element={<QrCreatePage />} />
               <Route path={routes.qrEdit} element={<QrEditPage />} />
               <Route path={routes.pois} element={<PoiPage />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={VENDOR_ROLES} />}>
+              <Route path={routes.registerPoi} element={<PoiPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={MEDIA_ROLES} />}>
               <Route path={routes.media} element={<MediaLibraryPage />} />

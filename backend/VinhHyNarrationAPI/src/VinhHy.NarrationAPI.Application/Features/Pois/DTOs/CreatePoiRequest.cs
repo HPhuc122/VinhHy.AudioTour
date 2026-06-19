@@ -25,6 +25,8 @@ public class CreatePoiRequest
 
     public bool IsActive { get; set; } = true;
 
+    public bool? PaymentRequired { get; set; }
+
     public IFormFile? Image { get; set; }
 
     public List<IFormFile> Images { get; set; } = [];
