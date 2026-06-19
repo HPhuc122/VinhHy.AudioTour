@@ -14,7 +14,7 @@ export function ProtectedAudioPlayer({
   onUnauthorized,
 }: ProtectedAudioPlayerProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'required' | 'expired' | 'forbidden' | 'missing'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'required' | 'expired' | 'forbidden' | 'missing' | 'unknown'>('loading');
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -54,8 +54,10 @@ export function ProtectedAudioPlayer({
           onUnauthorized?.();
         } else if (statusCode === 403) {
           setStatus('forbidden');
-        } else {
+        } else if (statusCode === 404) {
           setStatus('missing');
+        } else {
+          setStatus('unknown');
         }
       }
     }
@@ -94,7 +96,11 @@ function getStatusMessage(status: string): string {
     case 'expired':
       return 'GuestAccessPass đã hết hạn hoặc không hợp lệ.';
     case 'forbidden':
-      return 'GuestAccessPass không thuộc POI này.';
+      return 'GuestAccessPass không áp dụng cho POI này.';
+    case 'missing':
+      return 'Audio chưa khả dụng hoặc địa điểm không còn công khai.';
+    case 'unknown':
+      return 'Không thể tải audio. Vui lòng thử lại sau.';
     default:
       return 'Audio đang được cập nhật.';
   }

@@ -7,8 +7,9 @@ import { toursApi } from '../../api/toursApi';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
 import { ROUTES } from '../../routes/routeConstants';
-import type { PoiDto } from '../../types/api';
+import type { PublicPoiDto } from '../../types/api';
 import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
+import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/audioTourErrors';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
@@ -33,7 +34,7 @@ export function MapPage({ lang }: Props) {
   const [searchParams] = useSearchParams();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
-  const [selectedPoi, setSelectedPoi] = useState<PoiDto | null>(null);
+  const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [clientExpired, setClientExpired] = useState(false);
 
@@ -101,7 +102,7 @@ export function MapPage({ lang }: Props) {
 
       const pois = tourDetail ? tourDetail.pois : poisData.items;
 
-      pois.forEach((poi: PoiDto, index: number) => {
+      pois.forEach((poi: PublicPoiDto, index: number) => {
         const style = getCategoryStyle(poi.category);
         const marker = L.marker([poi.latitude, poi.longitude], {
           icon: L.divIcon({
@@ -140,7 +141,7 @@ export function MapPage({ lang }: Props) {
       });
 
       if (tourDetail && tourDetail.pois.length > 1) {
-        const latlngs = tourDetail.pois.map((p: PoiDto) => [p.latitude, p.longitude] as [number, number]);
+        const latlngs = tourDetail.pois.map((p: PublicPoiDto) => [p.latitude, p.longitude] as [number, number]);
         L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
         map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
       }
@@ -165,7 +166,7 @@ export function MapPage({ lang }: Props) {
 
         <div className="flex-1 overflow-y-auto">
           {isLoading ? <Spinner /> : (
-            listedPois.map((poi: PoiDto, i: number) => (
+            listedPois.map((poi: PublicPoiDto, i: number) => (
               <button
                 key={poi.id}
                 onClick={() => {
@@ -224,7 +225,7 @@ function PublicPoiInfoPanel({
   onClose,
   onExpired,
 }: {
-  poi: PoiDto;
+  poi: PublicPoiDto;
   accessRecord: GuestAccessRecord | null;
   audioTourQuery: ReturnType<typeof useQuery>;
   clientExpired: boolean;
@@ -271,8 +272,18 @@ function PublicPoiInfoPanel({
           />
         ) : audioTourQuery.isLoading ? (
           <Spinner />
-        ) : audioTourQuery.isError || !audioTourQuery.data ? (
-          <AccessExpiredPanel message="GuestAccessPass is invalid, expired, or not valid for this POI." />
+        ) : audioTourQuery.isError ? (
+          getAudioTourErrorKind(audioTourQuery.error) === 'unauthorized' ? (
+            <AccessExpiredPanel />
+          ) : (
+            <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">
+              {getAudioTourErrorMessage(getAudioTourErrorKind(audioTourQuery.error))}
+            </div>
+          )
+        ) : !audioTourQuery.data ? (
+          <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">
+            {getAudioTourErrorMessage('notfound')}
+          </div>
         ) : (
           <div className="space-y-3">
             {(audioTourQuery.data as any).audioTracks?.some((track: any) => track.isAvailable) ? (
@@ -314,7 +325,7 @@ function getCategoryStyle(category?: string | null) {
   return CATEGORY_STYLES[hash % CATEGORY_STYLES.length];
 }
 
-function getPoiHoverHtml(poi: PoiDto): string {
+function getPoiHoverHtml(poi: PublicPoiDto): string {
   return `
     <div style="max-width:240px;text-align:left;">
       <div style="font-weight:700;color:#111827;">${escapeHtml(poi.name || poi.code)}</div>

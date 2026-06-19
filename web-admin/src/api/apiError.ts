@@ -35,7 +35,17 @@ export function toApiClientError(error: unknown): ApiClientError {
 }
 
 export function extractApiError(error: unknown): string {
-  return toApiClientError(error).message;
+  const clientError = toApiClientError(error);
+  if (clientError.errors) {
+    const fieldMessages = Object.values(clientError.errors)
+      .flat()
+      .filter((message) => message.trim().length > 0);
+    if (fieldMessages.length > 0) {
+      return fieldMessages.join(' ');
+    }
+  }
+
+  return clientError.message;
 }
 
 function isAxiosApiError(

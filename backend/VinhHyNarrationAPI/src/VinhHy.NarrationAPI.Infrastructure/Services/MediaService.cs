@@ -186,6 +186,11 @@ public class MediaService : IMediaService
             throw new ValidationException(nameof(id), "Only image media can use approval workflow.");
         }
 
+        if (mediaFile.ApprovalStatus != ApprovalStatuses.Pending)
+        {
+            throw new ValidationException(nameof(id), "Only pending images can be approved.");
+        }
+
         mediaFile.ApprovalStatus = ApprovalStatuses.Approved;
         mediaFile.ReviewedByUserId = reviewerUserId;
         mediaFile.ReviewedAt = DateTime.UtcNow;
@@ -213,6 +218,11 @@ public class MediaService : IMediaService
         if (mediaFile.FileType != "image")
         {
             throw new ValidationException(nameof(id), "Only image media can use approval workflow.");
+        }
+
+        if (mediaFile.ApprovalStatus != ApprovalStatuses.Pending)
+        {
+            throw new ValidationException(nameof(id), "Only pending images can be rejected.");
         }
 
         mediaFile.ApprovalStatus = ApprovalStatuses.Rejected;

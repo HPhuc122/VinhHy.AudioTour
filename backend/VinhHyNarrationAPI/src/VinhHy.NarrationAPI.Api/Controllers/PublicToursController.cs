@@ -13,16 +13,22 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 public class PublicToursController(ITourService tourService) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetPaged([FromQuery] TourListFilter filter, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] TourListFilter filter,
+        [FromQuery] string? lang = null,
+        CancellationToken cancellationToken = default)
     {
-        var result = await tourService.GetPublicPagedAsync(filter, cancellationToken);
+        var result = await tourService.GetPublicPagedAsync(filter, lang, cancellationToken);
         return this.ApiOk(result);
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetById(
+        int id,
+        [FromQuery] string? lang = null,
+        CancellationToken cancellationToken = default)
     {
-        var tour = await tourService.GetPublicByIdAsync(id, cancellationToken);
+        var tour = await tourService.GetPublicByIdAsync(id, lang, cancellationToken);
         if (tour is null)
         {
             throw new NotFoundException("Tour", id);

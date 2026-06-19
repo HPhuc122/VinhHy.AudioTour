@@ -219,6 +219,8 @@ public class PublicAccessService : IPublicAccessService
         var (_, response) = await RequireActivePassAsync(accessToken, cancellationToken)
             .ConfigureAwait(false);
 
+        await EnsurePoiIsPubliclyAvailableAsync(poiId, cancellationToken).ConfigureAwait(false);
+
         if (!response.PoiId.HasValue && !response.TourId.HasValue)
         {
             return response;
@@ -253,8 +255,24 @@ public class PublicAccessService : IPublicAccessService
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(AudioTrack), audioTrackId);
 
+        if (!track.IsActive)
+        {
+            throw new NotFoundException(nameof(AudioTrack), audioTrackId);
+        }
+
+        await EnsurePoiIsPubliclyAvailableAsync(track.POIId, cancellationToken).ConfigureAwait(false);
+
         return await ValidateAccessForPoiAsync(accessToken, track.POIId, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async Task EnsurePoiIsPubliclyAvailableAsync(int poiId, CancellationToken cancellationToken)
+    {
+        var poi = await _uow.Pois.GetByIdAsync(poiId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (poi is null || !PoiAvailability.IsPubliclyAvailable(poi, DateTime.UtcNow))
+        {
+            throw new NotFoundException("POI", poiId);
+        }
     }
 
     private static void ValidateQrPaymentConfig(QrLocation qr)

@@ -11,10 +11,14 @@ public interface ITourService
         TourListFilter filter,
         CancellationToken cancellationToken = default);
 
-    Task<PublicTourDto?> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<PublicTourDto?> GetPublicByIdAsync(
+        int id,
+        string? languageCode = null,
+        CancellationToken cancellationToken = default);
 
     Task<PagedResult<PublicTourDto>> GetPublicPagedAsync(
         TourListFilter filter,
+        string? languageCode = null,
         CancellationToken cancellationToken = default);
 
     Task<TourDto> CreateAsync(CreateTourRequest request, CancellationToken cancellationToken = default);

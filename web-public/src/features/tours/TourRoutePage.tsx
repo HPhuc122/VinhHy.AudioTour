@@ -10,6 +10,7 @@ import { AccessCountdown } from '../access/AccessCountdown';
 import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
+import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/audioTourErrors';
 
 interface Props {
   lang: Lang;
@@ -73,9 +74,21 @@ export function TourRoutePage({ lang }: Props) {
   }
 
   if (audioTourQuery.isError || !audioTourQuery.data) {
+    const errorKind = audioTourQuery.isError
+      ? getAudioTourErrorKind(audioTourQuery.error)
+      : 'notfound';
+
     return (
       <div className="mx-auto max-w-xl px-4 py-24">
-        <AccessExpiredPanel message="GuestAccessPass không hợp lệ, đã hết hạn hoặc không thuộc tour này. Vui lòng quét lại mã QR phù hợp." />
+        {errorKind === 'unauthorized' ? (
+          <AccessExpiredPanel />
+        ) : (
+          <div className="rounded-2xl border border-gray-700 bg-gray-800 p-6 text-center">
+            <p className="text-sm leading-relaxed text-gray-300">
+              {getAudioTourErrorMessage(errorKind)}
+            </p>
+          </div>
+        )}
       </div>
     );
   }

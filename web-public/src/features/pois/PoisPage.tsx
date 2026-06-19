@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { poisApi } from '../../api/poisApi';
+import { poisApi, mapPublicCategory } from '../../api/poisApi';
 import { PoiCard } from '../../components/ui/PoiCard';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
@@ -14,14 +14,14 @@ export function PoisPage({ lang }: Props) {
   const [category, setCategory] = useState('Tất cả');
   const PAGE_SIZE = 9;
 
+  const apiCategory = mapPublicCategory(category);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['pois', lang, page, PAGE_SIZE],
-    queryFn: () => poisApi.getAll(page, PAGE_SIZE, lang),
+    queryKey: ['pois', lang, page, PAGE_SIZE, apiCategory],
+    queryFn: () => poisApi.getAll(page, PAGE_SIZE, lang, apiCategory),
   });
 
-  const filtered = category === 'Tất cả'
-    ? data?.items ?? []
-    : (data?.items ?? []).filter(p => p.category?.toLowerCase() === category.toLowerCase());
+  const items = data?.items ?? [];
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -53,12 +53,12 @@ export function PoisPage({ lang }: Props) {
         <Spinner />
       ) : isError ? (
         <div className="text-center py-20 text-gray-500">Không thể tải danh sách địa điểm</div>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="text-center py-20 text-gray-500">Không có địa điểm nào</div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((poi) => <PoiCard key={poi.id} poi={poi} />)}
+            {items.map((poi) => <PoiCard key={poi.id} poi={poi} />)}
           </div>
 
           {/* Pagination */}

@@ -11,6 +11,7 @@ import { AccessCountdown } from '../access/AccessCountdown';
 import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
+import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/audioTourErrors';
 
 interface Props { lang: Lang; }
 
@@ -118,8 +119,18 @@ export function PoiDetailPage({ lang }: Props) {
               />
             ) : audioTourQuery.isLoading ? (
               <Spinner />
-            ) : audioTourQuery.isError || !audioTourQuery.data ? (
-              <AccessExpiredPanel message="GuestAccessPass không hợp lệ, đã hết hạn hoặc không thuộc địa điểm này." />
+            ) : audioTourQuery.isError ? (
+              audioTourQuery.error && getAudioTourErrorKind(audioTourQuery.error) === 'unauthorized' ? (
+                <AccessExpiredPanel />
+              ) : (
+                <div className="rounded-lg bg-gray-900 p-3 text-xs text-gray-400">
+                  {getAudioTourErrorMessage(getAudioTourErrorKind(audioTourQuery.error))}
+                </div>
+              )
+            ) : !audioTourQuery.data ? (
+              <div className="rounded-lg bg-gray-900 p-3 text-xs text-gray-400">
+                {getAudioTourErrorMessage('notfound')}
+              </div>
             ) : (
               <div className="space-y-4">
                 <AccessCountdown expiresAt={accessRecord.expiresAt} onExpired={handleExpired} />

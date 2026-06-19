@@ -1,37 +1,67 @@
 /**
- * Utility for building URLs to backend static assets
- * 
- * The backend serves static files from wwwroot/uploads/*
- * This utility prepends the backend base URL to relative paths
- * so they can be accessed from the frontend running on a different port.
+ * Builds URLs for backend-protected media assets.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000';
 
-/**
- * Builds a complete URL for a backend static asset
- * @param relativePath - The relative path from wwwroot (e.g., "/uploads/pois/guid-name.jpg")
- * @returns Full URL to the asset (e.g., "http://localhost:5000/uploads/pois/guid-name.jpg")
- */
-export const buildAssetUrl = (relativePath: string | null | undefined): string | null => {
+export function buildCmsMediaStreamUrl(mediaId: number): string {
+  return `${BASE_URL}/api/v1/cms/media/images/${mediaId}/stream`;
+}
+
+export function buildCmsPoiAssetStreamUrl(poiId: number, relativePath: string): string {
+  const normalizedPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const params = new URLSearchParams({
+    poiId: String(poiId),
+    relativePath: normalizedPath,
+  });
+  return `${BASE_URL}/api/v1/cms/media/poi-assets/stream?${params.toString()}`;
+}
+
+export function buildAssetUrl(relativePath: string | null | undefined): string | null {
   if (!relativePath) {
     return null;
   }
 
-  // If the path already includes the full URL, return as-is
   if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
     return relativePath;
   }
 
-  // Ensure path starts with /
+  if (relativePath.includes('/api/v1/cms/media/') || relativePath.includes('/api/v1/public/media/')) {
+    const normalizedPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
+    return `${BASE_URL}${normalizedPath}`;
+  }
+
   const normalizedPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-
   return `${BASE_URL}${normalizedPath}`;
-};
+}
 
-/**
- * Alternative name for the same function (common naming convention)
- */
+export function isCmsProtectedAssetUrl(url: string | null | undefined): boolean {
+  return Boolean(url?.includes('/api/v1/cms/media/'));
+}
+
+export function buildPoiImageUrl(
+  poiId: number,
+  imageUrl: string | null | undefined,
+): string | null {
+  if (!imageUrl) {
+    return null;
+  }
+
+  if (imageUrl.includes('/api/v1/cms/media/') || imageUrl.includes('/api/v1/public/media/')) {
+    return buildAssetUrl(imageUrl);
+  }
+
+  const pathOnly = imageUrl
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\//, '');
+
+  if (pathOnly.startsWith('uploads/images/') || pathOnly.startsWith('uploads/pois/')) {
+    return buildCmsPoiAssetStreamUrl(poiId, pathOnly);
+  }
+
+  return buildAssetUrl(imageUrl);
+}
+
 export const getAssetUrl = buildAssetUrl;
 
 export default buildAssetUrl;

@@ -2,7 +2,7 @@ import { httpClient } from './httpClient';
 import type {
   ApiResponse,
   PagedResult,
-  PoiDto,
+  PublicPoiDto,
   PublicTourDto,
   TourDetailDto,
   TourDto,
@@ -31,15 +31,14 @@ function mapTour(tour: PublicTourDto, lang: string): TourDto {
   };
 }
 
-function mapPoi(stop: PublicTourDto['pois'][number]): PoiDto {
+function mapPoi(stop: PublicTourDto['pois'][number]): PublicPoiDto {
   return {
     id: stop.poiId,
     code: stop.poiCode ?? String(stop.poiId),
     latitude: stop.latitude,
     longitude: stop.longitude,
-    radiusMeters: null,
+    radiusMeters: stop.radiusMeters ?? 30,
     priority: stop.orderIndex,
-    isActive: true,
     imageUrl: stop.imageUrl ?? null,
     category: stop.category ?? null,
     name: stop.poiName ?? stop.poiCode ?? `Stop ${stop.orderIndex}`,
@@ -58,13 +57,15 @@ function mapTourDetail(tour: PublicTourDto, lang: string): TourDetailDto {
 export const toursApi = {
   async getAll(lang = 'vi'): Promise<TourDto[]> {
     const res = await httpClient.get<ApiResponse<PagedResult<PublicTourDto>>>('/public/tours', {
-      params: { page: 1, pageSize: 50 },
+      params: { page: 1, pageSize: 50, lang },
     });
     return res.data.data.items.map((tour) => mapTour(tour, lang));
   },
 
   async getById(id: number, lang = 'vi'): Promise<TourDetailDto> {
-    const res = await httpClient.get<ApiResponse<PublicTourDto>>(`/public/tours/${id}`);
+    const res = await httpClient.get<ApiResponse<PublicTourDto>>(`/public/tours/${id}`, {
+      params: { lang },
+    });
     return mapTourDetail(res.data.data, lang);
   },
 };

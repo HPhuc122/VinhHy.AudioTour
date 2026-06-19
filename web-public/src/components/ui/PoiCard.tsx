@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import type { PoiDto } from '../../types/api';
+import type { PublicPoiDto } from '../../types/api';
 import { ROUTES } from '../../routes/routeConstants';
 
 interface Props {
-  poi: PoiDto;
+  poi: PublicPoiDto;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VinhHy.NarrationAPI.Api.Authorization;
 using VinhHy.NarrationAPI.Api.Extensions;
 using VinhHy.NarrationAPI.Application.Features.Sync.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
@@ -8,7 +9,7 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/sync")]
-[Authorize]
+[Authorize(Roles = RoleGroups.AdminOrTourOrContent)]
 public class SyncController(ISyncService syncService) : ControllerBase
 {
     [HttpPost("pull")]

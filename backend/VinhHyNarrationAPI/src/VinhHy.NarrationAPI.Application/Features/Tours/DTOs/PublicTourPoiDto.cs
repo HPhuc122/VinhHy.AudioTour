@@ -20,6 +20,8 @@ public class PublicTourPoiDto
 
     public decimal Longitude { get; set; }
 
+    public decimal RadiusMeters { get; set; }
+
     public string? ImageUrl { get; set; }
 
     public string? Category { get; set; }

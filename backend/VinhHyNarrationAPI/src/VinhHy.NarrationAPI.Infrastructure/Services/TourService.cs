@@ -15,12 +15,18 @@ public class TourService : ITourService
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
+    private readonly IPublicPoiService _publicPoiService;
 
-    public TourService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete)
+    public TourService(
+        IUnitOfWork uow,
+        IMapper mapper,
+        SoftDeleteService softDelete,
+        IPublicPoiService publicPoiService)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
+        _publicPoiService = publicPoiService;
     }
 
     public async Task<TourDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -48,7 +54,10 @@ public class TourService : ITourService
             total);
     }
 
-    public async Task<PublicTourDto?> GetPublicByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<PublicTourDto?> GetPublicByIdAsync(
+        int id,
+        string? languageCode = null,
+        CancellationToken cancellationToken = default)
     {
         var tour = await _uow.Tours.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (tour is null || !tour.IsActive)
@@ -56,11 +65,12 @@ public class TourService : ITourService
             return null;
         }
 
-        return MapPublicTour(tour, DateTime.UtcNow);
+        return await MapPublicTourAsync(tour, DateTime.UtcNow, languageCode, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<PagedResult<PublicTourDto>> GetPublicPagedAsync(
         TourListFilter filter,
+        string? languageCode = null,
         CancellationToken cancellationToken = default)
     {
         var page = filter.NormalizedPage;
@@ -72,11 +82,13 @@ public class TourService : ITourService
             cancellationToken).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
-        return PagedResult<PublicTourDto>.Create(
-            items.Select(tour => MapPublicTour(tour, now)).ToArray(),
-            page,
-            pageSize,
-            total);
+        var mapped = new List<PublicTourDto>(items.Count);
+        foreach (var tour in items)
+        {
+            mapped.Add(await MapPublicTourAsync(tour, now, languageCode, cancellationToken).ConfigureAwait(false));
+        }
+
+        return PagedResult<PublicTourDto>.Create(mapped, page, pageSize, total);
     }
 
     public async Task<TourDto> CreateAsync(
@@ -350,8 +362,21 @@ public class TourService : ITourService
         throw new ValidationException(nameof(Tour.Code), "Unable to generate a unique tour code.");
     }
 
-    private static PublicTourDto MapPublicTour(Tour tour, DateTime now)
+    private async Task<PublicTourDto> MapPublicTourAsync(
+        Tour tour,
+        DateTime now,
+        string? languageCode,
+        CancellationToken cancellationToken)
     {
+        var availableTourPois = PoiAvailability
+            .GetPubliclyAvailableTourPois(tour.TourPois, now)
+            .ToArray();
+        var imageUrls = await _publicPoiService
+            .GetPrimaryApprovedImageUrlsAsync(
+                availableTourPois.Select(tourPoi => tourPoi.POIId).ToArray(),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return new PublicTourDto
         {
             Id = tour.Id,
@@ -370,20 +395,23 @@ public class TourService : ITourService
                     Description = t.Description
                 })
                 .ToArray(),
-            Pois = PoiAvailability
-                .GetPubliclyAvailableTourPois(tour.TourPois, now)
-                .Select(MapPublicTourPoi)
+            Pois = availableTourPois
+                .Select(tourPoi => MapPublicTourPoi(tourPoi, languageCode, imageUrls))
                 .ToArray()
         };
     }
 
-    private static PublicTourPoiDto MapPublicTourPoi(TourPoi tourPoi)
+    private static PublicTourPoiDto MapPublicTourPoi(
+        TourPoi tourPoi,
+        string? languageCode,
+        IReadOnlyDictionary<int, string?> imageUrls)
     {
         var poi = tourPoi.Poi;
-        var translation = poi.Translations
-            .OrderBy(t => t.LanguageCode == "vi" ? 0 : 1)
-            .ThenBy(t => t.LanguageCode)
-            .FirstOrDefault();
+        var normalizedLanguage = string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim();
+        var translation = poi.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
+            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi")
+            ?? poi.Translations.OrderBy(t => t.LanguageCode).FirstOrDefault();
+        imageUrls.TryGetValue(poi.Id, out var imageUrl);
 
         return new PublicTourPoiDto
         {
@@ -391,12 +419,13 @@ public class TourService : ITourService
             TourId = tourPoi.TourId,
             POIId = tourPoi.POIId,
             PoiCode = poi.Code,
-            PoiName = translation?.Name ?? poi.Code,
+            PoiName = translation?.Name ?? (string.IsNullOrWhiteSpace(poi.Name) ? poi.Code : poi.Name),
             PoiDescription = translation?.Description,
             PoiShortDescription = translation?.ShortDescription,
             Latitude = poi.Latitude,
             Longitude = poi.Longitude,
-            ImageUrl = poi.ImageUrl,
+            RadiusMeters = poi.RadiusMeters,
+            ImageUrl = imageUrl,
             Category = poi.Category,
             HasAudio = poi.AudioTracks.Any(a => a.DeletedAt == null && a.IsActive),
             OrderIndex = tourPoi.OrderIndex

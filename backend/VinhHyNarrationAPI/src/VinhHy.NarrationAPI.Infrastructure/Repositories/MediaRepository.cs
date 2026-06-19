@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VinhHy.NarrationAPI.Application.Interfaces;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
@@ -140,6 +141,28 @@ public class MediaRepository : IMediaRepository
             .Include(m => m.Poi)
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken)
             .ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<MediaFile>> GetApprovedImagesByPoiIdsAsync(
+        IReadOnlyCollection<int> poiIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (poiIds.Count == 0)
+        {
+            return [];
+        }
+
+        return await Query(includeDeleted: false)
+            .AsNoTracking()
+            .Include(m => m.Poi)
+            .Where(m =>
+                m.FileType == "image" &&
+                m.ApprovalStatus == ApprovalStatuses.Approved &&
+                m.PoiId.HasValue &&
+                poiIds.Contains(m.PoiId.Value))
+            .OrderByDescending(m => m.UploadedAt)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
 
     public async Task AddAsync(MediaFile mediaFile, CancellationToken cancellationToken = default) =>
         await _db.MediaFiles.AddAsync(mediaFile, cancellationToken).ConfigureAwait(false);

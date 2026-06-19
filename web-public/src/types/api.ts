@@ -12,21 +12,25 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
-export interface PoiDto {
+export interface PublicPoiDto {
   id: number;
   code: string;
   latitude: number;
   longitude: number;
-  radiusMeters?: number | null;
-  priority?: number | null;
-  isActive?: boolean | null;
+  radiusMeters: number;
+  priority: number;
   imageUrl: string | null;
+  imageUrls?: string[];
   category: string | null;
   name: string;
   description: string;
   shortDescription: string | null;
-  audioUrl?: string | null;
+  cooldownSeconds?: number;
+  minDwellSeconds?: number;
 }
+
+/** @deprecated Use PublicPoiDto — kept for gradual migration in UI components */
+export type PoiDto = PublicPoiDto;
 
 export interface TourTranslationDto {
   id: number;
@@ -46,6 +50,7 @@ export interface PublicTourPoiDto {
   poiShortDescription?: string | null;
   latitude: number;
   longitude: number;
+  radiusMeters: number;
   imageUrl?: string | null;
   category?: string | null;
   hasAudio: boolean;
@@ -72,7 +77,7 @@ export interface TourDto {
 }
 
 export interface TourDetailDto extends TourDto {
-  pois: PoiDto[];
+  pois: PublicPoiDto[];
 }
 
 export interface QrDto {

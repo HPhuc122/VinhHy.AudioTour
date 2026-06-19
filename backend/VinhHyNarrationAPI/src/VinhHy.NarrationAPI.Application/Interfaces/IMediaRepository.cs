@@ -29,6 +29,10 @@ public interface IMediaRepository
 
     Task<MediaFile?> GetByIdAsync(int id, bool includeDeleted = false, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<MediaFile>> GetApprovedImagesByPoiIdsAsync(
+        IReadOnlyCollection<int> poiIds,
+        CancellationToken cancellationToken = default);
+
     Task AddAsync(MediaFile mediaFile, CancellationToken cancellationToken = default);
 
     void Update(MediaFile mediaFile);

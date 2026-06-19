@@ -6,6 +6,7 @@ import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-l
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
+import { SecureImage } from '@/components/ui/SecureImage';
 import {
   MAP_ATTRIBUTION,
   MAP_DEFAULT_CENTER,
@@ -20,6 +21,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
 import { useNarrationsQuery } from '@/features/narrations/hooks/useNarrationsQuery';
 import { poisApi, type PoiDto, type PoiListFilter } from '@/features/pois/api/poisApi';
+import { buildPoiImageUrl } from '@/utils/assetUrl';
 
 const LIFECYCLE_PENDING_REVIEW = 0;
 const LIFECYCLE_PENDING_PAYMENT = 2;
@@ -190,7 +192,11 @@ function VendorDashboard({
   const vendorNarrationsApproved = useNarrationsQuery({ page: 1, pageSize: 1, status: 'Approved' });
   const vendorNarrationsAudio = useNarrationsQuery({ page: 1, pageSize: 1, status: 'AudioGenerated' });
   const poiPoints = useMemo(
-    () => getPoiMapPoints(poisMapQuery.data?.items ?? [], currentUserId),
+    () =>
+      getPoiMapPoints(
+        (poisMapQuery.data?.items ?? []).filter((poi) => poi.userId === currentUserId),
+        currentUserId,
+      ),
     [poisMapQuery.data, currentUserId],
   );
   const isLoading = [
@@ -248,7 +254,7 @@ function VendorDashboard({
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Bản đồ sạp của bạn</h2>
           <p className="text-sm text-gray-500">
-            Các điểm màu vàng là POI thuộc tài khoản vendor hiện tại.
+            Các điểm màu cam là POI thuộc tài khoản của bạn.
           </p>
         </div>
 
@@ -473,9 +479,13 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
       <div className="grid gap-0 md:grid-cols-[220px_1fr]">
         <div className="h-44 bg-gray-100 md:h-full">
           {poi.imageUrl ? (
-            <img src={poi.imageUrl} alt={poi.name} className="h-full w-full object-cover" />
+            <SecureImage
+              src={buildPoiImageUrl(poi.id, poi.imageUrl)}
+              alt={poi.name}
+              className="h-full w-full object-cover"
+            />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">No image</div>
+            <div className="flex h-full items-center justify-center text-sm text-gray-400">Chưa có ảnh</div>
           )}
         </div>
         <div className="p-4">
@@ -495,7 +505,7 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
               {formatLifecycleStatus(poi.lifecycleStatus)}
             </span>
             <span className={poi.isActive ? 'rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700' : 'rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-600'}>
-              {poi.isActive ? 'Active' : 'Inactive'}
+                {poi.isActive ? 'Hoạt động' : 'Tạm tắt'}
             </span>
           </div>
 
@@ -578,13 +588,13 @@ function getCategoryStyle(category?: string | null) {
 }
 
 function formatLifecycleStatus(status: number | string): string {
-  if (status === 'PendingReview' || Number(status) === 0) return 'Pending review';
-  if (status === 'Approved' || Number(status) === 1) return 'Approved';
-  if (status === 'PendingPayment' || Number(status) === 2) return 'Pending payment';
-  if (status === 'Active' || Number(status) === 3) return 'Active';
-  if (status === 'Expired' || Number(status) === 4) return 'Expired';
-  if (status === 'Rejected' || Number(status) === 5) return 'Rejected';
-  return String(status || 'Unknown');
+  if (status === 'PendingReview' || Number(status) === 0) return 'Chờ duyệt';
+  if (status === 'Approved' || Number(status) === 1) return 'Đã duyệt';
+  if (status === 'PendingPayment' || Number(status) === 2) return 'Chờ thanh toán';
+  if (status === 'Active' || Number(status) === 3) return 'Đang hoạt động';
+  if (status === 'Expired' || Number(status) === 4) return 'Hết hạn';
+  if (status === 'Rejected' || Number(status) === 5) return 'Từ chối';
+  return String(status || 'Không rõ');
 }
 
 function escapeHtml(value: string): string {

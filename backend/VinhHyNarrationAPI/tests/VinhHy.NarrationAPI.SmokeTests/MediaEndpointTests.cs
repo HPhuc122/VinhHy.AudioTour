@@ -70,6 +70,28 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task CmsPoiAssetStream_StreamsLegacyPoiUploadFromWwwroot()
+    {
+        await AuthenticateAsync();
+
+        using var form = BuildPoiFormWithImage();
+        var createResponse = await _client.PostAsync("/api/v1/pois", form);
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        using var doc = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
+        var data = doc.RootElement.GetProperty("data");
+        var poiId = data.GetProperty("id").GetInt32();
+        var imageUrl = data.GetProperty("imageUrl").GetString()
+            ?? throw new InvalidOperationException("POI response did not include imageUrl.");
+
+        var streamResponse = await _client.GetAsync(
+            $"/api/v1/cms/media/poi-assets/stream?poiId={poiId}&relativePath={Uri.EscapeDataString(imageUrl)}");
+
+        Assert.Equal(HttpStatusCode.OK, streamResponse.StatusCode);
+        Assert.Equal("image/jpeg", streamResponse.Content.Headers.ContentType?.MediaType);
+    }
+
     private async Task<HttpResponseMessage> UploadAsync(
         string fileName,
         string contentType,
@@ -81,6 +103,29 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
         form.Add(fileContent, "file", fileName);
 
         return await _client.PostAsync("/api/v1/media/upload", form);
+    }
+
+    private static MultipartFormDataContent BuildPoiFormWithImage()
+    {
+        var form = new MultipartFormDataContent
+        {
+            { new StringContent($"CMS legacy image POI {Guid.NewGuid():N}"), "Name" },
+            { new StringContent("POI image stream smoke test"), "ShortDescription" },
+            { new StringContent("POI image stream smoke test description"), "Description" },
+            { new StringContent("11.750000"), "Latitude" },
+            { new StringContent("109.180000"), "Longitude" },
+            { new StringContent("30"), "RadiusMeters" },
+            { new StringContent("1"), "Priority" },
+            { new StringContent("smoke-test"), "Category" },
+            { new StringContent("300"), "CooldownSeconds" },
+            { new StringContent("5"), "MinDwellSeconds" }
+        };
+
+        var fileContent = new ByteArrayContent([0xFF, 0xD8, 0xFF, 0xD9]);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        form.Add(fileContent, "Image", "legacy-poi.jpg");
+
+        return form;
     }
 
     private async Task AuthenticateAsync()

@@ -1,10 +1,11 @@
-﻿import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+﻿import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiClientError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { SecureImage } from '@/components/ui/SecureImage';
 import { Select } from '@/components/ui/Select';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { ROLE_VENDOR, isAdminRole } from '@/features/auth/roleAccess';
@@ -126,8 +127,31 @@ export function MediaLibraryPage() {
   const poisQuery = useQuery({
     queryKey: ['library-pois', poiFilter],
     queryFn: () => poisApi.getPois(poiFilter),
-    enabled: activeTab === 'images' || activeTab === 'narrations',
   });
+
+  const poiSelectOptions = useMemo(
+    () => [
+      { value: '', label: 'Chọn POI/sạp...' },
+      ...(poisQuery.data?.items.map((poi) => ({
+        value: String(poi.id),
+        label: `${poi.name || poi.displayName || poi.code} (${poi.code})`,
+      })) ?? []),
+    ],
+    [poisQuery.data?.items],
+  );
+
+  useEffect(() => {
+    if (selectedPoi || !poisQuery.data?.items.length) {
+      return;
+    }
+
+    if (Number.isInteger(requestedPoiId) && requestedPoiId > 0) {
+      const poiFromUrl = poisQuery.data.items.find((poi) => poi.id === requestedPoiId);
+      if (poiFromUrl) {
+        setSelectedPoi(poiFromUrl);
+      }
+    }
+  }, [poisQuery.data?.items, requestedPoiId, selectedPoi]);
   const currentPoi = selectedPoi
     ?? poisQuery.data?.items.find((poi) => Number.isInteger(requestedPoiId) && poi.id === requestedPoiId)
     ?? null;
@@ -301,20 +325,43 @@ export function MediaLibraryPage() {
       ) : null}
       {mutationError ? <Alert variant="error" message={mutationError} /> : null}
 
+      <div className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_280px]">
+        <Input
+          id="poi-search"
+          label="Tìm kiếm POI/sạp"
+          placeholder="Tên hoặc mã POI/sạp"
+          value={imageSearch}
+          onChange={(event) => {
+            setImageSearch(event.target.value);
+            setImagePage(1);
+          }}
+        />
+        <Select
+          id="library-poi-select"
+          label="POI/sạp đang chọn"
+          value={currentPoi ? String(currentPoi.id) : ''}
+          options={poiSelectOptions}
+          onChange={(event) => {
+            const poiId = Number(event.target.value);
+            if (!poiId) {
+              setSelectedPoi(null);
+              return;
+            }
+
+            const poi =
+              poisQuery.data?.items.find((item) => item.id === poiId)
+              ?? (currentPoi?.id === poiId ? currentPoi : null);
+            setSelectedPoi(poi ?? null);
+            setImagePage(1);
+            setNarrationPage(1);
+          }}
+        />
+      </div>
+
       {activeTab === 'images' ? (
         <>
           <div className="app-page-header">
             <div className="grid flex-1 gap-3 md:grid-cols-[1fr_220px]">
-              <Input
-                id="image-search"
-                label="Tìm kiếm POI/sạp"
-                placeholder="Tên hoặc mã POI/sạp"
-                value={imageSearch}
-                onChange={(event) => {
-                  setImageSearch(event.target.value);
-                  setImagePage(1);
-                }}
-              />
               <Select
                 id="image-status-filter"
                 label="Trạng thái ảnh"
@@ -615,7 +662,7 @@ function PoiImagesModal({
   onReject: (media: MediaFileDto) => void;
 }) {
   return (
-    <Modal open={Boolean(poi)} onClose={onClose} title={poi ? `Ảnh của ${poi.name || poi.code}` : 'Ảnh POI'}>
+    <Modal open={Boolean(poi)} onClose={onClose} title={poi ? `Ảnh của ${poi.name || poi.code}` : 'Ảnh POI'} scrollable>
       {poi ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-gray-50 px-4 py-3 text-sm">
@@ -793,7 +840,7 @@ function NarrationForm({
           {poi ? poi.name || poi.displayName || poi.code : 'Chưa chọn POI/sạp'}
         </p>
         <p className="text-xs text-gray-500">
-          {poi ? poi.code : 'Chọn POI/sạp trong thẻ Ảnh hoặc mở từ danh sách POI.'}
+          {poi ? poi.code : 'Chọn POI/sạp ở phần chọn POI phía trên.'}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1175,7 +1222,7 @@ function UploadNarrationAudioModal({
   };
 
   return (
-    <Modal open={Boolean(draft)} onClose={handleClose} title="Tải MP3 cho thuyết minh">
+    <Modal open={Boolean(draft)} onClose={handleClose} title="Tải MP3 cho thuyết minh" scrollable>
       {draft ? (
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
@@ -1243,7 +1290,7 @@ function MediaPreviewModal({
   return (
     <Modal open={Boolean(media)} onClose={onClose} title={media?.originalFileName ?? 'Xem trước'}>
       {media ? (
-        <img
+        <SecureImage
           src={getMediaUrl(media)}
           alt={media.originalFileName}
           className="max-h-[70vh] w-full rounded-md object-contain"

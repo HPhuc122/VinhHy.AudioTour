@@ -110,7 +110,9 @@ try
     Directory.CreateDirectory(uploadsRoot);
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.StartsWithSegments("/uploads/audio", StringComparison.OrdinalIgnoreCase))
+        if (context.Request.Path.StartsWithSegments("/uploads/audio", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/uploads/images", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/uploads/pois", StringComparison.OrdinalIgnoreCase))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;

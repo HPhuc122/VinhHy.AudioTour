@@ -1,9 +1,10 @@
 import type { AxiosInstance } from 'axios';
 import { toApiClientError } from '@/api/apiError';
-import { env } from '@/config/env';
+import { buildCmsMediaStreamUrl } from '@/utils/assetUrl';
 import type { ApiResponse, PagedResult } from '@/types/api';
 
 const MEDIA_BASE = '/api/v1/media';
+const CMS_MEDIA_BASE = '/api/v1/cms/media';
 
 export type MediaFileType = 'image' | 'audio';
 export type MediaFilterType = 'all' | MediaFileType;
@@ -142,15 +143,42 @@ export function createMediaApi(httpClient: AxiosInstance) {
 }
 
 export function getMediaUrl(media: MediaFileDto): string {
-  if (media.publicUrl) {
+  if (media.publicUrl?.includes('/api/v1/cms/media/')) {
     return media.publicUrl;
   }
 
-  const relativePath = media.relativePath.startsWith('/')
-    ? media.relativePath
-    : `/${media.relativePath}`;
+  return buildCmsMediaStreamUrl(media.id);
+}
 
-  return `${env.apiBaseUrl}${relativePath}`;
+export async function fetchMediaImageBlob(
+  client: AxiosInstance,
+  mediaFileId: number,
+): Promise<Blob> {
+  const response = await client.get<Blob>(
+    `${CMS_MEDIA_BASE}/images/${mediaFileId}/stream`,
+    { responseType: 'blob' },
+  );
+
+  return response.data;
+}
+
+export async function fetchPoiAssetBlob(
+  client: AxiosInstance,
+  poiId: number,
+  relativePath: string,
+): Promise<Blob> {
+  const response = await client.get<Blob>(
+    `${CMS_MEDIA_BASE}/poi-assets/stream`,
+    {
+      params: {
+        poiId,
+        relativePath: relativePath.replace(/\\/g, '/').replace(/^\/+/, ''),
+      },
+      responseType: 'blob',
+    },
+  );
+
+  return response.data;
 }
 
 function unwrapApiResponse<T>(body: ApiResponse<T>, allowNull = false): T {

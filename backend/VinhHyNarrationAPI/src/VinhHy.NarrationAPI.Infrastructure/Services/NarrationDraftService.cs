@@ -107,7 +107,38 @@ public class NarrationDraftService : INarrationDraftService
             throw new UnauthorizedException("Vendors can only create narration for their own POIs.");
         }
 
+        var languageCode = request.LanguageCode.Trim();
+        var existingDraft = await _db.NarrationDrafts
+            .FirstOrDefaultAsync(
+                draft => draft.PoiId == request.PoiId && draft.LanguageCode == languageCode,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var now = DateTime.UtcNow;
+        if (existingDraft is not null)
+        {
+            if (existingDraft.Status != NarrationDraftStatuses.Rejected)
+            {
+                throw new ValidationException(
+                    nameof(request.LanguageCode),
+                    "Narration for this POI and language already exists.");
+            }
+
+            existingDraft.Title = request.Title.Trim();
+            existingDraft.TextContent = request.TextContent.Trim();
+            existingDraft.Voice = request.Voice.Trim();
+            existingDraft.Status = autoApprove ? NarrationDraftStatuses.Approved : NarrationDraftStatuses.Pending;
+            existingDraft.SubmittedByUserId = submittedByUserId;
+            existingDraft.SubmittedAt = now;
+            existingDraft.ReviewedByUserId = autoApprove ? submittedByUserId : null;
+            existingDraft.ReviewedAt = autoApprove ? now : null;
+            existingDraft.RejectionReason = null;
+            existingDraft.UpdatedAt = now;
+
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            return await GetMappedAsync(existingDraft.Id, cancellationToken).ConfigureAwait(false);
+        }
+
         var draft = new NarrationDraft
         {
             Title = request.Title.Trim(),
@@ -136,6 +167,11 @@ public class NarrationDraftService : INarrationDraftService
         CancellationToken cancellationToken = default)
     {
         var draft = await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
+        if (draft.Status != NarrationDraftStatuses.Pending)
+        {
+            throw new ValidationException(nameof(id), "Only pending narration drafts can be approved.");
+        }
+
         draft.Status = NarrationDraftStatuses.Approved;
         draft.ReviewedByUserId = reviewerUserId;
         draft.ReviewedAt = DateTime.UtcNow;
@@ -158,6 +194,11 @@ public class NarrationDraftService : INarrationDraftService
         }
 
         var draft = await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
+        if (draft.Status != NarrationDraftStatuses.Pending)
+        {
+            throw new ValidationException(nameof(id), "Only pending narration drafts can be rejected.");
+        }
+
         draft.Status = NarrationDraftStatuses.Rejected;
         draft.ReviewedByUserId = reviewerUserId;
         draft.ReviewedAt = DateTime.UtcNow;
@@ -312,7 +353,9 @@ public class NarrationDraftService : INarrationDraftService
         var duplicateExists = await _db.NarrationDrafts
             .AsNoTracking()
             .AnyAsync(
-                draft => draft.PoiId == request.PoiId && draft.LanguageCode == languageCode,
+                draft => draft.PoiId == request.PoiId
+                    && draft.LanguageCode == languageCode
+                    && draft.Status != NarrationDraftStatuses.Rejected,
                 cancellationToken)
             .ConfigureAwait(false);
         if (duplicateExists)
