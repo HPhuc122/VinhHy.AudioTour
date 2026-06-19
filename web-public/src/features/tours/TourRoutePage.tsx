@@ -5,6 +5,7 @@ import { publicAudioTourApi } from '../../api/publicAudioTourApi';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
 import { ROUTES } from '../../routes/routeConstants';
+import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
 import { AccessCountdown } from '../access/AccessCountdown';
 import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
@@ -135,8 +136,22 @@ export function TourRoutePage({ lang }: Props) {
                       <span>Mã: {poi.code}</span>
                       <span>Vĩ độ: {poi.latitude}</span>
                       <span>Kinh độ: {poi.longitude}</span>
-                      <span>Audio: {poi.audioTracks.some((track) => track.isAvailable) ? 'Có metadata' : 'Đang cập nhật'}</span>
+                      <span>Audio: {poi.audioTracks.some((track) => track.isAvailable) ? `${poi.audioTracks.length} track` : 'Đang cập nhật'}</span>
                     </div>
+                    {poi.audioTracks.some((track) => track.isAvailable) ? (
+                      <div className="mt-4 space-y-3">
+                        {poi.audioTracks
+                          .filter((track) => track.isAvailable)
+                          .map((track) => (
+                            <ProtectedAudioPlayer
+                              key={track.audioTrackId ?? track.id}
+                              track={track}
+                              accessToken={accessRecord.accessToken}
+                              onUnauthorized={handleExpired}
+                            />
+                          ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

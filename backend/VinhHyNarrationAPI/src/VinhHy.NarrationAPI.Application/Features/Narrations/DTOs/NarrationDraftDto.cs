@@ -12,6 +12,12 @@ public class NarrationDraftDto
 
     public string Voice { get; set; } = null!;
 
+    public int PoiId { get; set; }
+
+    public string? PoiCode { get; set; }
+
+    public string? PoiName { get; set; }
+
     public string Status { get; set; } = null!;
 
     public int SubmittedByUserId { get; set; }

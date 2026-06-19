@@ -21,4 +21,9 @@ public interface IPublicAccessService
         string? accessToken,
         int poiId,
         CancellationToken cancellationToken = default);
+
+    Task<ValidateAccessResponse> ValidateAccessForAudioTrackAsync(
+        string? accessToken,
+        int audioTrackId,
+        CancellationToken cancellationToken = default);
 }

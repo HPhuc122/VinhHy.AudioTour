@@ -76,6 +76,7 @@ public class MappingProfile : Profile
             .ForMember(d => d.UpdatedAt, opt => opt.Ignore())
             .ForMember(d => d.Translations, opt => opt.Ignore())
             .ForMember(d => d.AudioTracks, opt => opt.Ignore())
+            .ForMember(d => d.NarrationDrafts, opt => opt.Ignore())
             .ForMember(d => d.TourPois, opt => opt.Ignore())
             .ForMember(d => d.QrLocations, opt => opt.Ignore())
             .ForMember(d => d.NarrationLogs, opt => opt.Ignore())
@@ -109,7 +110,9 @@ public class MappingProfile : Profile
         CreateMap<MediaFile, MediaFileDto>()
             .ForMember(d => d.PublicUrl, opt => opt.Ignore())
             .ForMember(d => d.UploadedByUsername, opt => opt.MapFrom(s => s.UploadedByUser != null ? s.UploadedByUser.Username : null))
-            .ForMember(d => d.ReviewedByUsername, opt => opt.MapFrom(s => s.ReviewedByUser != null ? s.ReviewedByUser.Username : null));
+            .ForMember(d => d.ReviewedByUsername, opt => opt.MapFrom(s => s.ReviewedByUser != null ? s.ReviewedByUser.Username : null))
+            .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi != null ? s.Poi.Code : null))
+            .ForMember(d => d.PoiName, opt => opt.MapFrom(s => s.Poi != null ? s.Poi.Name : null));
 
         CreateMap<Tour, TourDto>()
             .ForMember(d => d.Pois, opt => opt.MapFrom(s => s.TourPois))

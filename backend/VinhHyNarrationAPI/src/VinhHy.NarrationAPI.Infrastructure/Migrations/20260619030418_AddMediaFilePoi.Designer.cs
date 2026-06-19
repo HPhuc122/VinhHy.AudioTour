@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260619030418_AddMediaFilePoi")]
+    partial class AddMediaFilePoi
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -615,9 +618,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
-                    b.Property<int>("PoiId")
-                        .HasColumnType("int");
-
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -671,15 +671,11 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.HasIndex("GeneratedAudioTrackId");
 
-                    b.HasIndex("PoiId");
-
                     b.HasIndex("ReviewedByUserId");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("SubmittedAt");
-
-                    b.HasIndex("PoiId", "Status");
 
                     b.HasIndex("SubmittedByUserId", "Status");
 
@@ -1532,12 +1528,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasForeignKey("GeneratedAudioTrackId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Poi", "Poi")
-                        .WithMany("NarrationDrafts")
-                        .HasForeignKey("PoiId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "ReviewedByUser")
                         .WithMany()
                         .HasForeignKey("ReviewedByUserId")
@@ -1550,8 +1540,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("GeneratedAudioTrack");
-
-                    b.Navigation("Poi");
 
                     b.Navigation("ReviewedByUser");
 
@@ -1736,8 +1724,6 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.Navigation("AnalyticsDaily");
 
                     b.Navigation("AudioTracks");
-
-                    b.Navigation("NarrationDrafts");
 
                     b.Navigation("NarrationLogs");
 

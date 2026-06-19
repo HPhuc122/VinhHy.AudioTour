@@ -21,6 +21,8 @@ public class MediaFile : BaseEntity
 
     public int? UploadedByUserId { get; set; }
 
+    public int? PoiId { get; set; }
+
     public string ApprovalStatus { get; set; } = ApprovalStatuses.Pending;
 
     public DateTime? SubmittedAt { get; set; }
@@ -36,4 +38,6 @@ public class MediaFile : BaseEntity
     public User? UploadedByUser { get; set; }
 
     public User? ReviewedByUser { get; set; }
+
+    public Poi? Poi { get; set; }
 }

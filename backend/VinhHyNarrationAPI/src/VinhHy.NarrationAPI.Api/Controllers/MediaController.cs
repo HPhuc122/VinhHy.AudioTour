@@ -30,7 +30,26 @@ public class MediaController(IMediaService mediaService) : ControllerBase
         {
             request.FileType = "image";
             request.IncludeDeleted = false;
-            request.UploadedByUserId = GetCurrentUserId();
+            request.PoiOwnerUserId = GetCurrentUserId();
+        }
+
+        var mediaFiles = await mediaService.SearchAsync(request, BuildPublicUrl, cancellationToken);
+        return this.ApiOk(mediaFiles);
+    }
+
+    [HttpGet("by-poi/{poiId:int}")]
+    public async Task<IActionResult> GetByPoi(
+        int poiId,
+        [FromQuery] MediaListRequest request,
+        CancellationToken cancellationToken)
+    {
+        request.PoiId = poiId;
+        request.FileType = "image";
+        request.IncludeDeleted = false;
+
+        if (IsVendor())
+        {
+            request.PoiOwnerUserId = GetCurrentUserId();
         }
 
         var mediaFiles = await mediaService.SearchAsync(request, BuildPublicUrl, cancellationToken);
@@ -56,7 +75,10 @@ public class MediaController(IMediaService mediaService) : ControllerBase
 
     [HttpPost("upload")]
     [RequestSizeLimit(100_000_000)]
-    public async Task<IActionResult> Upload([FromForm] IFormFile? file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(
+        [FromForm] IFormFile? file,
+        [FromForm] int? poiId,
+        CancellationToken cancellationToken)
     {
         if (file is null)
         {
@@ -71,6 +93,8 @@ public class MediaController(IMediaService mediaService) : ControllerBase
                 ContentType = file.ContentType,
                 FileSize = file.Length,
                 UploadedByUserId = GetCurrentUserId(),
+                PoiId = poiId,
+                RequiredPoiOwnerUserId = IsVendor() ? GetRequiredCurrentUserId() : null,
                 ImageOnly = IsVendor(),
                 ApprovalStatus = IsVendor() ? ApprovalStatuses.Pending : ApprovalStatuses.Approved,
                 ReviewedByUserId = IsVendor() ? null : GetCurrentUserId()

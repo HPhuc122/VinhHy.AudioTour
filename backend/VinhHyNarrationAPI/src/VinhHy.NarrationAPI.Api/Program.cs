@@ -108,6 +108,16 @@ try
     app.UseHttpsRedirection();
     var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "uploads");
     Directory.CreateDirectory(uploadsRoot);
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/uploads/audio", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        await next().ConfigureAwait(false);
+    });
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(uploadsRoot),

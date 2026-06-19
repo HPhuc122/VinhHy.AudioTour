@@ -302,12 +302,6 @@ export function QrLandingPage({ lang }: Props) {
               {poi.description ? (
                 <p className="mb-6 text-sm leading-relaxed text-gray-400">{poi.description}</p>
               ) : null}
-              {poi.audioUrl ? (
-                <div className="mb-5 rounded-xl bg-gray-900 p-4">
-                  <p className="mb-2 text-xs font-medium text-gray-400">Audio narration</p>
-                  <audio controls src={poi.audioUrl} className="w-full" style={{ height: '36px' }} />
-                </div>
-              ) : null}
               <Link
                 to={ROUTES.POI_DETAIL.replace(':id', String(poi.poiId))}
                 className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"

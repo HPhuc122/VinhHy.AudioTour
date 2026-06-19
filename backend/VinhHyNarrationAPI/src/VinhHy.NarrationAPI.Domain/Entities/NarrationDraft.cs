@@ -15,6 +15,8 @@ public class NarrationDraft : IAuditableEntity
 
     public string Voice { get; set; } = null!;
 
+    public int PoiId { get; set; }
+
     public string Status { get; set; } = NarrationDraftStatuses.Pending;
 
     public int SubmittedByUserId { get; set; }
@@ -40,6 +42,8 @@ public class NarrationDraft : IAuditableEntity
     public User SubmittedByUser { get; set; } = null!;
 
     public User? ReviewedByUser { get; set; }
+
+    public Poi Poi { get; set; } = null!;
 
     public AudioTrack? GeneratedAudioTrack { get; set; }
 }

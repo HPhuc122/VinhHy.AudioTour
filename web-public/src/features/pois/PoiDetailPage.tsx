@@ -6,6 +6,7 @@ import { poisApi } from '../../api/poisApi';
 import { Spinner } from '../../components/ui/Spinner';
 import { ROUTES } from '../../routes/routeConstants';
 import type { Lang } from '../../hooks/useLanguage';
+import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
 import { AccessCountdown } from '../access/AccessCountdown';
 import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
@@ -129,11 +130,23 @@ export function PoiDetailPage({ lang }: Props) {
                 ) : (
                   <p className="text-sm text-gray-400">Nội dung thuyết minh đang được cập nhật.</p>
                 )}
-                <div className="rounded-lg bg-gray-900 p-3 text-xs text-gray-400">
-                  Audio metadata:{' '}
-                  {audioTourQuery.data.audioTracks.some((track) => track.isAvailable)
-                    ? `${audioTourQuery.data.audioTracks.length} track`
-                    : 'đang cập nhật'}
+                <div className="space-y-3">
+                  {audioTourQuery.data.audioTracks.some((track) => track.isAvailable) ? (
+                    audioTourQuery.data.audioTracks
+                      .filter((track) => track.isAvailable)
+                      .map((track) => (
+                        <ProtectedAudioPlayer
+                          key={track.audioTrackId ?? track.id}
+                          track={track}
+                          accessToken={accessRecord.accessToken}
+                          onUnauthorized={handleExpired}
+                        />
+                      ))
+                  ) : (
+                    <div className="rounded-lg bg-gray-900 p-3 text-xs text-gray-400">
+                      Audio đang được cập nhật.
+                    </div>
+                  )}
                 </div>
               </div>
             )}

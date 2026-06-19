@@ -2,6 +2,8 @@ namespace VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
 
 public class CreateNarrationDraftRequest
 {
+    public int PoiId { get; set; }
+
     public string Title { get; set; } = null!;
 
     public string LanguageCode { get; set; } = "vi";

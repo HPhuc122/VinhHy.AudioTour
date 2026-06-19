@@ -198,6 +198,16 @@ public class PublicAccessService : IPublicAccessService
         var (_, response) = await RequireActivePassAsync(accessToken, cancellationToken)
             .ConfigureAwait(false);
 
+        if (!response.PoiId.HasValue && !response.TourId.HasValue)
+        {
+            return response;
+        }
+
+        if (response.TourId != tourId)
+        {
+            throw new ForbiddenException("Guest access pass does not allow this tour.");
+        }
+
         return response;
     }
 
@@ -209,7 +219,42 @@ public class PublicAccessService : IPublicAccessService
         var (_, response) = await RequireActivePassAsync(accessToken, cancellationToken)
             .ConfigureAwait(false);
 
-        return response;
+        if (!response.PoiId.HasValue && !response.TourId.HasValue)
+        {
+            return response;
+        }
+
+        if (response.PoiId == poiId)
+        {
+            return response;
+        }
+
+        if (response.TourId.HasValue)
+        {
+            var tourPoi = await _uow.TourPois
+                .GetByTourAndPoiAsync(response.TourId.Value, poiId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (tourPoi is not null)
+            {
+                return response;
+            }
+        }
+
+        throw new ForbiddenException("Guest access pass does not allow this POI.");
+    }
+
+    public async Task<ValidateAccessResponse> ValidateAccessForAudioTrackAsync(
+        string? accessToken,
+        int audioTrackId,
+        CancellationToken cancellationToken = default)
+    {
+        var track = await _uow.AudioTracks.GetByIdAsync(audioTrackId, cancellationToken: cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(AudioTrack), audioTrackId);
+
+        return await ValidateAccessForPoiAsync(accessToken, track.POIId, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static void ValidateQrPaymentConfig(QrLocation qr)

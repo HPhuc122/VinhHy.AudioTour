@@ -98,22 +98,25 @@ public class PublicAudioTourService : IPublicAudioTourService
                 .Where(track => track.IsActive && track.DeletedAt == null)
                 .OrderBy(track => track.LanguageCode == languageCode ? 0 : 1)
                 .ThenBy(track => track.LanguageCode)
-                .Select(MapAudio)
+                .Select(track => MapAudio(track, translation?.Name ?? poi.Code))
                 .ToArray()
         };
     }
 
-    private static PublicAudioTourAudioDto MapAudio(AudioTrack track) =>
+    private static PublicAudioTourAudioDto MapAudio(AudioTrack track, string poiName) =>
         new()
         {
             Id = track.Id,
+            AudioTrackId = track.Id,
             LanguageCode = track.LanguageCode,
+            Language = track.LanguageCode,
+            Title = $"{poiName} - {track.LanguageCode}",
             AudioType = track.AudioType,
             DurationSeconds = track.DurationSeconds,
+            Duration = track.DurationSeconds,
             FileSizeBytes = track.FileSizeBytes,
             MimeType = track.MimeType,
-            IsAvailable = !string.IsNullOrWhiteSpace(track.FileUrl) ||
-                !string.IsNullOrWhiteSpace(track.TTSText)
+            IsAvailable = !string.IsNullOrWhiteSpace(track.FileUrl)
         };
 
     private static TourTranslation? SelectTourTranslation(Tour tour, string languageCode) =>

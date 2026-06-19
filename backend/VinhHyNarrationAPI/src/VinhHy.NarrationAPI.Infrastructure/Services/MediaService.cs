@@ -54,6 +54,8 @@ public class MediaService : IMediaService
                 fileType,
                 approvalStatus,
                 request.UploadedByUserId,
+                request.PoiId,
+                request.PoiOwnerUserId,
                 request.IncludeDeleted,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -88,6 +90,24 @@ public class MediaService : IMediaService
 
         var extension = Path.GetExtension(request.OriginalFileName).ToLowerInvariant();
         var fileType = AllowedExtensions[extension];
+        var approvalStatus = NormalizeApprovalStatus(request.ApprovalStatus) ?? ApprovalStatuses.Pending;
+        if (request.RequiredPoiOwnerUserId.HasValue && !request.PoiId.HasValue)
+        {
+            throw new ValidationException(nameof(request.PoiId), "POI is required for vendor image uploads.");
+        }
+
+        if (request.PoiId.HasValue)
+        {
+            var poi = await _uow.Pois.GetByIdAsync(request.PoiId.Value, cancellationToken: cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new NotFoundException(nameof(Poi), request.PoiId.Value);
+
+            if (request.RequiredPoiOwnerUserId.HasValue && poi.UserId != request.RequiredPoiOwnerUserId.Value)
+            {
+                throw new UnauthorizedException("You are not allowed to upload media for this POI.");
+            }
+        }
+
         var folder = fileType == "image" ? "images" : "audio";
         var fileName = $"{Guid.NewGuid():N}{extension}";
         var relativePath = Path.Combine("uploads", folder, fileName).Replace('\\', '/');
@@ -102,7 +122,6 @@ public class MediaService : IMediaService
         }
 
         var now = DateTime.UtcNow;
-        var approvalStatus = NormalizeApprovalStatus(request.ApprovalStatus) ?? ApprovalStatuses.Pending;
         var mediaFile = new MediaFile
         {
             FileName = fileName,
@@ -115,6 +134,7 @@ public class MediaService : IMediaService
             RelativePath = relativePath,
             UploadedAt = now,
             UploadedByUserId = request.UploadedByUserId,
+            PoiId = request.PoiId,
             ApprovalStatus = approvalStatus,
             SubmittedAt = now,
             ReviewedByUserId = approvalStatus == ApprovalStatuses.Approved ? request.ReviewedByUserId : null,

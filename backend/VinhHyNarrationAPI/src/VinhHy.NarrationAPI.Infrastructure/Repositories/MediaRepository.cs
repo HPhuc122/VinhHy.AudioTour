@@ -19,6 +19,7 @@ public class MediaRepository : IMediaRepository
             .AsNoTracking()
             .Include(m => m.UploadedByUser)
             .Include(m => m.ReviewedByUser)
+            .Include(m => m.Poi)
             .OrderByDescending(m => m.UploadedAt)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -30,13 +31,16 @@ public class MediaRepository : IMediaRepository
         string? fileType = null,
         string? approvalStatus = null,
         int? uploadedByUserId = null,
+        int? poiId = null,
+        int? poiOwnerUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
         IQueryable<MediaFile> query = Query(includeDeleted)
             .AsNoTracking()
             .Include(m => m.UploadedByUser)
-            .Include(m => m.ReviewedByUser);
+            .Include(m => m.ReviewedByUser)
+            .Include(m => m.Poi);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -61,6 +65,16 @@ public class MediaRepository : IMediaRepository
             query = query.Where(m => m.UploadedByUserId == uploadedByUserId.Value);
         }
 
+        if (poiId.HasValue)
+        {
+            query = query.Where(m => m.PoiId == poiId.Value);
+        }
+
+        if (poiOwnerUserId.HasValue)
+        {
+            query = query.Where(m => m.Poi != null && m.Poi.UserId == poiOwnerUserId.Value);
+        }
+
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
         var items = await query
             .OrderByDescending(m => m.UploadedAt)
@@ -76,6 +90,8 @@ public class MediaRepository : IMediaRepository
         string? fileType = null,
         string? approvalStatus = null,
         int? uploadedByUserId = null,
+        int? poiId = null,
+        int? poiOwnerUserId = null,
         bool? isDeleted = false,
         CancellationToken cancellationToken = default)
     {
@@ -96,6 +112,16 @@ public class MediaRepository : IMediaRepository
             query = query.Where(m => m.UploadedByUserId == uploadedByUserId.Value);
         }
 
+        if (poiId.HasValue)
+        {
+            query = query.Where(m => m.PoiId == poiId.Value);
+        }
+
+        if (poiOwnerUserId.HasValue)
+        {
+            query = query.Where(m => m.Poi != null && m.Poi.UserId == poiOwnerUserId.Value);
+        }
+
         if (isDeleted.HasValue)
         {
             query = query.Where(m => m.IsDeleted == isDeleted.Value);
@@ -111,6 +137,7 @@ public class MediaRepository : IMediaRepository
         await Query(includeDeleted)
             .Include(m => m.UploadedByUser)
             .Include(m => m.ReviewedByUser)
+            .Include(m => m.Poi)
             .FirstOrDefaultAsync(m => m.Id == id, cancellationToken)
             .ConfigureAwait(false);
 

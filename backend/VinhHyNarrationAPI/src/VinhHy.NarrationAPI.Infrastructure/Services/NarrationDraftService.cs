@@ -23,6 +23,7 @@ public class NarrationDraftService : INarrationDraftService
 
         IQueryable<NarrationDraft> query = _db.NarrationDrafts
             .AsNoTracking()
+            .Include(d => d.Poi)
             .Include(d => d.SubmittedByUser)
             .Include(d => d.ReviewedByUser);
 
@@ -36,10 +37,19 @@ public class NarrationDraftService : INarrationDraftService
             query = query.Where(d => d.SubmittedByUserId == request.SubmittedByUserId.Value);
         }
 
+        if (request.PoiId.HasValue)
+        {
+            query = query.Where(d => d.PoiId == request.PoiId.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var keyword = request.Search.Trim();
-            query = query.Where(d => d.Title.Contains(keyword) || d.TextContent.Contains(keyword));
+            query = query.Where(d =>
+                d.Title.Contains(keyword) ||
+                d.TextContent.Contains(keyword) ||
+                d.Poi.Code.Contains(keyword) ||
+                d.Poi.Name.Contains(keyword));
         }
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -61,9 +71,20 @@ public class NarrationDraftService : INarrationDraftService
         CreateNarrationDraftRequest request,
         int submittedByUserId,
         bool autoApprove,
+        bool requireOwnedPoi,
         CancellationToken cancellationToken = default)
     {
         ValidateCreate(request);
+        var poi = await _db.Pois
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.PoiId && p.DeletedAt == null, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Poi), request.PoiId);
+
+        if (requireOwnedPoi && poi.UserId != submittedByUserId)
+        {
+            throw new UnauthorizedException("Vendors can only create narration for their own POIs.");
+        }
 
         var now = DateTime.UtcNow;
         var draft = new NarrationDraft
@@ -72,6 +93,7 @@ public class NarrationDraftService : INarrationDraftService
             LanguageCode = request.LanguageCode.Trim(),
             TextContent = request.TextContent.Trim(),
             Voice = request.Voice.Trim(),
+            PoiId = request.PoiId,
             Status = autoApprove ? NarrationDraftStatuses.Approved : NarrationDraftStatuses.Pending,
             SubmittedByUserId = submittedByUserId,
             SubmittedAt = now,
@@ -137,11 +159,46 @@ public class NarrationDraftService : INarrationDraftService
         }
 
         var now = DateTime.UtcNow;
+        var audioTrack = await _db.AudioTracks
+            .FirstOrDefaultAsync(a =>
+                a.POIId == draft.PoiId &&
+                a.LanguageCode == draft.LanguageCode &&
+                a.DeletedAt == null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (audioTrack is null)
+        {
+            audioTrack = new AudioTrack
+            {
+                POIId = draft.PoiId,
+                LanguageCode = draft.LanguageCode,
+                AudioType = "tts",
+                TTSText = draft.TextContent,
+                FileUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}",
+                MimeType = "audio/mp4",
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            await _db.AudioTracks.AddAsync(audioTrack, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            audioTrack.AudioType = "tts";
+            audioTrack.TTSText = draft.TextContent;
+            audioTrack.FileUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}";
+            audioTrack.MimeType = "audio/mp4";
+            audioTrack.IsActive = true;
+            audioTrack.UpdatedAt = now;
+        }
+
         draft.Status = NarrationDraftStatuses.AudioGenerated;
         draft.ReviewedByUserId ??= reviewerUserId;
         draft.ReviewedAt ??= now;
         draft.AudioGeneratedAt = now;
-        draft.SimulatedAudioUrl = $"tts-simulated://narration-drafts/{draft.Id}";
+        draft.SimulatedAudioUrl = $"tts-simulated://pois/{draft.PoiId}/narration-drafts/{draft.Id}";
+        draft.GeneratedAudioTrack = audioTrack;
         draft.UpdatedAt = now;
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -156,6 +213,7 @@ public class NarrationDraftService : INarrationDraftService
     {
         var draft = await _db.NarrationDrafts
             .AsNoTracking()
+            .Include(d => d.Poi)
             .Include(d => d.SubmittedByUser)
             .Include(d => d.ReviewedByUser)
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken)
@@ -167,6 +225,8 @@ public class NarrationDraftService : INarrationDraftService
 
     private static void ValidateCreate(CreateNarrationDraftRequest request)
     {
+        if (request.PoiId <= 0)
+            throw new ValidationException(nameof(request.PoiId), "POI is required.");
         if (string.IsNullOrWhiteSpace(request.Title))
             throw new ValidationException(nameof(request.Title), "Title is required.");
         if (string.IsNullOrWhiteSpace(request.LanguageCode))
@@ -201,6 +261,9 @@ public class NarrationDraftService : INarrationDraftService
         LanguageCode = draft.LanguageCode,
         TextContent = draft.TextContent,
         Voice = draft.Voice,
+        PoiId = draft.PoiId,
+        PoiCode = draft.Poi.Code,
+        PoiName = string.IsNullOrWhiteSpace(draft.Poi.Name) ? draft.Poi.Code : draft.Poi.Name,
         Status = draft.Status,
         SubmittedByUserId = draft.SubmittedByUserId,
         SubmittedByUsername = draft.SubmittedByUser.Username,

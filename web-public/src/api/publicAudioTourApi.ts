@@ -3,9 +3,13 @@ import type { ApiResponse } from '../types/api';
 
 export interface PublicAudioTourAudioDto {
   id: number;
+  audioTrackId: number;
   languageCode: string;
+  language: string;
+  title: string;
   audioType: string;
   durationSeconds?: number | null;
+  duration?: number | null;
   fileSizeBytes?: number | null;
   mimeType?: string | null;
   isAvailable: boolean;
@@ -56,5 +60,14 @@ export const publicAudioTourApi = {
       },
     );
     return res.data.data;
+  },
+
+  async getAudioBlob(audioTrackId: number, accessToken: string): Promise<Blob> {
+    const res = await httpClient.get<Blob>(`/public/audio/${audioTrackId}`, {
+      headers: { 'X-Guest-Access-Token': accessToken },
+      responseType: 'blob',
+    });
+
+    return res.data;
   },
 };

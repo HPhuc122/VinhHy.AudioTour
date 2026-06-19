@@ -13,4 +13,8 @@ public class MediaListRequest : PaginationRequest
     public bool IncludeDeleted { get; set; }
 
     public int? UploadedByUserId { get; set; }
+
+    public int? PoiId { get; set; }
+
+    public int? PoiOwnerUserId { get; set; }
 }

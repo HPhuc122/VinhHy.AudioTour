@@ -13,6 +13,8 @@ public interface IMediaRepository
         string? fileType = null,
         string? approvalStatus = null,
         int? uploadedByUserId = null,
+        int? poiId = null,
+        int? poiOwnerUserId = null,
         bool includeDeleted = false,
         CancellationToken cancellationToken = default);
 
@@ -20,6 +22,8 @@ public interface IMediaRepository
         string? fileType = null,
         string? approvalStatus = null,
         int? uploadedByUserId = null,
+        int? poiId = null,
+        int? poiOwnerUserId = null,
         bool? isDeleted = false,
         CancellationToken cancellationToken = default);
 

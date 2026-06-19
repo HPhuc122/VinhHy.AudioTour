@@ -8,5 +8,7 @@ public class NarrationDraftListRequest : PaginationRequest
 
     public string? Search { get; set; }
 
+    public int? PoiId { get; set; }
+
     public int? SubmittedByUserId { get; set; }
 }

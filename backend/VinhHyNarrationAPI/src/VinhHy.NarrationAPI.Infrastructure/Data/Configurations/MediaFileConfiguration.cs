@@ -27,6 +27,8 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<MediaFile>
         builder.HasIndex(e => e.UploadedAt);
         builder.HasIndex(e => e.IsDeleted);
         builder.HasIndex(e => e.ApprovalStatus);
+        builder.HasIndex(e => e.PoiId);
+        builder.HasIndex(e => new { e.PoiId, e.FileType, e.ApprovalStatus });
         builder.HasIndex(e => new { e.UploadedByUserId, e.FileType, e.ApprovalStatus });
 
         builder.HasOne(e => e.UploadedByUser)
@@ -38,6 +40,11 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<MediaFile>
             .WithMany()
             .HasForeignKey(e => e.ReviewedByUserId)
             .OnDelete(DeleteBehavior.NoAction);
+
+        builder.HasOne(e => e.Poi)
+            .WithMany()
+            .HasForeignKey(e => e.PoiId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.ToTable(t =>
         {

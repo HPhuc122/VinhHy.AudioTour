@@ -27,6 +27,22 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
         return this.ApiOk(result);
     }
 
+    [HttpGet("by-poi/{poiId:int}")]
+    public async Task<IActionResult> GetByPoi(
+        int poiId,
+        [FromQuery] NarrationDraftListRequest request,
+        CancellationToken cancellationToken)
+    {
+        request.PoiId = poiId;
+        if (IsVendor())
+        {
+            request.SubmittedByUserId = GetRequiredCurrentUserId();
+        }
+
+        var result = await narrationDraftService.SearchAsync(request, cancellationToken);
+        return this.ApiOk(result);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateNarrationDraftRequest request,
@@ -36,6 +52,7 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
             request,
             GetRequiredCurrentUserId(),
             autoApprove: !IsVendor(),
+            requireOwnedPoi: IsVendor(),
             cancellationToken);
         return this.ApiOk(draft, "Narration draft created");
     }

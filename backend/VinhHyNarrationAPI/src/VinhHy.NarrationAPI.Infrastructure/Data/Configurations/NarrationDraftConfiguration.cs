@@ -24,8 +24,15 @@ public class NarrationDraftConfiguration : IEntityTypeConfiguration<NarrationDra
         builder.Property(e => e.SubmittedAt).HasDefaultValueSql("SYSUTCDATETIME()");
 
         builder.HasIndex(e => e.Status);
+        builder.HasIndex(e => e.PoiId);
         builder.HasIndex(e => e.SubmittedAt);
         builder.HasIndex(e => new { e.SubmittedByUserId, e.Status });
+        builder.HasIndex(e => new { e.PoiId, e.Status });
+
+        builder.HasOne(e => e.Poi)
+            .WithMany(p => p.NarrationDrafts)
+            .HasForeignKey(e => e.PoiId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(e => e.SubmittedByUser)
             .WithMany()

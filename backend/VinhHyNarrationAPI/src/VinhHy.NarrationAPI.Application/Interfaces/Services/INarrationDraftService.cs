@@ -13,6 +13,7 @@ public interface INarrationDraftService
         CreateNarrationDraftRequest request,
         int submittedByUserId,
         bool autoApprove,
+        bool requireOwnedPoi,
         CancellationToken cancellationToken = default);
 
     Task<NarrationDraftDto> ApproveAsync(

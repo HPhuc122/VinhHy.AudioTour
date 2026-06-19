@@ -86,6 +86,8 @@ public class Poi : SyncableEntity
 
     public ICollection<AudioTrack> AudioTracks { get; set; } = [];
 
+    public ICollection<NarrationDraft> NarrationDrafts { get; set; } = [];
+
     public ICollection<TourPoi> TourPois { get; set; } = [];
 
     public ICollection<QrLocation> QrLocations { get; set; } = [];

@@ -12,6 +12,10 @@ public class UploadMediaRequest
 
     public int? UploadedByUserId { get; set; }
 
+    public int? PoiId { get; set; }
+
+    public int? RequiredPoiOwnerUserId { get; set; }
+
     public bool ImageOnly { get; set; }
 
     public string? ApprovalStatus { get; set; }

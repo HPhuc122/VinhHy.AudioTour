@@ -24,6 +24,12 @@ public class MediaFileDto
 
     public string? UploadedByUsername { get; set; }
 
+    public int? PoiId { get; set; }
+
+    public string? PoiCode { get; set; }
+
+    public string? PoiName { get; set; }
+
     public string ApprovalStatus { get; set; } = null!;
 
     public DateTime? SubmittedAt { get; set; }
