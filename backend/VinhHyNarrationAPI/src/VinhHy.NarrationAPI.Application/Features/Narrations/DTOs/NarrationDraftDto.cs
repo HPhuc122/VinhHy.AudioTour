@@ -36,6 +36,8 @@ public class NarrationDraftDto
 
     public int? GeneratedAudioTrackId { get; set; }
 
+    public int? GeneratedAudioDurationSeconds { get; set; }
+
     public DateTime? AudioGeneratedAt { get; set; }
 
     public string? SimulatedAudioUrl { get; set; }

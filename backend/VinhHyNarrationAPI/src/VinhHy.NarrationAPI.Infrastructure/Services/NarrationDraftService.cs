@@ -45,7 +45,8 @@ public class NarrationDraftService : INarrationDraftService
             .AsNoTracking()
             .Include(d => d.Poi)
             .Include(d => d.SubmittedByUser)
-            .Include(d => d.ReviewedByUser);
+            .Include(d => d.ReviewedByUser)
+            .Include(d => d.GeneratedAudioTrack);
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -203,6 +204,7 @@ public class NarrationDraftService : INarrationDraftService
             await request.FileContent.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
         }
 
+        var durationSeconds = Mp3DurationDetector.TryDetectDurationSeconds(absolutePath) ?? request.DurationSeconds;
         var now = DateTime.UtcNow;
         var audioTrack = await _db.AudioTracks
             .FirstOrDefaultAsync(a =>
@@ -231,7 +233,7 @@ public class NarrationDraftService : INarrationDraftService
         audioTrack.AudioType = "prerecorded";
         audioTrack.FileUrl = relativePath;
         audioTrack.TTSText = null;
-        audioTrack.DurationSeconds = request.DurationSeconds;
+        audioTrack.DurationSeconds = durationSeconds;
         audioTrack.FileSizeBytes = request.FileSize;
         audioTrack.MimeType = "audio/mpeg";
         audioTrack.IsActive = true;
@@ -260,6 +262,7 @@ public class NarrationDraftService : INarrationDraftService
             .Include(d => d.Poi)
             .Include(d => d.SubmittedByUser)
             .Include(d => d.ReviewedByUser)
+            .Include(d => d.GeneratedAudioTrack)
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(NarrationDraft), id);
@@ -415,6 +418,7 @@ public class NarrationDraftService : INarrationDraftService
         ReviewedAt = draft.ReviewedAt,
         RejectionReason = draft.RejectionReason,
         GeneratedAudioTrackId = draft.GeneratedAudioTrackId,
+        GeneratedAudioDurationSeconds = draft.GeneratedAudioTrack?.DurationSeconds,
         AudioGeneratedAt = draft.AudioGeneratedAt,
         SimulatedAudioUrl = draft.SimulatedAudioUrl,
         CreatedAt = draft.CreatedAt,

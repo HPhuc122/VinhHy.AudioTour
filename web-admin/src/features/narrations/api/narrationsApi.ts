@@ -26,6 +26,7 @@ export interface NarrationDraftDto {
   reviewedAt?: string | null;
   rejectionReason?: string | null;
   generatedAudioTrackId?: number | null;
+  generatedAudioDurationSeconds?: number | null;
   audioGeneratedAt?: string | null;
   simulatedAudioUrl?: string | null;
   createdAt: string;

@@ -201,8 +201,8 @@ export function MediaLibraryPage() {
   });
 
   const uploadNarrationAudioMutation = useMutation({
-    mutationFn: ({ draft, file, title, durationSeconds }: { draft: NarrationDraftDto; file: File; title?: string; durationSeconds?: number }) =>
-      narrationsApi.uploadAudio(draft.id, { file, title, durationSeconds }),
+    mutationFn: ({ draft, file, title }: { draft: NarrationDraftDto; file: File; title?: string }) =>
+      narrationsApi.uploadAudio(draft.id, { file, title }),
     onSuccess: async () => {
       setNotice('Đã tải MP3 và gắn audio cho bản thuyết minh.');
       setUploadAudioDraft(null);
@@ -467,9 +467,9 @@ export function MediaLibraryPage() {
         draft={uploadAudioDraft}
         isLoading={uploadNarrationAudioMutation.isPending}
         onClose={() => setUploadAudioDraft(null)}
-        onSubmit={(file, title, durationSeconds) => {
+        onSubmit={(file, title) => {
           if (uploadAudioDraft) {
-            uploadNarrationAudioMutation.mutate({ draft: uploadAudioDraft, file, title, durationSeconds });
+            uploadNarrationAudioMutation.mutate({ draft: uploadAudioDraft, file, title });
           }
         }}
       />
@@ -917,7 +917,7 @@ function NarrationTable({
                       ) : null}
                       {draft.generatedAudioTrackId ? (
                         <p className="mt-1 text-xs font-medium text-emerald-700">
-                          Đã có audio • AudioTrack #{draft.generatedAudioTrackId} • {formatLanguageLabel(draft.languageCode)}
+                          Đã có audio • AudioTrack #{draft.generatedAudioTrackId} • {formatAudioDuration(draft.generatedAudioDurationSeconds)} • {formatLanguageLabel(draft.languageCode)}
                         </p>
                       ) : null}
                     </td>
@@ -1146,11 +1146,10 @@ function UploadNarrationAudioModal({
   draft: NarrationDraftDto | null;
   isLoading: boolean;
   onClose: () => void;
-  onSubmit: (file: File, title?: string, durationSeconds?: number) => void;
+  onSubmit: (file: File, title?: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const [duration, setDuration] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = () => {
@@ -1165,19 +1164,12 @@ function UploadNarrationAudioModal({
       return;
     }
 
-    const durationSeconds = duration.trim() ? Number(duration) : undefined;
-    if (durationSeconds !== undefined && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) {
-      setError('Thời lượng phải là số giây lớn hơn 0.');
-      return;
-    }
-
-    onSubmit(file, title.trim() || undefined, durationSeconds);
+    onSubmit(file, title.trim() || undefined);
   };
 
   const handleClose = () => {
     setFile(null);
     setTitle('');
-    setDuration('');
     setError(null);
     onClose();
   };
@@ -1212,14 +1204,9 @@ function UploadNarrationAudioModal({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-          <Input
-            id="audio-duration"
-            label="Thời lượng (giây)"
-            type="number"
-            min="1"
-            value={duration}
-            onChange={(event) => setDuration(event.target.value)}
-          />
+          <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+            Thời lượng sẽ được tự động nhận diện sau khi tải lên.
+          </p>
           <div>
             <label htmlFor="audio-file" className="mb-1 block text-sm font-medium text-gray-700">
               File MP3
@@ -1305,6 +1292,16 @@ function formatDate(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatAudioDuration(durationSeconds?: number | null): string {
+  if (!durationSeconds || durationSeconds <= 0) {
+    return 'Chưa rõ thời lượng';
+  }
+
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string | null {
