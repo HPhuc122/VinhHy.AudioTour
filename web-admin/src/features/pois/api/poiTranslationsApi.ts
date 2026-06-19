@@ -23,4 +23,14 @@ export const poiTranslationsApi = {
   async delete(_poiId: number, translationId: number) {
     await httpClient.delete(`${POI_TRANSLATIONS_BASE}/${translationId}`);
   },
+
+  async generate(data: {
+    poiId: number;
+    sourceLanguageCode: string;
+    targetLanguageCodes: string[];
+    overwriteExisting: boolean;
+  }) {
+    const response = await httpClient.post(`${POI_TRANSLATIONS_BASE}/generate`, data);
+    return response.data.data;
+  },
 };

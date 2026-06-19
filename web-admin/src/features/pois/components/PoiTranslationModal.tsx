@@ -31,6 +31,9 @@ const emptyTranslation: Translation = {
 export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
   const [editing, setEditing] = useState<Translation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sourceLanguageCode, setSourceLanguageCode] = useState('vi');
+  const [targetLanguageCodes, setTargetLanguageCodes] = useState<string[]>([]);
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -61,6 +64,13 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     [activeLanguages, translatedCodes],
   );
 
+  const targetLanguages = useMemo(
+    () => activeLanguages.filter((language) =>
+      language.code !== sourceLanguageCode &&
+      (overwriteExisting || !translatedCodes.has(language.code))),
+    [activeLanguages, overwriteExisting, sourceLanguageCode, translatedCodes],
+  );
+
   const createMutation = useMutation({
     mutationFn: (payload: Translation) => poiTranslationsApi.create(poi.id, payload),
     onSuccess: async () => {
@@ -86,12 +96,37 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     },
   });
 
+  const generateMutation = useMutation({
+    mutationFn: () => poiTranslationsApi.generate({
+      poiId: poi.id,
+      sourceLanguageCode,
+      targetLanguageCodes,
+      overwriteExisting,
+    }),
+    onSuccess: async (result: any) => {
+      await queryClient.invalidateQueries({ queryKey: ['poiTranslations', poi.id] });
+      setTargetLanguageCodes([]);
+      const skipped = result?.skippedLanguageCodes?.length
+        ? ` Bỏ qua: ${result.skippedLanguageCodes.join(', ')}.`
+        : '';
+      toast(`Đã tạo bản dịch mô phỏng.${skipped}`, 'success');
+    },
+    onError: (err: any) => {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Không thể tạo bản dịch tự động.');
+    },
+  });
+
   useEffect(() => {
     if (isOpen) {
       setEditing(null);
       setError(null);
+      setSourceLanguageCode('vi');
+      setTargetLanguageCodes([]);
+      setOverwriteExisting(false);
     }
   }, [isOpen, poi?.id]);
+
+  if (!isOpen) return null;
 
   const startAdd = () => {
     setError(null);
@@ -164,6 +199,24 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     }
   };
 
+  const toggleTargetLanguage = (code: string) => {
+    setTargetLanguageCodes((current) =>
+      current.includes(code)
+        ? current.filter((item) => item !== code)
+        : [...current, code]);
+  };
+
+  const handleGenerate = () => {
+    setError(null);
+
+    if (targetLanguageCodes.length === 0) {
+      setError('Vui lòng chọn ít nhất một ngôn ngữ đích.');
+      return;
+    }
+
+    generateMutation.mutate();
+  };
+
   return (
     <Modal open={isOpen} onClose={onClose} title={`Bản dịch POI ${poi?.code ?? ''}`}>
       <div className="space-y-5">
@@ -187,6 +240,80 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
             codes={translations.map((translation: Translation) => translation.languageCode)}
             languages={languages}
           />
+        </div>
+
+        <div className="rounded-md border border-indigo-100 bg-indigo-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="font-medium text-indigo-950">Tạo bản dịch tự động</h4>
+              <p className="mt-1 text-sm text-indigo-800">
+                Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.
+              </p>
+            </div>
+            <Button
+              onClick={handleGenerate}
+              isLoading={generateMutation.isPending}
+              disabled={targetLanguages.length === 0}
+            >
+              Tạo bản dịch tự động
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
+            <label className="block text-sm font-medium text-gray-700">
+              Ngôn ngữ nguồn
+              <select
+                value={sourceLanguageCode}
+                onChange={(event) => {
+                  setSourceLanguageCode(event.target.value);
+                  setTargetLanguageCodes([]);
+                }}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              >
+                {activeLanguages.map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {formatLanguageLabel(language.code, activeLanguages)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-gray-700">Ngôn ngữ đích</span>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={overwriteExisting}
+                    onChange={(event) => {
+                      setOverwriteExisting(event.target.checked);
+                      setTargetLanguageCodes([]);
+                    }}
+                  />
+                  Ghi đè bản dịch đã có
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {targetLanguages.length === 0 ? (
+                  <span className="text-sm text-gray-500">Không còn ngôn ngữ đích phù hợp.</span>
+                ) : (
+                  targetLanguages.map((language) => (
+                    <label
+                      key={language.code}
+                      className="flex cursor-pointer items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={targetLanguageCodes.includes(language.code)}
+                        onChange={() => toggleTargetLanguage(language.code)}
+                      />
+                      {formatLanguageLabel(language.code, activeLanguages)}
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {error ? <Alert variant="error" message={error} /> : null}

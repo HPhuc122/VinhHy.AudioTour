@@ -42,6 +42,20 @@ public class PoiTranslationsController(IPoiTranslationService poiTranslationServ
         return this.ApiOk(translations);
     }
 
+    [HttpPost("generate")]
+    public async Task<IActionResult> Generate(
+        [FromBody] GeneratePoiTranslationsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await poiTranslationService.GenerateAsync(
+            request,
+            GetCurrentUserIdOrNull(),
+            IsVendor(),
+            cancellationToken);
+
+        return this.ApiOk(result, "POI translations generated");
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreatePoiTranslationRequest request,

@@ -34,4 +34,10 @@ public interface IPoiTranslationService
         int? requesterUserId = null,
         bool requireOwnedPoi = false,
         CancellationToken cancellationToken = default);
+
+    Task<GeneratePoiTranslationsResponse> GenerateAsync(
+        GeneratePoiTranslationsRequest request,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
+        CancellationToken cancellationToken = default);
 }

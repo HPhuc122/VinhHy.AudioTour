@@ -122,6 +122,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ILanguageService, LanguageService>();
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<SimulatedTranslationProvider>();
+        services.AddScoped<ITranslationProvider>(sp => sp.GetRequiredService<SimulatedTranslationProvider>());
     }
 
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)
