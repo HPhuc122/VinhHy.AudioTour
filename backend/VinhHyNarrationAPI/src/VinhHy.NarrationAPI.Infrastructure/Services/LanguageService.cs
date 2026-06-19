@@ -16,7 +16,17 @@ public class LanguageService : ILanguageService
             ["zh"] = ("Chinese", "中文", 3),
             ["ko"] = ("Korean", "한국어", 4),
             ["ja"] = ("Japanese", "日本語", 5),
-            ["fr"] = ("French", "Français", 6)
+            ["fr"] = ("French", "Français", 6),
+            ["es"] = ("Spanish", "Español", 7),
+            ["ru"] = ("Russian", "Русский", 8),
+            ["de"] = ("German", "Deutsch", 9),
+            ["th"] = ("Thai", "ไทย", 10),
+            ["it"] = ("Italian", "Italiano", 11),
+            ["pt"] = ("Portuguese", "Português", 12),
+            ["id"] = ("Indonesian", "Bahasa Indonesia", 13),
+            ["hi"] = ("Hindi", "हिन्दी", 14),
+            ["ar"] = ("Arabic", "العربية", 15),
+            ["nl"] = ("Dutch", "Nederlands", 16)
         };
 
     private readonly IUnitOfWork _uow;

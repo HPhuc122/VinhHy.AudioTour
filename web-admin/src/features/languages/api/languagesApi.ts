@@ -49,6 +49,14 @@ export const languagesApi = {
     return unwrapApiResponse(response.data);
   },
 
+  async getActive(): Promise<LanguageDto[]> {
+    const response = await httpClient.get<ApiResponse<LanguageDto[]>>(LANGUAGES_BASE, {
+      params: { activeOnly: true },
+    });
+
+    return unwrapApiResponse(response.data);
+  },
+
   async getById(code: string): Promise<LanguageDto> {
     const response = await httpClient.get<ApiResponse<LanguageDto>>(`${LANGUAGES_BASE}/${code}`);
     return unwrapApiResponse(response.data);

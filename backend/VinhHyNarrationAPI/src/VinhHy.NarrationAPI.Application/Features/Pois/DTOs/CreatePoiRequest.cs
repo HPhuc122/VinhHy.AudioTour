@@ -34,4 +34,8 @@ public class CreatePoiRequest
     public int CooldownSeconds { get; set; } = 300;
 
     public int MinDwellSeconds { get; set; } = 5;
+
+    public List<string> SelectedLanguageCodes { get; set; } = [];
+
+    public string? SelectedLanguageCodesJson { get; set; }
 }

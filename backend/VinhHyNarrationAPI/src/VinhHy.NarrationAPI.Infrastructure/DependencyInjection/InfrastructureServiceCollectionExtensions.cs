@@ -121,6 +121,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ILanguageService, LanguageService>();
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddHttpClient<ITranslationService, GoogleTranslatorService>(client =>
+        {
+            client.BaseAddress = new Uri("https://translate.googleapis.com");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
     }
 
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)

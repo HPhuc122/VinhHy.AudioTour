@@ -33,4 +33,6 @@ public class UpdatePoiRequest
     public int? CooldownSeconds { get; set; }
 
     public int? MinDwellSeconds { get; set; }
+
+    public bool ReTranslateAdditionalLanguages { get; set; } = true;
 }

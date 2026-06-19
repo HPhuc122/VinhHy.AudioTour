@@ -16,7 +16,6 @@ export function LanguagePage() {
   });
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
 
   return (
     <div>
@@ -27,7 +26,7 @@ export function LanguagePage() {
             Quản lý các ngôn ngữ hỗ trợ cho ứng dụng
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+        <Button onClick={() => setModalOpen(true)}>
           + Thêm mới
         </Button>
       </div>
@@ -79,12 +78,6 @@ export function LanguagePage() {
                     <td className="px-3 py-2">
                       <div className="flex gap-2">
                         <button
-                          className="rounded bg-yellow-500 px-2 py-1 text-white"
-                          onClick={() => { setEditing(lang); setModalOpen(true); }}
-                        >
-                          Sửa
-                        </button>
-                        <button
                           className="rounded bg-red-500 px-2 py-1 text-white"
                           onClick={async () => {
                             if (!window.confirm('Bạn có chắc chắn muốn xóa ngôn ngữ này?')) {
@@ -108,7 +101,6 @@ export function LanguagePage() {
       <LanguageModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        initialData={editing}
       />
     </div>
   );

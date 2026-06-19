@@ -4,6 +4,7 @@ import { toApiClientError } from '@/api/apiError';
 import type { ApiResponse, PagedResult } from '@/types/api';
 
 const POIS_BASE = '/api/v1/pois';
+const POI_TRANSLATION_TIMEOUT_MS = 120_000;
 
 export interface PoiDto {
   id: number;
@@ -27,6 +28,10 @@ export interface PoiDto {
   imageUrls?: string[];
 }
 
+export interface PoiLanguageSelection {
+  selectedLanguageCodes?: string[];
+}
+
 export interface PoiListFilter {
   page?: number;
   pageSize?: number;
@@ -35,6 +40,15 @@ export interface PoiListFilter {
   isActive?: boolean | string;
   approvalStatus?: number | string;
   includeDeleted?: boolean;
+}
+
+export interface TranslateTextRequest {
+  text: string;
+  targetLanguage: string;
+}
+
+export interface TranslateTextResponse {
+  translatedText: string;
 }
 
 export function createPoisApi(client: AxiosInstance) {
@@ -70,6 +84,7 @@ export const poisApi = {
   async create(data: FormData): Promise<PoiDto> {
     const response = await httpClient.post<ApiResponse<PoiDto>>(POIS_BASE, data, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: POI_TRANSLATION_TIMEOUT_MS,
     });
 
     return unwrapApiResponse(response.data);
@@ -78,6 +93,7 @@ export const poisApi = {
   async update(id: number, data: FormData): Promise<PoiDto> {
     const response = await httpClient.put<ApiResponse<PoiDto>>(`${POIS_BASE}/${id}`, data, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: POI_TRANSLATION_TIMEOUT_MS,
     });
 
     return unwrapApiResponse(response.data);
@@ -98,6 +114,15 @@ export const poisApi = {
 
   async restore(id: number): Promise<void> {
     await httpClient.put(`${POIS_BASE}/${id}/restore`);
+  },
+
+  async translateText(text: string, targetLanguage: string): Promise<string> {
+    const response = await httpClient.post<ApiResponse<TranslateTextResponse>>(
+      `${POIS_BASE}/translate`,
+      { text, targetLanguage } satisfies TranslateTextRequest,
+    );
+
+    return unwrapApiResponse(response.data).translatedText;
   },
 };
 

@@ -6,20 +6,30 @@ import { useToast } from '../../../components/ui/Toast';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  initialData?: any | null;
 }
 
-const LANGUAGE_OPTIONS = [
-  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', sortOrder: 1 },
-  { code: 'en', name: 'English', nativeName: 'English', sortOrder: 2 },
-  { code: 'zh', name: 'Chinese', nativeName: '中文', sortOrder: 3 },
-  { code: 'ko', name: 'Korean', nativeName: '한국어', sortOrder: 4 },
-  { code: 'ja', name: 'Japanese', nativeName: '日本語', sortOrder: 5 },
-  { code: 'fr', name: 'French', nativeName: 'Français', sortOrder: 6 },
+const GOOGLE_LANGUAGES = [
+  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt' },
+  { code: 'en', name: 'English', nativeName: 'English' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語' },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'th', name: 'Thai', nativeName: 'ไทย' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
+  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands' },
 ];
 
-export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
-  const [code, setCode] = useState('vi');
+export default function LanguageModal({ isOpen, onClose }: Props) {
+  const [selectedLanguageCode, setSelectedLanguageCode] = useState('');
+  const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [nativeName, setNativeName] = useState('');
   const [sortOrder, setSortOrder] = useState<number>(1);
@@ -28,8 +38,8 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
   const toast = useToast();
 
   const selectedLanguage = useMemo(
-    () => LANGUAGE_OPTIONS.find((language) => language.code === code),
-    [code],
+    () => GOOGLE_LANGUAGES.find((language) => language.code === selectedLanguageCode),
+    [selectedLanguageCode],
   );
 
   useEffect(() => {
@@ -37,44 +47,30 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
       return;
     }
 
-    if (initialData) {
-      setCode(initialData.code ?? 'vi');
-      setName(initialData.name ?? '');
-      setNativeName(initialData.nativeName ?? '');
-      setSortOrder(initialData.sortOrder ?? 1);
-      setIsActive(initialData.isActive ?? true);
-      return;
-    }
-
-    const first = LANGUAGE_OPTIONS[0]!;
-    setCode(first.code);
-    setName(first.name);
-    setNativeName(first.nativeName);
-    setSortOrder(first.sortOrder);
+    setSelectedLanguageCode('');
+    setCode('');
+    setName('');
+    setNativeName('');
+    setSortOrder(1);
     setIsActive(true);
-  }, [isOpen, initialData]);
+  }, [isOpen]);
 
   useEffect(() => {
-    if (initialData || !selectedLanguage) {
+    if (!selectedLanguage) {
       return;
     }
 
     setName(selectedLanguage.name);
     setNativeName(selectedLanguage.nativeName);
-    setSortOrder(selectedLanguage.sortOrder);
-  }, [initialData, selectedLanguage]);
+    setCode(selectedLanguage.code);
+    setSortOrder(GOOGLE_LANGUAGES.findIndex((language) => language.code === selectedLanguage.code) + 1);
+  }, [selectedLanguage]);
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: any) => {
-      if (initialData?.code) {
-        return languagesApi.update(initialData.code, payload);
-      }
-
-      return languagesApi.create(payload);
-    },
+    mutationFn: languagesApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['languages'] });
-      toast('Lưu thành công', 'success');
+      toast('Thêm ngôn ngữ thành công', 'success');
       onClose();
     },
   });
@@ -87,9 +83,7 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg overflow-hidden rounded-lg bg-white shadow-lg">
         <div className="flex items-center justify-between border-b px-6 py-4">
-          <h3 className="text-lg font-medium">
-            {initialData ? 'Sửa ngôn ngữ' : 'Thêm ngôn ngữ'}
-          </h3>
+          <h3 className="text-lg font-medium">Thêm ngôn ngữ</h3>
           <button className="text-gray-500 hover:text-gray-700" onClick={onClose} aria-label="Đóng">
             ×
           </button>
@@ -99,8 +93,8 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
           onSubmit={async (event) => {
             event.preventDefault();
 
-            if (!LANGUAGE_OPTIONS.some((language) => language.code === code)) {
-              toast('Mã ngôn ngữ không được hỗ trợ', 'error');
+            if (!GOOGLE_LANGUAGES.some((language) => language.code === code)) {
+              toast('Vui lòng chọn ngôn ngữ hỗ trợ', 'error');
               return;
             }
 
@@ -126,28 +120,31 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
           <div className="p-6">
             <div className="grid grid-cols-1 gap-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700">Chọn ngôn ngữ hỗ trợ</label>
+                <select
+                  value={selectedLanguageCode}
+                  onChange={(event) => setSelectedLanguageCode(event.target.value)}
+                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  required
+                >
+                  <option value="">-- Chọn ngôn ngữ --</option>
+                  {GOOGLE_LANGUAGES.map((language) => (
+                    <option key={language.code} value={language.code}>
+                      {language.name} - {language.nativeName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700">Mã ngôn ngữ</label>
-                {initialData?.code ? (
-                  <input
-                    type="text"
-                    value={code}
-                    className="mt-1 block w-full cursor-not-allowed rounded border bg-gray-100 px-2 py-1 text-sm"
-                    disabled
-                  />
-                ) : (
-                  <select
-                    value={code}
-                    onChange={(event) => setCode(event.target.value)}
-                    className="mt-1 block w-full rounded border px-2 py-1 text-sm"
-                    required
-                  >
-                    {LANGUAGE_OPTIONS.map((language) => (
-                      <option key={language.code} value={language.code}>
-                        {language.nativeName} ({language.code})
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <input
+                  type="text"
+                  value={code}
+                  className="mt-1 block w-full cursor-not-allowed rounded border bg-gray-100 px-2 py-1 text-sm text-gray-700"
+                  readOnly
+                  required
+                />
               </div>
 
               <div>
@@ -155,8 +152,8 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
                 <input
                   type="text"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  className="mt-1 block w-full cursor-not-allowed rounded border bg-gray-100 px-2 py-1 text-sm text-gray-700"
+                  readOnly
                   required
                 />
               </div>
@@ -166,8 +163,8 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
                 <input
                   type="text"
                   value={nativeName}
-                  onChange={(event) => setNativeName(event.target.value)}
-                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  className="mt-1 block w-full cursor-not-allowed rounded border bg-gray-100 px-2 py-1 text-sm text-gray-700"
+                  readOnly
                   required
                 />
               </div>
@@ -177,8 +174,8 @@ export default function LanguageModal({ isOpen, onClose, initialData }: Props) {
                 <input
                   type="number"
                   value={sortOrder}
-                  onChange={(event) => setSortOrder(Number(event.target.value))}
-                  className="mt-1 block w-full rounded border px-2 py-1 text-sm"
+                  className="mt-1 block w-full cursor-not-allowed rounded border bg-gray-100 px-2 py-1 text-sm text-gray-700"
+                  readOnly
                   required
                 />
               </div>

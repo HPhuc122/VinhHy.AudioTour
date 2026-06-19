@@ -226,7 +226,15 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                         >
                           + Dịch thuật
                         </Button>
-                      ) : null}
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setTranslatingPoi(poi)}
+                        >
+                          👁️ Xem bản dịch
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"
@@ -291,11 +299,12 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
         </tbody>
       </table>
 
-      {!isVendorMode && translatingPoi && (
+      {translatingPoi && (
         <PoiTranslationModal
           isOpen={!!translatingPoi}
           onClose={() => setTranslatingPoi(null)}
           poi={translatingPoi}
+          readOnly={isVendorMode}
         />
       )}
 

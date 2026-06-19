@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Json;
 using VinhHy.NarrationAPI.Application.Common;
@@ -14,11 +15,16 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class PoiService : IPoiService
 {
+    private const int MaxPoiTranslationNameLength = 200;
+    private const int MaxPoiTranslationShortDescriptionLength = 500;
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
     private readonly IFileUploadService _fileUploadService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ITranslationService _translationService;
+    private readonly ILogger<PoiService> _logger;
     private const string PoiUploadDirectory = "uploads/pois";
 
     public PoiService(
@@ -26,13 +32,17 @@ public class PoiService : IPoiService
         IMapper mapper,
         SoftDeleteService softDelete,
         IFileUploadService fileUploadService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        ITranslationService translationService,
+        ILogger<PoiService> logger)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
         _fileUploadService = fileUploadService;
         _httpContextAccessor = httpContextAccessor;
+        _translationService = translationService;
+        _logger = logger;
     }
 
     public async Task<PoiDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -104,6 +114,12 @@ public class PoiService : IPoiService
         await _uow.Pois.AddAsync(poi, cancellationToken).ConfigureAwait(false);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await CreateRequestedTranslationsAsync(
+                poi,
+                ResolveSelectedLanguageCodes(request),
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return _mapper.Map<PoiDto>(poi);
     }
 
@@ -156,6 +172,11 @@ public class PoiService : IPoiService
         poi.UpdatedAt = DateTime.UtcNow;
         _uow.Pois.Update(poi);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (request.ReTranslateAdditionalLanguages)
+        {
+            await ReTranslateExistingTranslationsAsync(poi, cancellationToken).ConfigureAwait(false);
+        }
 
         return _mapper.Map<PoiDto>(poi);
     }
@@ -339,6 +360,306 @@ public class PoiService : IPoiService
 
     private static string? SerializeImageUrls(IReadOnlyList<string> imageUrls) =>
         imageUrls.Count == 0 ? null : JsonSerializer.Serialize(imageUrls);
+
+    private async Task CreateRequestedTranslationsAsync(
+        Poi poi,
+        IEnumerable<string> selectedLanguageCodes,
+        CancellationToken cancellationToken)
+    {
+        var languageCodes = selectedLanguageCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim().ToLowerInvariant())
+            .Where(code => code != "vi")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (languageCodes.Count == 0)
+        {
+            _logger.LogInformation(
+                "No selected language codes received for POI {PoiId}. Skipping auto-translation.",
+                poi.Id);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Creating POI translations for POI {PoiId}. Languages: {LanguageCodes}",
+            poi.Id,
+            string.Join(", ", languageCodes));
+
+        foreach (var languageCode in languageCodes)
+        {
+            try
+            {
+                var language = await _uow.Languages.GetByCodeAsync(languageCode, cancellationToken)
+                    .ConfigureAwait(false);
+                if (language is null || !language.IsActive)
+                {
+                    _logger.LogWarning(
+                        "Skipping POI translation for unsupported or inactive language {LanguageCode}. POI id: {PoiId}",
+                        languageCode,
+                        poi.Id);
+                    continue;
+                }
+
+                if (await _uow.PoiTranslations
+                        .GetByPoiAndLanguageAsync(poi.Id, languageCode, cancellationToken)
+                        .ConfigureAwait(false) is not null)
+                {
+                    continue;
+                }
+
+                var now = DateTime.UtcNow;
+                var translatedName = await TranslatePoiTextSafelyAsync(
+                        poi.Name,
+                        languageCode,
+                        nameof(PoiTranslation.Name),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                var translatedShortDescription = await TranslatePoiOptionalTextSafelyAsync(
+                        poi.ShortDescription,
+                        languageCode,
+                        nameof(PoiTranslation.ShortDescription),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                var translatedDescription = await TranslatePoiOptionalTextSafelyAsync(
+                        poi.Description,
+                        languageCode,
+                        nameof(PoiTranslation.Description),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                await _uow.PoiTranslations.AddAsync(new PoiTranslation
+                {
+                    POIId = poi.Id,
+                    LanguageCode = languageCode,
+                    Name = Truncate(translatedName, MaxPoiTranslationNameLength) ?? string.Empty,
+                    ShortDescription = Truncate(translatedShortDescription, MaxPoiTranslationShortDescriptionLength),
+                    Description = translatedDescription ?? string.Empty,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                }, cancellationToken).ConfigureAwait(false);
+
+                await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to auto-translate POI {PoiId} to language {LanguageCode}. POI was saved.",
+                    poi.Id,
+                    languageCode);
+            }
+        }
+    }
+
+    private IReadOnlyList<string> ResolveSelectedLanguageCodes(CreatePoiRequest request)
+    {
+        var languageCodes = request.SelectedLanguageCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .ToList();
+
+        var form = _httpContextAccessor.HttpContext?.Request.HasFormContentType == true
+            ? _httpContextAccessor.HttpContext.Request.Form
+            : null;
+
+        if (form is not null)
+        {
+            languageCodes.AddRange(form["SelectedLanguageCodes"]
+                .Where(code => !string.IsNullOrWhiteSpace(code))
+                .Select(code => code!));
+
+            foreach (var key in form.Keys.Where(key => key.StartsWith("SelectedLanguageCodes[", StringComparison.OrdinalIgnoreCase)))
+            {
+                languageCodes.AddRange(form[key]
+                    .Where(code => !string.IsNullOrWhiteSpace(code))
+                    .Select(code => code!));
+            }
+
+            if (string.IsNullOrWhiteSpace(request.SelectedLanguageCodesJson))
+            {
+                request.SelectedLanguageCodesJson = form["SelectedLanguageCodesJson"].FirstOrDefault();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SelectedLanguageCodesJson))
+        {
+            try
+            {
+                var parsedCodes = JsonSerializer.Deserialize<string[]>(request.SelectedLanguageCodesJson) ?? [];
+                languageCodes.AddRange(parsedCodes);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Invalid SelectedLanguageCodesJson received while creating POI.");
+            }
+        }
+
+        if (languageCodes.Count == 0 && IsCurrentUserVendor())
+        {
+            languageCodes.Add("en");
+        }
+
+        return languageCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private async Task<string> TranslatePoiTextAsync(
+        string text,
+        string languageCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        return await _translationService.TranslateAsync(text, languageCode, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<string> TranslatePoiTextSafelyAsync(
+        string text,
+        string languageCode,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await TranslatePoiTextAsync(text, languageCode, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to translate POI field {FieldName} to language {LanguageCode}. Using source text as fallback.",
+                fieldName,
+                languageCode);
+            return text;
+        }
+    }
+
+    private async Task<string?> TranslatePoiOptionalTextAsync(
+        string? text,
+        string languageCode,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return text;
+        }
+
+        return await _translationService.TranslateAsync(text, languageCode, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<string?> TranslatePoiOptionalTextSafelyAsync(
+        string? text,
+        string languageCode,
+        string fieldName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await TranslatePoiOptionalTextAsync(text, languageCode, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to translate POI field {FieldName} to language {LanguageCode}. Using source text as fallback.",
+                fieldName,
+                languageCode);
+            return text;
+        }
+    }
+
+    private async Task ReTranslateExistingTranslationsAsync(
+        Poi poi,
+        CancellationToken cancellationToken)
+    {
+        var translations = await _uow.PoiTranslations.GetByPoiIdAsync(poi.Id, cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var translation in translations.Where(translation => translation.LanguageCode != "vi"))
+        {
+            try
+            {
+                var languageCode = translation.LanguageCode.Trim().ToLowerInvariant();
+                var language = await _uow.Languages.GetByCodeAsync(languageCode, cancellationToken)
+                    .ConfigureAwait(false);
+                if (language is null || !language.IsActive)
+                {
+                    _logger.LogWarning(
+                        "Skipping POI re-translation for unsupported or inactive language {LanguageCode}. POI id: {PoiId}",
+                        languageCode,
+                        poi.Id);
+                    continue;
+                }
+
+                translation.Name = Truncate(
+                    await TranslatePoiTextSafelyAsync(
+                            poi.Name,
+                            languageCode,
+                            nameof(PoiTranslation.Name),
+                            cancellationToken)
+                        .ConfigureAwait(false),
+                    MaxPoiTranslationNameLength) ?? string.Empty;
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                translation.ShortDescription = Truncate(
+                    await TranslatePoiOptionalTextSafelyAsync(
+                            poi.ShortDescription,
+                            languageCode,
+                            nameof(PoiTranslation.ShortDescription),
+                            cancellationToken)
+                        .ConfigureAwait(false),
+                    MaxPoiTranslationShortDescriptionLength);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                translation.Description = await TranslatePoiOptionalTextSafelyAsync(
+                            poi.Description,
+                            languageCode,
+                            nameof(PoiTranslation.Description),
+                            cancellationToken)
+                        .ConfigureAwait(false)
+                    ?? string.Empty;
+                await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken).ConfigureAwait(false);
+
+                translation.Version++;
+                translation.UpdatedAt = DateTime.UtcNow;
+                _uow.PoiTranslations.Update(translation);
+                await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Failed to re-translate POI {PoiId} to language {LanguageCode}. POI update was saved.",
+                    poi.Id,
+                    translation.LanguageCode);
+            }
+        }
+    }
+
+    private static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return value[..maxLength];
+    }
 
     private static IReadOnlyList<string> DeserializeImageUrls(string? imageUrls)
     {
