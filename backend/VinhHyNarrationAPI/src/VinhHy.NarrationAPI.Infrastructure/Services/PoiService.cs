@@ -116,6 +116,8 @@ public class PoiService : IPoiService
         CreatePoiRequest request,
         CancellationToken cancellationToken = default)
     {
+        EnsureVendorCreatePayloadIsSafe(request);
+
         var imageUrls = await SavePoiImagesAsync(request.Images, request.Image, cancellationToken)
             .ConfigureAwait(false);
 
@@ -728,9 +730,37 @@ public class PoiService : IPoiService
         var currentUserId = GetCurrentUserId()
             ?? throw new UnauthorizedException("Current user id is required to update a POI.");
 
+        if (requestedUserId.HasValue)
+        {
+            throw new ValidationException(nameof(UpdatePoiRequest.UserId), "Vendors cannot set POI owner.");
+        }
+
         if (poi.UserId != currentUserId)
         {
             throw new UnauthorizedException("You are not allowed to update this POI.");
+        }
+    }
+
+    private void EnsureVendorCreatePayloadIsSafe(CreatePoiRequest request)
+    {
+        if (!IsCurrentUserVendor())
+        {
+            return;
+        }
+
+        if (request.UserId.HasValue)
+        {
+            throw new ValidationException(nameof(request.UserId), "Vendors cannot set POI owner.");
+        }
+
+        if (request.ApprovalStatus != ApprovalStatus.Pending)
+        {
+            throw new ValidationException(nameof(request.ApprovalStatus), "Vendors cannot set POI approval status.");
+        }
+
+        if (request.PaymentRequired == false)
+        {
+            throw new ValidationException(nameof(request.PaymentRequired), "Vendor POI payment status is derived by the backend.");
         }
     }
 

@@ -13,6 +13,8 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class QrService : IQrService
 {
+    private const int MaxAccessDurationMinutes = 1440;
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
@@ -178,32 +180,32 @@ public class QrService : IQrService
         decimal? priceAmount,
         int? accessDurationMinutes)
     {
-        if (requiresPayment.HasValue)
+        var nextRequiresPayment = requiresPayment ?? qr.RequiresPayment;
+        var nextPriceAmount = priceAmount ?? qr.PriceAmount;
+        var nextAccessDurationMinutes = accessDurationMinutes ?? qr.AccessDurationMinutes;
+
+        if (nextPriceAmount < 0)
         {
-            qr.RequiresPayment = requiresPayment.Value;
+            throw new ValidationException(nameof(UpdateQrRequest.PriceAmount), "Price amount cannot be negative.");
         }
 
-        if (priceAmount.HasValue)
+        if (nextRequiresPayment && nextPriceAmount <= 0)
         {
-            if (priceAmount.Value < 0)
-            {
-                throw new ValidationException(nameof(UpdateQrRequest.PriceAmount), "Price amount cannot be negative.");
-            }
-
-            qr.PriceAmount = priceAmount.Value;
+            throw new ValidationException(
+                nameof(UpdateQrRequest.PriceAmount),
+                "Price amount must be greater than 0 when payment is required.");
         }
 
-        if (accessDurationMinutes.HasValue)
+        if (nextAccessDurationMinutes is <= 0 or > MaxAccessDurationMinutes)
         {
-            if (accessDurationMinutes.Value <= 0)
-            {
-                throw new ValidationException(
-                    nameof(UpdateQrRequest.AccessDurationMinutes),
-                    "Access duration must be greater than 0.");
-            }
-
-            qr.AccessDurationMinutes = accessDurationMinutes.Value;
+            throw new ValidationException(
+                nameof(UpdateQrRequest.AccessDurationMinutes),
+                $"Access duration must be between 1 and {MaxAccessDurationMinutes} minutes.");
         }
+
+        qr.RequiresPayment = nextRequiresPayment;
+        qr.PriceAmount = nextPriceAmount;
+        qr.AccessDurationMinutes = nextAccessDurationMinutes;
     }
 
     private async Task<string> GenerateUniqueCodeAsync(string prefix, CancellationToken cancellationToken)

@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
@@ -12,6 +13,9 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class MediaService : IMediaService
 {
+    private const long DefaultMaxImageFileSizeBytes = 5 * 1024 * 1024;
+    private const long DefaultMaxAudioFileSizeBytes = 50 * 1024 * 1024;
+
     private static readonly IReadOnlyDictionary<string, string> AllowedExtensions = new Dictionary<string, string>
     {
         [".jpg"] = "image",
@@ -23,15 +27,36 @@ public class MediaService : IMediaService
         [".m4a"] = "audio"
     };
 
+    private static readonly IReadOnlyDictionary<string, string[]> AllowedContentTypes = new Dictionary<string, string[]>
+    {
+        [".jpg"] = ["image/jpeg"],
+        [".jpeg"] = ["image/jpeg"],
+        [".png"] = ["image/png"],
+        [".webp"] = ["image/webp"],
+        [".mp3"] = ["audio/mpeg", "audio/mp3"],
+        [".wav"] = ["audio/wav", "audio/wave", "audio/x-wav"],
+        [".m4a"] = ["audio/mp4", "audio/x-m4a"]
+    };
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly IHostEnvironment _environment;
+    private readonly long _maxImageFileSizeBytes;
+    private readonly long _maxAudioFileSizeBytes;
 
-    public MediaService(IUnitOfWork uow, IMapper mapper, IHostEnvironment environment)
+    public MediaService(
+        IUnitOfWork uow,
+        IMapper mapper,
+        IHostEnvironment environment,
+        IConfiguration configuration)
     {
         _uow = uow;
         _mapper = mapper;
         _environment = environment;
+        _maxImageFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxImageFileSizeBytes")
+            ?? DefaultMaxImageFileSizeBytes;
+        _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
+            ?? DefaultMaxAudioFileSizeBytes;
     }
 
     public async Task<IReadOnlyList<MediaFileDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -253,7 +278,7 @@ public class MediaService : IMediaService
         };
     }
 
-    private static void ValidateUpload(UploadMediaRequest request)
+    private void ValidateUpload(UploadMediaRequest request)
     {
         if (request.FileContent is null)
         {
@@ -278,9 +303,40 @@ public class MediaService : IMediaService
                 "Allowed file extensions are jpg, jpeg, png, webp, mp3, wav, and m4a.");
         }
 
-        if (request.ImageOnly && AllowedExtensions[extension] != "image")
+        var fileType = AllowedExtensions[extension];
+        if (request.ImageOnly && fileType != "image")
         {
             throw new ValidationException(nameof(request.OriginalFileName), "Vendors can upload image files only.");
+        }
+
+        ValidateContentType(request.ContentType, extension);
+        ValidateFileSize(request.FileSize, fileType);
+    }
+
+    private static void ValidateContentType(string? contentType, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            throw new ValidationException(nameof(UploadMediaRequest.ContentType), "File MIME type is required.");
+        }
+
+        var allowedContentTypes = AllowedContentTypes[extension];
+        if (!allowedContentTypes.Contains(contentType.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            throw new ValidationException(
+                nameof(UploadMediaRequest.ContentType),
+                "File MIME type does not match extension.");
+        }
+    }
+
+    private void ValidateFileSize(long fileSize, string fileType)
+    {
+        var maxFileSizeBytes = fileType == "image" ? _maxImageFileSizeBytes : _maxAudioFileSizeBytes;
+        if (fileSize > maxFileSizeBytes)
+        {
+            throw new ValidationException(
+                nameof(UploadMediaRequest.FileSize),
+                $"File size exceeds maximum allowed size of {maxFileSizeBytes / (1024 * 1024)} MB.");
         }
     }
 }

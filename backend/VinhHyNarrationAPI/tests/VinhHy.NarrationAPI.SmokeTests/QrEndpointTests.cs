@@ -90,6 +90,23 @@ public class QrEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(90, await GetDataPropertyAsync<int>(response, "accessDurationMinutes"));
     }
 
+    [Fact]
+    public async Task CreateQr_WithRequiredPaymentAndZeroPrice_ReturnsBadRequest()
+    {
+        await AuthenticateAsync();
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/qr",
+            new CreateQrRequest
+            {
+                RequiresPayment = true,
+                PriceAmount = 0m,
+                AccessDurationMinutes = 60
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private async Task AuthenticateAsync()
     {
         var loginResponse = await _client.PostAsJsonAsync(

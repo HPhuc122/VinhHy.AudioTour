@@ -59,6 +59,17 @@ public class MediaEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.False(await GetDataPropertyAsync<bool>(restoredResponse, "isDeleted"));
     }
 
+    [Fact]
+    public async Task UploadMedia_WithOversizedImage_ReturnsBadRequest()
+    {
+        await AuthenticateAsync();
+
+        var oversizedImage = new byte[(5 * 1024 * 1024) + 1];
+        var response = await UploadAsync("oversized.jpg", "image/jpeg", oversizedImage);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private async Task<HttpResponseMessage> UploadAsync(
         string fileName,
         string contentType,

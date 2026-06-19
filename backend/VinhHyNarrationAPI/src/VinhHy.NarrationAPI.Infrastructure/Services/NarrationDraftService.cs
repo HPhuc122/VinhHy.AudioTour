@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
@@ -12,13 +13,26 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class NarrationDraftService : INarrationDraftService
 {
+    private const int MaxTitleLength = 200;
+    private const int MaxLanguageCodeLength = 10;
+    private const int MinTextContentLength = 10;
+    private const int MaxTextContentLength = 8000;
+    private const int MaxVoiceLength = 100;
+    private const long DefaultMaxAudioFileSizeBytes = 50 * 1024 * 1024;
+
     private readonly ApplicationDbContext _db;
     private readonly IHostEnvironment _environment;
+    private readonly long _maxAudioFileSizeBytes;
 
-    public NarrationDraftService(ApplicationDbContext db, IHostEnvironment environment)
+    public NarrationDraftService(
+        ApplicationDbContext db,
+        IHostEnvironment environment,
+        IConfiguration configuration)
     {
         _db = db;
         _environment = environment;
+        _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
+            ?? DefaultMaxAudioFileSizeBytes;
     }
 
     public async Task<PagedResult<NarrationDraftDto>> SearchAsync(
@@ -80,7 +94,7 @@ public class NarrationDraftService : INarrationDraftService
         bool requireOwnedPoi,
         CancellationToken cancellationToken = default)
     {
-        ValidateCreate(request);
+        await ValidateCreateAsync(request, cancellationToken).ConfigureAwait(false);
         var poi = await _db.Pois
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PoiId && p.DeletedAt == null, cancellationToken)
@@ -253,21 +267,77 @@ public class NarrationDraftService : INarrationDraftService
         return Map(draft);
     }
 
-    private static void ValidateCreate(CreateNarrationDraftRequest request)
+    private async Task ValidateCreateAsync(CreateNarrationDraftRequest request, CancellationToken cancellationToken)
     {
         if (request.PoiId <= 0)
+        {
             throw new ValidationException(nameof(request.PoiId), "POI is required.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Title))
+        {
             throw new ValidationException(nameof(request.Title), "Title is required.");
+        }
+
+        if (request.Title.Trim().Length > MaxTitleLength)
+        {
+            throw new ValidationException(nameof(request.Title), $"Title cannot exceed {MaxTitleLength} characters.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.LanguageCode))
+        {
             throw new ValidationException(nameof(request.LanguageCode), "Language is required.");
+        }
+
+        var languageCode = request.LanguageCode.Trim();
+        if (languageCode.Length > MaxLanguageCodeLength)
+        {
+            throw new ValidationException(
+                nameof(request.LanguageCode),
+                $"Language code cannot exceed {MaxLanguageCodeLength} characters.");
+        }
+
+        var languageExists = await _db.Languages
+            .AsNoTracking()
+            .AnyAsync(language => language.Code == languageCode && language.IsActive, cancellationToken)
+            .ConfigureAwait(false);
+        if (!languageExists)
+        {
+            throw new ValidationException(nameof(request.LanguageCode), "Language is not supported.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.TextContent))
+        {
             throw new ValidationException(nameof(request.TextContent), "Narration text is required.");
+        }
+
+        var textContent = request.TextContent.Trim();
+        if (textContent.Length < MinTextContentLength)
+        {
+            throw new ValidationException(
+                nameof(request.TextContent),
+                $"Narration text must be at least {MinTextContentLength} characters.");
+        }
+
+        if (textContent.Length > MaxTextContentLength)
+        {
+            throw new ValidationException(
+                nameof(request.TextContent),
+                $"Narration text cannot exceed {MaxTextContentLength} characters.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Voice))
+        {
             throw new ValidationException(nameof(request.Voice), "Voice is required.");
+        }
+
+        if (request.Voice.Trim().Length > MaxVoiceLength)
+        {
+            throw new ValidationException(nameof(request.Voice), $"Voice cannot exceed {MaxVoiceLength} characters.");
+        }
     }
 
-    private static void ValidateAudioUpload(UploadNarrationAudioRequest request)
+    private void ValidateAudioUpload(UploadNarrationAudioRequest request)
     {
         if (request.FileContent is null)
         {
@@ -279,6 +349,13 @@ public class NarrationDraftService : INarrationDraftService
             throw new ValidationException(nameof(request.FileSize), "MP3 file must not be empty.");
         }
 
+        if (request.FileSize > _maxAudioFileSizeBytes)
+        {
+            throw new ValidationException(
+                nameof(request.FileSize),
+                $"MP3 file size exceeds maximum allowed size of {_maxAudioFileSizeBytes / (1024 * 1024)} MB.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.OriginalFileName))
         {
             throw new ValidationException(nameof(request.OriginalFileName), "Original file name is required.");
@@ -287,6 +364,13 @@ public class NarrationDraftService : INarrationDraftService
         if (!string.Equals(Path.GetExtension(request.OriginalFileName), ".mp3", StringComparison.OrdinalIgnoreCase))
         {
             throw new ValidationException(nameof(request.OriginalFileName), "Only MP3 files are allowed.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ContentType) &&
+            !string.Equals(request.ContentType.Trim(), "audio/mpeg", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.ContentType.Trim(), "audio/mp3", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ValidationException(nameof(request.ContentType), "MP3 MIME type is invalid.");
         }
 
         if (request.DurationSeconds.HasValue && request.DurationSeconds.Value <= 0)

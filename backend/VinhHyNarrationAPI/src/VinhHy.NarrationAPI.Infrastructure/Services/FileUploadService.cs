@@ -54,7 +54,7 @@ public class FileUploadService : IFileUploadService
         {
             _logger.LogWarning("MIME type mismatch for file {FileName}: declared as {DeclaredType}, expected {ExpectedType}",
                 file.FileName, file.ContentType, AllowedExtensions[extension]);
-            // Allow but log warning (sometimes browsers send slightly different MIME types)
+            throw new ValidationException(nameof(file), "File MIME type does not match extension.");
         }
 
         try
