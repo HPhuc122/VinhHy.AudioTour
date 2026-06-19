@@ -1538,7 +1538,7 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.Poi", "Poi")
                         .WithMany("NarrationDrafts")
                         .HasForeignKey("PoiId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("VinhHy.NarrationAPI.Domain.Entities.User", "ReviewedByUser")

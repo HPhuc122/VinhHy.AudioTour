@@ -66,7 +66,7 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                 column: "PoiId",
                 principalTable: "POIs",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+                onDelete: ReferentialAction.NoAction);
         }
 
         /// <inheritdoc />

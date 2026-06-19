@@ -32,7 +32,7 @@ public class NarrationDraftConfiguration : IEntityTypeConfiguration<NarrationDra
         builder.HasOne(e => e.Poi)
             .WithMany(p => p.NarrationDrafts)
             .HasForeignKey(e => e.PoiId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder.HasOne(e => e.SubmittedByUser)
             .WithMany()
