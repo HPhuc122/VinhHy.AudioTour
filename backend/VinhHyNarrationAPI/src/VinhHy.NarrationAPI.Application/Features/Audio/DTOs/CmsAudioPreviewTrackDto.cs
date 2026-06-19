@@ -1,23 +1,16 @@
 namespace VinhHy.NarrationAPI.Application.Features.Audio.DTOs;
 
-using System.Text.Json.Serialization;
-
-public class AudioTrackDto
+public class CmsAudioPreviewTrackDto
 {
     public int Id { get; set; }
 
-    public int POIId { get; set; }
+    public int PoiId { get; set; }
 
     public string LanguageCode { get; set; } = null!;
 
     public string? Title { get; set; }
 
     public string AudioType { get; set; } = null!;
-
-    [JsonIgnore]
-    public string? FileUrl { get; set; }
-
-    public string? TTSText { get; set; }
 
     public int? DurationSeconds { get; set; }
 
@@ -26,12 +19,4 @@ public class AudioTrackDto
     public string? MimeType { get; set; }
 
     public bool IsActive { get; set; }
-
-    public int Version { get; set; }
-
-    public DateTime? DeletedAt { get; set; }
-
-    public DateTime CreatedAt { get; set; }
-
-    public DateTime UpdatedAt { get; set; }
 }

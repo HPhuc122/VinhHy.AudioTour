@@ -13,6 +13,7 @@ import {
   MAP_MAX_ZOOM,
   MAP_TILE_URL,
 } from '@/config/mapConfig';
+import { CmsAudioPreviewPlayer } from '@/features/audio/components/CmsAudioPreviewPlayer';
 import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
 import { canViewAnalyticsDashboard, isAdminRole, isVendorRole } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -375,7 +376,6 @@ interface PoiMapPoint {
   shortDescription?: string | null;
   description?: string | null;
   imageUrl?: string | null;
-  audioUrl?: string | null;
   category?: string | null;
   isActive: boolean;
   isOwned: boolean;
@@ -503,14 +503,7 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
             {poi.description || poi.shortDescription || 'No description available.'}
           </p>
 
-          {poi.audioUrl ? (
-            <div className="mt-4 rounded-lg bg-gray-50 p-3">
-              <p className="mb-2 text-xs font-medium text-gray-500">Audio preview</p>
-              <audio controls src={poi.audioUrl} className="w-full" />
-            </div>
-          ) : (
-            <p className="mt-4 text-xs text-gray-400">No audio preview available.</p>
-          )}
+          <CmsAudioPreviewPlayer poiId={poi.id} />
         </div>
       </div>
     </Card>
@@ -557,7 +550,6 @@ function getPoiMapPoints(pois: PoiDto[], currentUserId?: number): PoiMapPoint[] 
       shortDescription: poi.shortDescription,
       description: poi.description,
       imageUrl: poi.imageUrl,
-      audioUrl: poi.audioUrl,
       category: poi.category,
       isActive: poi.isActive,
       isOwned: Boolean(currentUserId && poi.userId === currentUserId),
