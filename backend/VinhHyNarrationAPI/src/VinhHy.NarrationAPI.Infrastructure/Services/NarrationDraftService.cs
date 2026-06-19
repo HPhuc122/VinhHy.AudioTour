@@ -309,6 +309,17 @@ public class NarrationDraftService : INarrationDraftService
             throw new ValidationException(nameof(request.LanguageCode), "Language is not supported.");
         }
 
+        var duplicateExists = await _db.NarrationDrafts
+            .AsNoTracking()
+            .AnyAsync(
+                draft => draft.PoiId == request.PoiId && draft.LanguageCode == languageCode,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (duplicateExists)
+        {
+            throw new ValidationException(nameof(request.LanguageCode), "Narration for this POI and language already exists.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.TextContent))
         {
             throw new ValidationException(nameof(request.TextContent), "Narration text is required.");

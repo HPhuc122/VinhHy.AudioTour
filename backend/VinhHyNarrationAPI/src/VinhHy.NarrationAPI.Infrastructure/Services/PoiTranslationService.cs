@@ -9,6 +9,10 @@ namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 public class PoiTranslationService : IPoiTranslationService
 {
+    private const int MaxNameLength = 200;
+    private const int MaxShortDescriptionLength = 500;
+    private const int MaxLanguageCodeLength = 10;
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
 
@@ -18,37 +22,63 @@ public class PoiTranslationService : IPoiTranslationService
         _mapper = mapper;
     }
 
-    public async Task<PoiTranslationDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<PoiTranslationDto?> GetByIdAsync(
+        int id,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
+        CancellationToken cancellationToken = default)
     {
         var item = await _uow.PoiTranslations.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        if (item is not null)
+        {
+            await EnsurePoiAccessAsync(item.POIId, requesterUserId, requireOwnedPoi, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         return item is null ? null : _mapper.Map<PoiTranslationDto>(item);
     }
 
     public async Task<IReadOnlyList<PoiTranslationDto>> GetByPoiIdAsync(
         int poiId,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
         CancellationToken cancellationToken = default)
     {
+        await EnsurePoiAccessAsync(poiId, requesterUserId, requireOwnedPoi, cancellationToken)
+            .ConfigureAwait(false);
+
         var items = await _uow.PoiTranslations.GetByPoiIdAsync(poiId, cancellationToken).ConfigureAwait(false);
         return _mapper.Map<IReadOnlyList<PoiTranslationDto>>(items);
     }
 
     public async Task<PoiTranslationDto> CreateAsync(
         CreatePoiTranslationRequest request,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
         CancellationToken cancellationToken = default)
     {
-        _ = await _uow.Pois.GetByIdAsync(request.POIId, cancellationToken: cancellationToken).ConfigureAwait(false)
-            ?? throw new NotFoundException(nameof(Poi), request.POIId);
+        await EnsurePoiAccessAsync(request.POIId, requesterUserId, requireOwnedPoi, cancellationToken)
+            .ConfigureAwait(false);
 
         await ValidateLanguageAsync(request.LanguageCode, nameof(request.LanguageCode), cancellationToken)
             .ConfigureAwait(false);
 
+        ValidateRequiredText(request.Name, nameof(request.Name), MaxNameLength);
+        ValidateRequiredText(request.Description, nameof(request.Description));
+        ValidateOptionalText(request.ShortDescription, nameof(request.ShortDescription), MaxShortDescriptionLength);
+
+        var languageCode = request.LanguageCode.Trim();
         if (await _uow.PoiTranslations
-                .GetByPoiAndLanguageAsync(request.POIId, request.LanguageCode, cancellationToken)
+                .GetByPoiAndLanguageAsync(request.POIId, languageCode, cancellationToken)
                 .ConfigureAwait(false) is not null)
             throw new ValidationException(nameof(request.LanguageCode), "Translation for this language already exists.");
 
         var now = DateTime.UtcNow;
         var translation = _mapper.Map<PoiTranslation>(request);
+        translation.LanguageCode = languageCode;
+        translation.Name = request.Name.Trim();
+        translation.Description = request.Description.Trim();
+        translation.ShortDescription = string.IsNullOrWhiteSpace(request.ShortDescription) ? null : request.ShortDescription.Trim();
         translation.CreatedAt = now;
         translation.UpdatedAt = now;
 
@@ -61,14 +91,33 @@ public class PoiTranslationService : IPoiTranslationService
     public async Task<PoiTranslationDto> UpdateAsync(
         int id,
         UpdatePoiTranslationRequest request,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
         CancellationToken cancellationToken = default)
     {
         var translation = await _uow.PoiTranslations.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(PoiTranslation), id);
 
-        if (request.Name is not null) translation.Name = request.Name;
-        if (request.Description is not null) translation.Description = request.Description;
-        if (request.ShortDescription is not null) translation.ShortDescription = request.ShortDescription;
+        await EnsurePoiAccessAsync(translation.POIId, requesterUserId, requireOwnedPoi, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (request.Name is not null)
+        {
+            ValidateRequiredText(request.Name, nameof(request.Name), MaxNameLength);
+            translation.Name = request.Name.Trim();
+        }
+
+        if (request.Description is not null)
+        {
+            ValidateRequiredText(request.Description, nameof(request.Description));
+            translation.Description = request.Description.Trim();
+        }
+
+        if (request.ShortDescription is not null)
+        {
+            ValidateOptionalText(request.ShortDescription, nameof(request.ShortDescription), MaxShortDescriptionLength);
+            translation.ShortDescription = string.IsNullOrWhiteSpace(request.ShortDescription) ? null : request.ShortDescription.Trim();
+        }
 
         translation.Version++;
         translation.UpdatedAt = DateTime.UtcNow;
@@ -78,13 +127,35 @@ public class PoiTranslationService : IPoiTranslationService
         return _mapper.Map<PoiTranslationDto>(translation);
     }
 
-    public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(
+        int id,
+        int? requesterUserId = null,
+        bool requireOwnedPoi = false,
+        CancellationToken cancellationToken = default)
     {
         var translation = await _uow.PoiTranslations.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(PoiTranslation), id);
 
+        await EnsurePoiAccessAsync(translation.POIId, requesterUserId, requireOwnedPoi, cancellationToken)
+            .ConfigureAwait(false);
+
         _uow.PoiTranslations.Delete(translation);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsurePoiAccessAsync(
+        int poiId,
+        int? requesterUserId,
+        bool requireOwnedPoi,
+        CancellationToken cancellationToken)
+    {
+        var poi = await _uow.Pois.GetByIdAsync(poiId, cancellationToken: cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(Poi), poiId);
+
+        if (requireOwnedPoi && poi.UserId != requesterUserId)
+        {
+            throw new ForbiddenException("Vendors can only manage translations for their own POIs.");
+        }
     }
 
     private async Task ValidateLanguageAsync(
@@ -97,12 +168,38 @@ public class PoiTranslationService : IPoiTranslationService
             throw new ValidationException(fieldName, "Language is required.");
         }
 
-        var language = await _uow.Languages.GetByCodeAsync(languageCode, cancellationToken)
+        if (languageCode.Trim().Length > MaxLanguageCodeLength)
+        {
+            throw new ValidationException(fieldName, $"Language code cannot exceed {MaxLanguageCodeLength} characters.");
+        }
+
+        var language = await _uow.Languages.GetByCodeAsync(languageCode.Trim(), cancellationToken)
             .ConfigureAwait(false);
 
         if (language is null || !language.IsActive)
         {
             throw new ValidationException(fieldName, "Language does not exist or is inactive.");
+        }
+    }
+
+    private static void ValidateRequiredText(string? value, string fieldName, int? maxLength = null)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ValidationException(fieldName, $"{fieldName} is required.");
+        }
+
+        if (maxLength.HasValue && value.Trim().Length > maxLength.Value)
+        {
+            throw new ValidationException(fieldName, $"{fieldName} cannot exceed {maxLength.Value} characters.");
+        }
+    }
+
+    private static void ValidateOptionalText(string? value, string fieldName, int maxLength)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && value.Trim().Length > maxLength)
+        {
+            throw new ValidationException(fieldName, $"{fieldName} cannot exceed {maxLength} characters.");
         }
     }
 }

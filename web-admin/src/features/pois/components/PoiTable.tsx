@@ -15,7 +15,6 @@ type AdminLifecycleAction = 'approve' | 'reject' | 'request-payment';
 interface Props {
   filters?: any;
   onEdit?: (poi: any) => void;
-  onAddTranslate?: (poi: any) => void;
   isVendorMode?: boolean;
 }
 
@@ -242,7 +241,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                       <span className={`inline-block rounded-full border px-2 py-1 text-xs font-medium ${getLifecycleStatusBadgeClassName(lifecycleStatus)}`}>
                         {isPaying ? 'Đang thanh toán' : getLifecycleStatusLabel(lifecycleStatus)}
                       </span>
-                      {!isVendorMode ? (
+                      {!isDeleted ? (
                         <div className="flex flex-wrap gap-1">
                           {canAdminApprove ? (
                             <Button
@@ -344,7 +343,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           variant="primary"
                           onClick={() => setTranslatingPoi(poi)}
                         >
-                          + Dịch thuật
+                          Bản dịch
                         </Button>
                       ) : null}
                       <Button
@@ -431,7 +430,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
         </tbody>
       </table>
 
-      {!isVendorMode && translatingPoi && (
+      {translatingPoi && (
         <PoiTranslationModal
           isOpen={!!translatingPoi}
           onClose={() => setTranslatingPoi(null)}

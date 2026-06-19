@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using VinhHy.NarrationAPI.Application.Features.Auth.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
+using VinhHy.NarrationAPI.Application.Features.PoiTranslations.DTOs;
 using VinhHy.NarrationAPI.Domain.Entities;
 using Xunit;
 
@@ -58,6 +59,72 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task CreateNarration_DuplicatePoiLanguage_ReturnsBadRequest()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        var request = new CreateNarrationDraftRequest
+        {
+            PoiId = poiId,
+            Title = "Vietnamese narration",
+            LanguageCode = "vi",
+            TextContent = "This narration text is long enough.",
+            Voice = "vi-female"
+        };
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/narrations", request);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        var duplicateResponse = await _client.PostAsJsonAsync("/api/v1/narrations", request);
+        Assert.Equal(HttpStatusCode.BadRequest, duplicateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreatePoiTranslation_DuplicatePoiLanguage_ReturnsBadRequest()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        var request = new CreatePoiTranslationRequest
+        {
+            POIId = poiId,
+            LanguageCode = "en",
+            Name = "English POI",
+            ShortDescription = "Short English description",
+            Description = "Full English description"
+        };
+
+        var firstResponse = await _client.PostAsJsonAsync("/api/v1/poi-translations", request);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        var duplicateResponse = await _client.PostAsJsonAsync("/api/v1/poi-translations", request);
+        Assert.Equal(HttpStatusCode.BadRequest, duplicateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreatePoiTranslation_AsVendorForOtherPoi_ReturnsForbidden()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        await AuthenticateVendorAsync();
+
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/poi-translations",
+            new CreatePoiTranslationRequest
+            {
+                POIId = poiId,
+                LanguageCode = "en",
+                Name = "Vendor translation",
+                ShortDescription = "Vendor should not be able to edit this POI",
+                Description = "Vendor should not be able to edit this POI"
+            });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static MultipartFormDataContent BuildValidPoiForm(string latitude = "11.750000")
     {
         var form = new MultipartFormDataContent
@@ -74,6 +141,16 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
         };
 
         return form;
+    }
+
+    private async Task<int> CreatePoiAsync()
+    {
+        using var form = BuildValidPoiForm();
+        var response = await _client.PostAsync("/api/v1/pois", form);
+
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.GetProperty("data").GetProperty("id").GetInt32();
     }
 
     private async Task AuthenticateAdminAsync()

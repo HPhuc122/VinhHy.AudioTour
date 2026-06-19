@@ -28,6 +28,7 @@ public class NarrationDraftConfiguration : IEntityTypeConfiguration<NarrationDra
         builder.HasIndex(e => e.SubmittedAt);
         builder.HasIndex(e => new { e.SubmittedByUserId, e.Status });
         builder.HasIndex(e => new { e.PoiId, e.Status });
+        builder.HasIndex(e => new { e.PoiId, e.LanguageCode }).IsUnique();
 
         builder.HasOne(e => e.Poi)
             .WithMany(p => p.NarrationDrafts)
