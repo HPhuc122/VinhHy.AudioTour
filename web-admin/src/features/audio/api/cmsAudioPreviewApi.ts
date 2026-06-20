@@ -39,7 +39,7 @@ export function createCmsAudioPreviewApi(httpClient: AxiosInstance) {
 
 function unwrapApiResponse<T>(body: ApiResponse<T>): T {
   if (!body.success || body.data === null || typeof body.data === 'undefined') {
-    throw toApiClientError(new Error(body.message || 'Request failed'));
+    throw toApiClientError(new Error(body.message || 'Thao tác thất bại'));
   }
 
   return body.data;

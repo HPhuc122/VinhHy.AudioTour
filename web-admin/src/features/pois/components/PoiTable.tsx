@@ -150,7 +150,7 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     try {
       setUpdatingPaymentId(poi.id);
       await vendorMomoPaymentMutation.mutateAsync(poi.id);
-      toast('Thanh toán MoMo mô phỏng thành công. POI đã được kích hoạt.', 'success');
+      toast('Thanh toán MoMo mô phỏng thành công. Sạp/địa điểm đã được kích hoạt.', 'success');
     } catch (err: unknown) {
       toast(extractApiError(err), 'error');
     } finally {
@@ -887,7 +887,7 @@ function getLifecycleActionLabel(action: AdminLifecycleAction): string {
     case 'approve':
       return 'Duyệt';
     case 'reject':
-      return 'Từ chối';
+      return 'Bị từ chối';
     case 'request-payment':
       return 'Yêu cầu thanh toán';
   }
@@ -937,11 +937,11 @@ function getPublicVisibilityStatus(poi: any): { public: boolean; label: string; 
   const isPublic = !poi.deletedAt && lifecycleStatus === 3 && poi.isActive && validFromOk && validUntilOk;
 
   if (isPublic) return { public: true, label: 'Đang công khai', reason: 'Đủ điều kiện hiển thị công khai.' };
-  if (poi.deletedAt) return { public: false, label: 'Đã xóa', reason: 'POI đã bị xóa mềm.' };
-  if (lifecycleStatus !== 3) return { public: false, label: 'Chưa công khai', reason: `Lifecycle hiện tại: ${getLifecycleStatusLabel(lifecycleStatus)}.` };
-  if (!poi.isActive) return { public: false, label: 'Tạm tắt', reason: 'POI đang tạm tắt.' };
-  if (!validFromOk) return { public: false, label: 'Chưa đến hiệu lực', reason: 'ValidFrom chưa tới thời điểm hiện tại.' };
-  if (!validUntilOk) return { public: false, label: 'Hết hiệu lực', reason: 'ValidUntil đã qua.' };
+  if (poi.deletedAt) return { public: false, label: 'Đã xóa', reason: 'Sạp/địa điểm đã bị xóa mềm.' };
+  if (lifecycleStatus !== 3) return { public: false, label: 'Chưa công khai', reason: `Trạng thái hiện tại: ${getLifecycleStatusLabel(lifecycleStatus)}.` };
+  if (!poi.isActive) return { public: false, label: 'Tạm tắt', reason: 'Sạp/địa điểm đang tạm tắt.' };
+  if (!validFromOk) return { public: false, label: 'Chưa đến hiệu lực', reason: 'Chưa đến thời gian hiển thị công khai.' };
+  if (!validUntilOk) return { public: false, label: 'Hết hiệu lực', reason: 'Đã quá thời gian hiển thị công khai.' };
   return { public: false, label: 'Chưa công khai', reason: 'Chưa đủ điều kiện hiển thị.' };
 }
 
@@ -966,10 +966,10 @@ function getVendorNextActionText(status: LifecycleStatusValue): string {
 
 function getPaymentNextAction(lifecycleStatus: LifecycleStatusValue, paymentStatus: PaymentStatusValue): string {
   if (lifecycleStatus === 0) return 'Admin cần duyệt hoặc từ chối POI.';
-  if (lifecycleStatus === 1) return 'Admin có thể yêu cầu thanh toán nếu POI cần phí kích hoạt.';
-  if (lifecycleStatus === 2 && paymentStatus === 1) return 'Vendor thanh toán, hoặc Admin đánh dấu đã thanh toán/miễn thanh toán.';
-  if (lifecycleStatus === 3) return 'POI đã kích hoạt.';
-  if (lifecycleStatus === 5) return 'POI đã bị từ chối.';
+  if (lifecycleStatus === 1) return 'Admin có thể yêu cầu thanh toán nếu sạp/địa điểm cần phí kích hoạt.';
+  if (lifecycleStatus === 2 && paymentStatus === 1) return 'Chủ sạp thanh toán, hoặc Admin đánh dấu đã thanh toán/miễn thanh toán.';
+  if (lifecycleStatus === 3) return 'Sạp/địa điểm đã kích hoạt.';
+  if (lifecycleStatus === 5) return 'Sạp/địa điểm đã bị từ chối.';
   return 'Không có hành động thanh toán tiếp theo.';
 }
 

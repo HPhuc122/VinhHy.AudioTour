@@ -71,7 +71,7 @@ export function createQrApi(httpClient: AxiosInstance) {
 
 function unwrapApiResponse<T>(body: ApiResponse<T>, allowNull = false): T {
   if (!body.success || (!allowNull && (body.data === null || typeof body.data === 'undefined'))) {
-    throw toApiClientError(new Error(body.message || 'Request failed'));
+    throw toApiClientError(new Error(body.message || 'Thao tác thất bại'));
   }
 
   return body.data as T;

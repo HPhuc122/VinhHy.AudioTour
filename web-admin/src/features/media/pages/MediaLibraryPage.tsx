@@ -28,7 +28,7 @@ import {
   type NarrationStatus,
 } from '@/features/narrations/api/narrationsApi';
 import { narrationQueryKeys } from '@/features/narrations/hooks/useNarrationsQuery';
-import { poiTranslationsApi } from '@/features/pois/api/poiTranslationsApi';
+import { poiTranslationsApi, type TranslationProviderStatus } from '@/features/pois/api/poiTranslationsApi';
 import { createPoisApi, type PoiDto } from '@/features/pois/api/poisApi';
 
 const imageAccept = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
@@ -153,10 +153,16 @@ export function MediaLibraryPage() {
     queryFn: languagesApi.getAll,
   });
 
+  const translationProviderQuery = useQuery({
+    queryKey: ['poiTranslations', 'provider'],
+    queryFn: poiTranslationsApi.getProviderStatus,
+  });
+
   const images = imagesQuery.data?.items ?? [];
   const narrations = narrationsQuery.data?.items ?? [];
   const translations = (translationsQuery.data ?? []) as Translation[];
   const languages = languagesQuery.data ?? [];
+  const translationProviderStatus = translationProviderQuery.data;
   const activeLanguages = useMemo(() => languages.filter((language) => language.isActive), [languages]);
   const contentSummary = useMemo(
     () => buildContentSummary(images, narrations, translations),
@@ -321,7 +327,7 @@ export function MediaLibraryPage() {
       const skipped = result?.skippedLanguageCodes?.length
         ? ` Bỏ qua: ${result.skippedLanguageCodes.join(', ')}.`
         : '';
-      setNotice(`Đã tạo bản dịch mô phỏng.${skipped}`);
+      setNotice(`Đã tạo ${getGeneratedTranslationLabel(translationProviderStatus)}.${skipped}`);
       setTargetLanguageCodes([]);
       await invalidateSelectedPoiContent();
     },
@@ -430,6 +436,7 @@ export function MediaLibraryPage() {
     narrationsQuery.error,
     translationsQuery.error,
     languagesQuery.error,
+    translationProviderQuery.error,
   ]);
 
   return (
@@ -553,6 +560,7 @@ export function MediaLibraryPage() {
               setTargetLanguageCodes={setTargetLanguageCodes}
               overwriteExisting={overwriteExisting}
               setOverwriteExisting={setOverwriteExisting}
+              translationProviderStatus={translationProviderStatus}
               isSaving={saveTranslationMutation.isPending}
               isDeleting={deleteTranslationMutation.isPending}
               isGenerating={generateTranslationsMutation.isPending}
@@ -1063,6 +1071,7 @@ function TranslationsTab({
   setTargetLanguageCodes,
   overwriteExisting,
   setOverwriteExisting,
+  translationProviderStatus,
   isSaving,
   isDeleting,
   isGenerating,
@@ -1084,6 +1093,7 @@ function TranslationsTab({
   setTargetLanguageCodes: (codes: string[]) => void;
   overwriteExisting: boolean;
   setOverwriteExisting: (value: boolean) => void;
+  translationProviderStatus?: TranslationProviderStatus;
   isSaving: boolean;
   isDeleting: boolean;
   isGenerating: boolean;
@@ -1148,11 +1158,14 @@ function TranslationsTab({
           <div>
             <h3 className="text-base font-semibold text-indigo-950">Tạo bản dịch tự động</h3>
             <p className="mt-1 text-sm text-indigo-800">
-              Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.
+              {getTranslationProviderLabel(translationProviderStatus)}
             </p>
+            {translationProviderStatus && !translationProviderStatus.isConfigured ? (
+              <p className="mt-1 text-sm font-medium text-amber-700">Dịch vụ dịch chưa được cấu hình.</p>
+            ) : null}
           </div>
           <Button onClick={onGenerate} isLoading={isGenerating} disabled={targetLanguages.length === 0}>
-            Tạo bản dịch mô phỏng
+            Tạo {getGeneratedTranslationLabel(translationProviderStatus)}
           </Button>
         </div>
 
@@ -1918,9 +1931,9 @@ function getPublicVisibilityStatus(poi: PoiDto): { isPublic: boolean; label: str
   const isPublic = !deletedAt && lifecycleActive && poi.isActive && validFromOk && validUntilOk;
 
   if (isPublic) return { isPublic: true, label: 'Đang công khai', reason: 'Đủ điều kiện hiển thị công khai.' };
-  if (deletedAt) return { isPublic: false, label: 'Đã xóa', reason: 'POI đã bị xóa mềm.' };
-  if (!lifecycleActive) return { isPublic: false, label: 'Chưa công khai', reason: `Lifecycle hiện tại: ${getLifecycleLabel(poi.lifecycleStatus)}.` };
-  if (!poi.isActive) return { isPublic: false, label: 'Tạm tắt', reason: 'POI đang tạm tắt.' };
+  if (deletedAt) return { isPublic: false, label: 'Đã xóa', reason: 'Sạp/địa điểm đã bị xóa mềm.' };
+  if (!lifecycleActive) return { isPublic: false, label: 'Chưa công khai', reason: `Trạng thái hiện tại: ${getLifecycleLabel(poi.lifecycleStatus)}.` };
+  if (!poi.isActive) return { isPublic: false, label: 'Tạm tắt', reason: 'Sạp/địa điểm đang tạm tắt.' };
   if (!validFromOk) return { isPublic: false, label: 'Chưa đến hiệu lực', reason: 'Chưa đến thời gian hiển thị.' };
   if (!validUntilOk) return { isPublic: false, label: 'Hết hiệu lực', reason: 'Đã quá thời gian hiển thị.' };
   return { isPublic: false, label: 'Chưa công khai', reason: 'Chưa đủ điều kiện hiển thị.' };
@@ -1947,7 +1960,7 @@ function statusLabel(status: string): string {
     case 'Approved':
       return 'Đã duyệt';
     case 'Rejected':
-      return 'Từ chối';
+      return 'Bị từ chối';
     case 'AudioGenerated':
       return 'Đã có âm thanh';
     default:
@@ -1973,6 +1986,16 @@ function getFirstError(errors: unknown[]): string | null {
     return 'Vui lòng chọn POI/sạp trước khi thao tác.';
   }
   return message;
+}
+
+function getTranslationProviderLabel(providerStatus?: TranslationProviderStatus | null): string {
+  return providerStatus?.isSimulated === false
+    ? 'Dịch tự động'
+    : 'Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.';
+}
+
+function getGeneratedTranslationLabel(providerStatus?: TranslationProviderStatus | null): string {
+  return providerStatus?.isSimulated === false ? 'bản dịch tự động' : 'bản dịch mô phỏng';
 }
 
 function getBusyMutationId(...values: unknown[]): number | null {

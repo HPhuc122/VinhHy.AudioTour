@@ -2,7 +2,18 @@ import { httpClient } from '@/api/httpClient';
 
 const POI_TRANSLATIONS_BASE = '/api/v1/poi-translations';
 
+export interface TranslationProviderStatus {
+  provider: 'Simulated' | 'RealApi' | string;
+  isSimulated: boolean;
+  isConfigured: boolean;
+}
+
 export const poiTranslationsApi = {
+  async getProviderStatus(): Promise<TranslationProviderStatus> {
+    const response = await httpClient.get(`${POI_TRANSLATIONS_BASE}/provider`);
+    return response.data.data;
+  },
+
   async getByPoiId(poiId: number) {
     const response = await httpClient.get(`${POI_TRANSLATIONS_BASE}/by-poi/${poiId}`);
     return response.data.data;

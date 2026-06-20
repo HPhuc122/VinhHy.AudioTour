@@ -20,18 +20,19 @@ export function toApiClientError(error: unknown): ApiClientError {
 
   if (isAxiosApiError(error)) {
     const body = error.response?.data;
+    const statusCode = error.response?.status;
     return new ApiClientError(
-      body?.message ?? error.message,
-      error.response?.status,
+      normalizeApiMessage(body?.message ?? error.message, statusCode),
+      statusCode,
       body?.errors,
     );
   }
 
   if (error instanceof Error) {
-    return new ApiClientError(error.message);
+    return new ApiClientError(normalizeApiMessage(error.message));
   }
 
-  return new ApiClientError('An unexpected error occurred');
+  return new ApiClientError('Đã xảy ra lỗi ngoài dự kiến. Vui lòng thử lại.');
 }
 
 export function extractApiError(error: unknown): string {
@@ -46,6 +47,32 @@ export function extractApiError(error: unknown): string {
   }
 
   return clientError.message;
+}
+
+function normalizeApiMessage(message?: string | null, statusCode?: number): string {
+  const text = message?.trim();
+
+  if (!text || /^request failed$/i.test(text) || /Request failed with status code/i.test(text)) {
+    if (statusCode === 400) return 'Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại.';
+    if (statusCode === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    if (statusCode === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+    if (statusCode === 404) return 'Không tìm thấy dữ liệu cần thao tác.';
+    return 'Thao tác thất bại. Vui lòng kiểm tra dữ liệu và thử lại.';
+  }
+
+  return text
+    .replace(/\bPendingReview\b/g, 'Chờ duyệt')
+    .replace(/\bPendingPayment\b/g, 'Chờ thanh toán')
+    .replace(/\bNotRequired\b/g, 'Không yêu cầu')
+    .replace(/\bActive\b/g, 'Đang hoạt động')
+    .replace(/\bApproved\b/g, 'Đã duyệt')
+    .replace(/\bRejected\b/g, 'Bị từ chối')
+    .replace(/\bExpired\b/g, 'Hết hạn')
+    .replace(/\bWaived\b/g, 'Miễn thanh toán')
+    .replace(/\bPaid\b/g, 'Đã thanh toán')
+    .replace(/\bGuestAccessPass\b/g, 'mã nghe')
+    .replace(/\bAudioTrack\b/g, 'bản âm thanh')
+    .replace(/\bNarrationDraft\b/g, 'bản thuyết minh');
 }
 
 function isAxiosApiError(

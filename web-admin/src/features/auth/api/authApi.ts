@@ -46,7 +46,7 @@ export function createAuthApi(
       );
 
       if (!response.data.success) {
-        throw toApiClientError(new Error(response.data.message || 'Dang ky that bai'));
+        throw toApiClientError(new Error(response.data.message || 'Đăng ký thất bại'));
       }
     },
   };
@@ -54,7 +54,7 @@ export function createAuthApi(
 
 function unwrapApiResponse<T>(body: ApiResponse<T>): T {
   if (!body.success || body.data === null) {
-    throw toApiClientError(new Error(body.message || 'Request failed'));
+    throw toApiClientError(new Error(body.message || 'Thao tác thất bại'));
   }
 
   return body.data;

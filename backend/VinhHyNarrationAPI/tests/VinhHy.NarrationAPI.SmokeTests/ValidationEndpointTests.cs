@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using VinhHy.NarrationAPI.Application.Features.Auth.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
 using VinhHy.NarrationAPI.Application.Features.PoiTranslations.DTOs;
@@ -151,6 +152,52 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task GeneratePoiTranslations_WithRealProviderMissingConfig_ReturnsReadableError()
+    {
+        using var realProviderFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Translation:Provider"] = "RealApi",
+                    ["Translation:RealApi:BaseUrl"] = "",
+                    ["Translation:RealApi:Model"] = "",
+                    ["Translation:RealApi:ApiKey"] = ""
+                });
+            });
+        });
+        using var client = realProviderFactory.CreateClient();
+
+        await AuthenticateAdminAsync(client);
+        var poiId = await CreatePoiAsync(client);
+
+        var providerResponse = await client.GetAsync("/api/v1/poi-translations/provider");
+        Assert.Equal(HttpStatusCode.OK, providerResponse.StatusCode);
+        using (var providerDoc = JsonDocument.Parse(await providerResponse.Content.ReadAsStringAsync()))
+        {
+            var provider = providerDoc.RootElement.GetProperty("data");
+            Assert.Equal("RealApi", provider.GetProperty("provider").GetString());
+            Assert.False(provider.GetProperty("isConfigured").GetBoolean());
+            Assert.False(provider.GetProperty("isSimulated").GetBoolean());
+        }
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/poi-translations/generate",
+            new GeneratePoiTranslationsRequest
+            {
+                PoiId = poiId,
+                SourceLanguageCode = "vi",
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Dịch vụ dịch chưa được cấu hình", doc.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task GeneratePoiTranslations_AsVendor_AllowsOwnPoiAndForbidsOtherPoi()
     {
         await AuthenticateVendorAsync();
@@ -260,24 +307,28 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
         return form;
     }
 
-    private async Task<int> CreatePoiAsync()
+    private Task<int> CreatePoiAsync() => CreatePoiAsync(_client);
+
+    private static async Task<int> CreatePoiAsync(HttpClient client)
     {
         using var form = BuildValidPoiForm();
-        var response = await _client.PostAsync("/api/v1/pois", form);
+        var response = await client.PostAsync("/api/v1/pois", form);
 
         response.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return doc.RootElement.GetProperty("data").GetProperty("id").GetInt32();
     }
 
-    private async Task AuthenticateAdminAsync()
+    private Task AuthenticateAdminAsync() => AuthenticateAdminAsync(_client);
+
+    private static async Task AuthenticateAdminAsync(HttpClient client)
     {
-        var loginResponse = await _client.PostAsJsonAsync(
+        var loginResponse = await client.PostAsJsonAsync(
             "/api/v1/auth/login",
             new LoginRequest { Username = "admin", Password = "ChangeMe123!" });
 
         loginResponse.EnsureSuccessStatusCode();
-        _client.DefaultRequestHeaders.Authorization =
+        client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", await ReadAccessTokenAsync(loginResponse));
     }
 

@@ -49,6 +49,12 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     enabled: isOpen,
   });
 
+  const { data: providerStatus } = useQuery({
+    queryKey: ['poiTranslations', 'provider'],
+    queryFn: poiTranslationsApi.getProviderStatus,
+    enabled: isOpen,
+  });
+
   const activeLanguages = useMemo(
     () => languages.filter((language: LanguageDto) => language.isActive),
     [languages],
@@ -109,7 +115,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
       const skipped = result?.skippedLanguageCodes?.length
         ? ` Bỏ qua: ${result.skippedLanguageCodes.join(', ')}.`
         : '';
-      toast(`Đã tạo bản dịch mô phỏng.${skipped}`, 'success');
+      toast(`Đã tạo ${getGeneratedTranslationLabel(providerStatus)}.${skipped}`, 'success');
     },
     onError: (err: any) => {
       setError(getErrorMessage(err, 'Không thể tạo bản dịch tự động.'));
@@ -253,15 +259,18 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
             <div>
               <h4 className="font-medium text-indigo-950">Tạo bản dịch tự động</h4>
               <p className="mt-1 text-sm text-indigo-800">
-                Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.
+                {getTranslationProviderLabel(providerStatus)}
               </p>
+              {providerStatus && !providerStatus.isConfigured ? (
+                <p className="mt-1 text-sm font-medium text-amber-700">Dịch vụ dịch chưa được cấu hình.</p>
+              ) : null}
             </div>
             <Button
               onClick={handleGenerate}
               isLoading={generateMutation.isPending}
               disabled={targetLanguages.length === 0}
             >
-              Tạo bản dịch tự động
+              Tạo {getGeneratedTranslationLabel(providerStatus)}
             </Button>
           </div>
 
@@ -539,4 +548,14 @@ function getErrorMessage(error: any, fallback: string) {
   }
 
   return data?.message ?? error?.message ?? fallback;
+}
+
+function getTranslationProviderLabel(providerStatus?: { isSimulated?: boolean } | null): string {
+  return providerStatus?.isSimulated === false
+    ? 'Dịch tự động'
+    : 'Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.';
+}
+
+function getGeneratedTranslationLabel(providerStatus?: { isSimulated?: boolean } | null): string {
+  return providerStatus?.isSimulated === false ? 'bản dịch tự động' : 'bản dịch mô phỏng';
 }

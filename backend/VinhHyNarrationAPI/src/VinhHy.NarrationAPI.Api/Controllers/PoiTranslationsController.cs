@@ -13,8 +13,16 @@ namespace VinhHy.NarrationAPI.Api.Controllers;
 [ApiController]
 [Route("api/v1/poi-translations")]
 [Authorize(Roles = RoleGroups.VendorPoiRegistration)]
-public class PoiTranslationsController(IPoiTranslationService poiTranslationService) : ControllerBase
+public class PoiTranslationsController(
+    IPoiTranslationService poiTranslationService,
+    ITranslationProviderStatusService translationProviderStatusService) : ControllerBase
 {
+    [HttpGet("provider")]
+    public IActionResult GetProvider()
+    {
+        return this.ApiOk(translationProviderStatusService.GetStatus());
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken cancellationToken)
     {

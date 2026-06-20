@@ -22,6 +22,7 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.Configure<TranslationOptions>(configuration.GetSection(TranslationOptions.SectionName));
 
         var useInMemory = configuration.GetValue<bool>("UseInMemoryDatabase");
 
@@ -123,8 +124,16 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ILanguageService, LanguageService>();
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<ITranslationProviderStatusService, TranslationProviderStatusService>();
         services.AddScoped<SimulatedTranslationProvider>();
-        services.AddScoped<ITranslationProvider>(sp => sp.GetRequiredService<SimulatedTranslationProvider>());
+        services.AddHttpClient<RealApiTranslationProvider>();
+        services.AddScoped<ITranslationProvider>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TranslationOptions>>();
+            return string.Equals(options.Value.Provider, TranslationProviderNames.RealApi, StringComparison.OrdinalIgnoreCase)
+                ? sp.GetRequiredService<RealApiTranslationProvider>()
+                : sp.GetRequiredService<SimulatedTranslationProvider>();
+        });
     }
 
     private static void ConfigureJwtAuthentication(IServiceCollection services, IConfiguration configuration)

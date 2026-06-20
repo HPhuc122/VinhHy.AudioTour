@@ -65,12 +65,12 @@ export function VendorRegisterPage() {
       !request.ownerName ||
       !request.storeName
     ) {
-      setValidationError('Vui long nhap day du thong tin bat buoc.');
+      setValidationError('Vui lòng nhập đầy đủ thông tin bắt buộc.');
       return;
     }
 
     if (request.password !== request.confirmPassword) {
-      setValidationError('Xac nhan mat khau khong khop.');
+      setValidationError('Xác nhận mật khẩu không khớp.');
       return;
     }
 
@@ -88,7 +88,7 @@ export function VendorRegisterPage() {
     registerMutation.error instanceof ApiClientError
       ? registerMutation.error.message
       : registerMutation.error
-        ? 'Dang ky that bai. Vui long thu lai.'
+        ? 'Đăng ký thất bại. Vui lòng thử lại.'
         : null;
 
   return (
@@ -106,7 +106,7 @@ export function VendorRegisterPage() {
           {validationError ? <Alert variant="error" message={validationError} /> : null}
           {apiError ? <Alert variant="error" message={apiError} /> : null}
 
-          <FormField label="Ten dang nhap" htmlFor="vendor-username">
+          <FormField label="Tên đăng nhập" htmlFor="vendor-username">
             <Input
               id="vendor-username"
               name="username"
@@ -127,7 +127,7 @@ export function VendorRegisterPage() {
             />
           </FormField>
 
-          <FormField label="Mat khau" htmlFor="vendor-password">
+          <FormField label="Mật khẩu" htmlFor="vendor-password">
             <Input
               id="vendor-password"
               name="password"
@@ -138,7 +138,7 @@ export function VendorRegisterPage() {
             />
           </FormField>
 
-          <FormField label="Xac nhan mat khau" htmlFor="vendor-confirm-password">
+          <FormField label="Xác nhận mật khẩu" htmlFor="vendor-confirm-password">
             <Input
               id="vendor-confirm-password"
               name="confirmPassword"
@@ -149,7 +149,7 @@ export function VendorRegisterPage() {
             />
           </FormField>
 
-          <FormField label="Ten chu sap / chu cua hang" htmlFor="vendor-owner-name">
+          <FormField label="Tên chủ sạp / chủ cửa hàng" htmlFor="vendor-owner-name">
             <Input
               id="vendor-owner-name"
               name="ownerName"
@@ -159,7 +159,7 @@ export function VendorRegisterPage() {
             />
           </FormField>
 
-          <FormField label="Ten sap / ten cua hang" htmlFor="vendor-store-name">
+          <FormField label="Tên sạp / tên cửa hàng" htmlFor="vendor-store-name">
             <Input
               id="vendor-store-name"
               name="storeName"
@@ -168,7 +168,7 @@ export function VendorRegisterPage() {
             />
           </FormField>
 
-          <FormField label="So dien thoai" htmlFor="vendor-phone-number">
+          <FormField label="Số điện thoại" htmlFor="vendor-phone-number">
             <Input
               id="vendor-phone-number"
               name="phoneNumber"
@@ -186,7 +186,7 @@ export function VendorRegisterPage() {
 
         <div className="mt-5 text-center">
           <Link to={routes.login} className="text-sm font-medium text-blue-600 hover:text-blue-700">
-            Quay lai dang nhap
+            Quay lại đăng nhập
           </Link>
         </div>
       </div>

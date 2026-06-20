@@ -135,8 +135,8 @@ export function MainLayout() {
     .filter((section) => roleMatches(user?.role, section.roles) && section.items.length > 0);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
-      <aside className="flex w-72 flex-shrink-0 flex-col bg-gray-900 text-gray-100">
+    <div className="flex min-h-screen flex-col bg-gray-100 lg:h-screen lg:flex-row lg:overflow-hidden">
+      <aside className="flex w-full flex-shrink-0 flex-col bg-gray-900 text-gray-100 lg:w-72">
         <div className="flex h-16 items-center gap-3 border-b border-gray-700 px-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">
             V
@@ -147,7 +147,7 @@ export function MainLayout() {
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+        <nav className="max-h-72 flex-1 overflow-y-auto px-3 py-4 lg:max-h-none" aria-label="Main navigation">
           <div className="flex flex-col gap-5">
             {navSections.map((section, sectionIndex) => (
               <section key={section.title ?? `section-${sectionIndex}`}>
@@ -200,13 +200,13 @@ export function MainLayout() {
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
           >
             <span className="flex h-5 w-5 items-center justify-center text-xs font-semibold">X</span>
-            Dang xuat
+            Đăng xuất
           </button>
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>
       </div>

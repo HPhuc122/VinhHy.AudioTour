@@ -47,7 +47,7 @@ export function LoginForm() {
       {validationError ? <Alert variant="error" message={validationError} /> : null}
       {apiError ? <Alert variant="error" message={apiError} /> : null}
 
-      <FormField label="Ten dang nhap" htmlFor="username">
+      <FormField label="Tên đăng nhập" htmlFor="username">
         <Input
           id="username"
           name="username"
@@ -58,7 +58,7 @@ export function LoginForm() {
         />
       </FormField>
 
-      <FormField label="Mat khau" htmlFor="password">
+      <FormField label="Mật khẩu" htmlFor="password">
         <Input
           id="password"
           name="password"
@@ -71,7 +71,7 @@ export function LoginForm() {
       </FormField>
 
       <Button type="submit" className="w-full" isLoading={loginMutation.isPending}>
-        Dang nhap
+        Đăng nhập
       </Button>
     </form>
   );

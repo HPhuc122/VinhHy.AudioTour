@@ -1106,7 +1106,7 @@ function formatLifecycleStatus(status: number | string): string {
   if (status === 'PendingPayment' || Number(status) === 2) return 'Chờ thanh toán';
   if (status === 'Active' || Number(status) === 3) return 'Đang hoạt động';
   if (status === 'Expired' || Number(status) === 4) return 'Hết hạn';
-  if (status === 'Rejected' || Number(status) === 5) return 'Từ chối';
+  if (status === 'Rejected' || Number(status) === 5) return 'Bị từ chối';
   return String(status || 'Không rõ');
 }
 
