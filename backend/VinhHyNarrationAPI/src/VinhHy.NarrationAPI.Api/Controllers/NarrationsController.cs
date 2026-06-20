@@ -81,7 +81,7 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
     public async Task<IActionResult> GenerateAudio(int id, CancellationToken cancellationToken)
     {
         var draft = await narrationDraftService.GenerateAudioAsync(id, GetRequiredCurrentUserId(), cancellationToken);
-        return this.ApiOk(draft, "TTS simulated. No real audio provider is connected.");
+        return this.ApiOk(draft, "Hệ thống không tạo TTS nội bộ. Vui lòng tải MP3 đã tạo từ công cụ bên ngoài.");
     }
 
     [HttpPost("{id:int}/upload-audio")]

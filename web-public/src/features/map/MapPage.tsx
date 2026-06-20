@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { poisApi } from '../../api/poisApi';

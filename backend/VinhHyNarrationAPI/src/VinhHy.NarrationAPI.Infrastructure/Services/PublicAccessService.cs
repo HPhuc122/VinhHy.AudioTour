@@ -279,12 +279,12 @@ public class PublicAccessService : IPublicAccessService
     {
         if (qr.AccessDurationMinutes <= 0)
         {
-            throw new ValidationException(nameof(QrLocation.AccessDurationMinutes), "Access duration must be greater than 0.");
+            throw new ValidationException(nameof(QrLocation.AccessDurationMinutes), "Thời lượng truy cập phải lớn hơn 0.");
         }
 
         if (qr.PriceAmount < 0)
         {
-            throw new ValidationException(nameof(QrLocation.PriceAmount), "Price amount cannot be negative.");
+            throw new ValidationException(nameof(QrLocation.PriceAmount), "Giá không được nhỏ hơn 0.");
         }
     }
 

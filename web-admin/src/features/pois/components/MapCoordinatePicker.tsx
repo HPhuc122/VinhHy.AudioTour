@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {

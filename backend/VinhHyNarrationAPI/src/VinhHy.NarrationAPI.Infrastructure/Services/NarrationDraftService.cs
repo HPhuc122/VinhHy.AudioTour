@@ -215,7 +215,9 @@ public class NarrationDraftService : INarrationDraftService
         CancellationToken cancellationToken = default)
     {
         await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
-        throw new ValidationException(nameof(id), "Manual MP3 upload is required. Use /api/v1/narrations/{id}/upload-audio.");
+        throw new ValidationException(
+            nameof(id),
+            "Hệ thống không tạo TTS nội bộ. Vui lòng dùng công cụ Text-to-Speech bên ngoài rồi tải MP3 lên.");
     }
 
     public async Task<NarrationDraftDto> UploadAudioAsync(
