@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { publicPackagesApi, type PublicPackageDto } from '../../api/publicPackagesApi';
 import { publicAccessApi } from '../../api/publicAccessApi';
 import { AccessCountdown } from '../access/AccessCountdown';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import type { Lang } from '../../hooks/useLanguage';
+import { ROUTES } from '../../routes/routeConstants';
 
 interface PackagesPageProps {
   lang: Lang;
@@ -62,7 +64,7 @@ export function PackagesPage({ lang }: PackagesPageProps) {
     onError: (error, pkg) => {
       setPackageState(pkg.code, {
         isProcessing: false,
-        error: error instanceof Error ? error.message : 'Không thể thanh toán gói.',
+        error: getPackageErrorMessage(error),
       });
     },
   });
@@ -94,7 +96,7 @@ export function PackagesPage({ lang }: PackagesPageProps) {
 
         {!packagesQuery.isLoading && packages.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6 text-gray-300">
-            Chưa có gói AudioTour đang hoạt động.
+            Chưa có gói thuyết minh đang hoạt động.
           </div>
         ) : null}
 
@@ -173,12 +175,12 @@ function PackageCard({
       {access ? (
         <div className="space-y-3">
           <AccessCountdown expiresAt={access.expiresAt} onExpired={onExpired} />
-          <a
-            href="/tours"
+          <Link
+            to={ROUTES.TOURS}
             className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
-            Bắt đầu AudioTour
-          </a>
+            Bắt đầu nghe thuyết minh
+          </Link>
         </div>
       ) : (
         <button
@@ -206,4 +208,12 @@ function formatCurrency(amount: number): string {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function getPackageErrorMessage(error: unknown): string {
+  if (error instanceof Error && !/Request failed|status code/i.test(error.message)) {
+    return error.message;
+  }
+
+  return 'Không thể mở quyền nghe. Vui lòng kiểm tra kết nối và thử lại.';
 }
