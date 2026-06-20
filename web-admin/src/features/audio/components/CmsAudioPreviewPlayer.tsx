@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { extractApiError } from '@/api/apiError';
 import {
   createCmsAudioPreviewApi,
   type CmsAudioPreviewTrackDto,
@@ -74,6 +75,7 @@ function CmsAudioTrackPlayer({
 }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -82,6 +84,7 @@ function CmsAudioTrackPlayer({
     async function loadAudio() {
       setStatus('loading');
       setAudioUrl(null);
+      setErrorMessage(null);
 
       try {
         const blob = await getAudioBlob(track.id);
@@ -92,8 +95,9 @@ function CmsAudioTrackPlayer({
         objectUrl = URL.createObjectURL(blob);
         setAudioUrl(objectUrl);
         setStatus('ready');
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          setErrorMessage(extractApiError(error));
           setStatus('missing');
         }
       }
@@ -119,7 +123,9 @@ function CmsAudioTrackPlayer({
         <audio controls src={audioUrl} className="w-full" />
       ) : (
         <p className="text-xs text-gray-400">
-          {status === 'loading' ? 'Đang tải preview bảo vệ...' : 'Audio preview chưa khả dụng.'}
+          {status === 'loading'
+            ? 'Đang tải preview bảo vệ...'
+            : errorMessage ?? 'Audio preview chưa khả dụng.'}
         </p>
       )}
     </div>

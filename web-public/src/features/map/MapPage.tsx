@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { poisApi } from '../../api/poisApi';
@@ -81,6 +82,8 @@ export function MapPage({ lang }: Props) {
 
       leafletMapRef.current = map;
       setMapReady(true);
+      window.requestAnimationFrame(() => map.invalidateSize());
+      window.setTimeout(() => map.invalidateSize(), 250);
     });
 
     return () => {
@@ -90,6 +93,22 @@ export function MapPage({ lang }: Props) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !leafletMapRef.current) return;
+
+    const map = leafletMapRef.current;
+    const resize = () => map.invalidateSize();
+    const frameId = window.requestAnimationFrame(resize);
+    const timeoutId = window.setTimeout(resize, 250);
+    window.addEventListener('resize', resize);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', resize);
+    };
+  }, [mapReady, selectedPoi, tourId]);
 
   useEffect(() => {
     if (!mapReady || !leafletMapRef.current || !poisData) return;
@@ -194,8 +213,8 @@ export function MapPage({ lang }: Props) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-gray-800 bg-gray-900">
+    <div className="flex h-[calc(100vh-64px)] flex-col lg:flex-row">
+      <div className="flex h-56 w-full shrink-0 flex-col overflow-hidden border-b border-gray-800 bg-gray-900 lg:h-auto lg:w-72 lg:border-b-0 lg:border-r">
         <div className="border-b border-gray-800 p-4">
           <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : 'Bản đồ địa điểm'}</h2>
           <p className="mt-0.5 text-xs text-gray-400">
@@ -242,8 +261,8 @@ export function MapPage({ lang }: Props) {
         </div>
       </div>
 
-      <div className="relative flex-1">
-        <div ref={mapRef} className="h-full w-full" />
+      <div className="relative min-h-[420px] flex-1 lg:min-h-0">
+        <div ref={mapRef} className="absolute inset-0 h-full w-full" />
         {selectedPoi && (
           <PublicPoiInfoPanel
             poi={selectedPoi}
@@ -285,7 +304,7 @@ function PublicPoiInfoPanel({
   const hasAccess = Boolean(accessRecord?.accessToken) && !clientExpired;
 
   return (
-    <div className="absolute bottom-4 left-4 right-4 z-[1000] max-h-[82vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl sm:left-auto sm:right-4 sm:w-96">
+    <div className="absolute bottom-3 left-3 right-3 z-[1000] max-h-[70vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl sm:bottom-4 sm:left-auto sm:right-4 sm:max-h-[82vh] sm:w-96">
       <button onClick={onClose} className="absolute right-3 top-3 text-gray-500 hover:text-white">X</button>
       <div className="flex gap-3">
         {poi.imageUrl ? (

@@ -94,7 +94,7 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
     {
         if (form.File is null)
         {
-            throw new ValidationException(nameof(form.File), "MP3 file is required.");
+            throw new ValidationException(nameof(form.File), "Vui lòng chọn file MP3.");
         }
 
         await using var fileStream = form.File.OpenReadStream();

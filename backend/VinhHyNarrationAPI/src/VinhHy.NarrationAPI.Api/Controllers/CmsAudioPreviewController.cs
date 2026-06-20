@@ -65,9 +65,15 @@ public class CmsAudioPreviewController(
         EnsureCanPreviewPoi(track.Poi);
 
         var filePath = ResolveAudioFilePath(track.FileUrl);
-        if (!System.IO.File.Exists(filePath))
+        var fileInfo = new FileInfo(filePath);
+        if (!fileInfo.Exists)
         {
             throw new NotFoundException("Audio file", audioTrackId);
+        }
+
+        if (fileInfo.Length <= 0)
+        {
+            throw new ValidationException(nameof(audioTrackId), "File audio không hợp lệ hoặc đang rỗng. Vui lòng tải lại MP3.");
         }
 
         var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);

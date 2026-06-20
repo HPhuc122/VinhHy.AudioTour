@@ -11,17 +11,19 @@ public class CreateQrRequestValidator : AbstractValidator<CreateQrRequest>
     {
         RuleFor(x => x)
             .Must(x => !(x.PoiId.HasValue && x.TourId.HasValue))
-            .WithMessage("QR code can target either a POI or a tour, not both.");
+            .WithMessage("Mã QR chỉ được gắn với một POI hoặc một tour, không được chọn cả hai.");
 
         RuleFor(x => x.PriceAmount)
-            .GreaterThanOrEqualTo(0m);
+            .GreaterThanOrEqualTo(0m)
+            .WithMessage("Giá không được nhỏ hơn 0.");
 
         RuleFor(x => x.PriceAmount)
             .GreaterThan(0m)
             .When(x => x.RequiresPayment)
-            .WithMessage("Price amount must be greater than 0 when payment is required.");
+            .WithMessage("Giá phải lớn hơn 0 khi mã QR yêu cầu thanh toán.");
 
         RuleFor(x => x.AccessDurationMinutes)
-            .InclusiveBetween(1, MaxAccessDurationMinutes);
+            .InclusiveBetween(1, MaxAccessDurationMinutes)
+            .WithMessage($"Thời lượng truy cập phải từ 1 đến {MaxAccessDurationMinutes} phút.");
     }
 }

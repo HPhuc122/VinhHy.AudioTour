@@ -245,7 +245,16 @@ public class NarrationDraftService : INarrationDraftService
             await request.FileContent.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
         }
 
-        var durationSeconds = Mp3DurationDetector.TryDetectDurationSeconds(absolutePath) ?? request.DurationSeconds;
+        var detectedDurationSeconds = Mp3DurationDetector.TryDetectDurationSeconds(absolutePath);
+        if (!detectedDurationSeconds.HasValue)
+        {
+            TryDeleteInvalidAudioFile(absolutePath);
+            throw new ValidationException(
+                nameof(request.FileContent),
+                "File MP3 không hợp lệ hoặc không phát được. Vui lòng xuất lại audio dạng MP3 và tải lên lại.");
+        }
+
+        var durationSeconds = detectedDurationSeconds.Value;
         var now = DateTime.UtcNow;
         var audioTrack = await _db.AudioTracks
             .FirstOrDefaultAsync(a =>
@@ -290,6 +299,23 @@ public class NarrationDraftService : INarrationDraftService
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void TryDeleteInvalidAudioFile(string absolutePath)
+    {
+        try
+        {
+            if (File.Exists(absolutePath))
+            {
+                File.Delete(absolutePath);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private async Task<NarrationDraft> GetTrackedAsync(int id, CancellationToken cancellationToken) =>
@@ -398,41 +424,41 @@ public class NarrationDraftService : INarrationDraftService
     {
         if (request.FileContent is null)
         {
-            throw new ValidationException(nameof(request.FileContent), "MP3 file is required.");
+            throw new ValidationException(nameof(request.FileContent), "Vui lòng chọn file MP3.");
         }
 
         if (request.FileSize <= 0)
         {
-            throw new ValidationException(nameof(request.FileSize), "MP3 file must not be empty.");
+            throw new ValidationException(nameof(request.FileSize), "File MP3 không được rỗng.");
         }
 
         if (request.FileSize > _maxAudioFileSizeBytes)
         {
             throw new ValidationException(
                 nameof(request.FileSize),
-                $"MP3 file size exceeds maximum allowed size of {_maxAudioFileSizeBytes / (1024 * 1024)} MB.");
+                $"File MP3 vượt quá dung lượng tối đa {_maxAudioFileSizeBytes / (1024 * 1024)} MB.");
         }
 
         if (string.IsNullOrWhiteSpace(request.OriginalFileName))
         {
-            throw new ValidationException(nameof(request.OriginalFileName), "Original file name is required.");
+            throw new ValidationException(nameof(request.OriginalFileName), "Tên file MP3 là bắt buộc.");
         }
 
         if (!string.Equals(Path.GetExtension(request.OriginalFileName), ".mp3", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ValidationException(nameof(request.OriginalFileName), "Only MP3 files are allowed.");
+            throw new ValidationException(nameof(request.OriginalFileName), "Chỉ hỗ trợ file .mp3.");
         }
 
         if (!string.IsNullOrWhiteSpace(request.ContentType) &&
             !string.Equals(request.ContentType.Trim(), "audio/mpeg", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(request.ContentType.Trim(), "audio/mp3", StringComparison.OrdinalIgnoreCase))
         {
-            throw new ValidationException(nameof(request.ContentType), "MP3 MIME type is invalid.");
+            throw new ValidationException(nameof(request.ContentType), "Định dạng file MP3 không hợp lệ.");
         }
 
         if (request.DurationSeconds.HasValue && request.DurationSeconds.Value <= 0)
         {
-            throw new ValidationException(nameof(request.DurationSeconds), "Duration must be greater than 0.");
+            throw new ValidationException(nameof(request.DurationSeconds), "Thời lượng audio phải lớn hơn 0.");
         }
     }
 

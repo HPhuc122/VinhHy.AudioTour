@@ -54,6 +54,10 @@ export function QrForm({
       nextErrors.priceAmount = 'Nhập giá hợp lệ.';
     }
 
+    if (values.requiresPayment && (!Number.isFinite(priceAmount) || priceAmount <= 0)) {
+      nextErrors.priceAmount = 'Nhập giá lớn hơn 0 khi yêu cầu thanh toán.';
+    }
+
     if (!Number.isInteger(accessDurationMinutes) || accessDurationMinutes <= 0) {
       nextErrors.accessDurationMinutes = 'Thời lượng phải lớn hơn 0.';
     }

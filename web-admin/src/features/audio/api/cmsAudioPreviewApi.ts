@@ -32,6 +32,10 @@ export function createCmsAudioPreviewApi(httpClient: AxiosInstance) {
         { responseType: 'blob' },
       );
 
+      if (!isPlayableAudioBlob(response.data)) {
+        throw toApiClientError(new Error('File audio không hợp lệ hoặc không phát được. Vui lòng tải lại MP3.'));
+      }
+
       return response.data;
     },
   };
@@ -43,6 +47,14 @@ function unwrapApiResponse<T>(body: ApiResponse<T>): T {
   }
 
   return body.data;
+}
+
+function isPlayableAudioBlob(blob: Blob): boolean {
+  if (!blob || blob.size <= 0) {
+    return false;
+  }
+
+  return !blob.type || blob.type.startsWith('audio/');
 }
 
 export type CmsAudioPreviewApi = ReturnType<typeof createCmsAudioPreviewApi>;

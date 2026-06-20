@@ -73,7 +73,7 @@ export function MediaLibraryPage() {
   const canReviewContent = isAdminRole(user?.role);
   const canUploadNarrationAudio = isAdminRole(user?.role);
   const canUploadImages = isVendor || isAdminRole(user?.role);
-  const canCreateNarration = isVendor || isAdminRole(user?.role);
+  const canCreateNarration = isVendor;
   const queryClient = useQueryClient();
   const mediaApi = useMemo(() => createMediaApi(httpClient), [httpClient]);
   const narrationsApi = useMemo(() => createNarrationsApi(httpClient), [httpClient]);
@@ -258,7 +258,7 @@ export function MediaLibraryPage() {
       return narrationsApi.createNarration({ ...draftForm, poiId: currentPoi.id });
     },
     onSuccess: async () => {
-      setNotice(isVendor ? 'Đã gửi bản thuyết minh chờ duyệt.' : 'Đã tạo bản thuyết minh.');
+      setNotice('Đã gửi bản thuyết minh chờ duyệt.');
       setDraftForm({ title: '', languageCode: 'vi', textContent: '', voice: 'female-south' });
       await invalidateSelectedPoiContent();
     },
@@ -944,6 +944,16 @@ function NarrationsTab({
 }) {
   return (
     <div className="space-y-4">
+      {!isVendor ? (
+        <Card className="border-blue-100 bg-blue-50 p-4">
+          <h3 className="text-base font-semibold text-blue-950">Quy trình thuyết minh của admin</h3>
+          <p className="mt-1 text-sm leading-6 text-blue-800">
+            Admin duyệt nội dung vendor gửi, sao chép nội dung đã duyệt sang công cụ Text-to-Speech bên ngoài,
+            rồi tải MP3 vào tab Âm thanh cho đúng POI và ngôn ngữ. Hệ thống chưa tạo TTS nội bộ.
+          </p>
+        </Card>
+      ) : null}
+
       {canCreate ? (
         <NarrationForm
           form={form}
@@ -1347,7 +1357,7 @@ function NarrationForm({
         <p className="mt-1 text-xs text-gray-500">
           {isVendor
             ? 'Bản thuyết minh sau khi gửi sẽ chờ admin duyệt.'
-            : 'Admin có thể tạo bản nháp hoặc duyệt nội dung do vendor gửi.'}
+            : 'Admin duyệt nội dung do vendor gửi rồi tải MP3 sau khi dùng công cụ Text-to-Speech bên ngoài.'}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1387,7 +1397,7 @@ function NarrationForm({
         />
         <div className="flex items-end">
           <Button type="submit" isLoading={isLoading}>
-            Tạo bản thuyết minh
+            Gửi thuyết minh
           </Button>
         </div>
       </div>
@@ -1449,7 +1459,7 @@ function NarrationList({
                     <Button variant="ghost" size="sm" onClick={() => onView(draft)}>
                       Xem nội dung
                     </Button>
-                    {canReview && draft.status !== 'Approved' && draft.status !== 'AudioGenerated' ? (
+                    {canReview && draft.status === 'Pending' ? (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -1459,7 +1469,7 @@ function NarrationList({
                         Duyệt
                       </Button>
                     ) : null}
-                    {canReview && draft.status !== 'Rejected' && draft.status !== 'AudioGenerated' ? (
+                    {canReview && draft.status === 'Pending' ? (
                       <Button
                         variant="danger"
                         size="sm"
@@ -1718,12 +1728,17 @@ function NarrationTextModal({ draft, onClose }: { draft: NarrationDraftDto | nul
   };
 
   return (
-    <Modal open={Boolean(draft)} onClose={onClose} title="Nội dung thuyết minh">
+    <Modal open={Boolean(draft)} onClose={onClose} title="Nội dung thuyết minh cho TTS">
       {draft ? (
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
             <p className="font-semibold text-gray-900">{draft.title}</p>
-            <p className="text-xs text-gray-500">{formatLanguageLabel(draft.languageCode)}</p>
+            <p className="text-xs text-gray-500">
+              {draft.poiName ?? `POI ${draft.poiId}`} · {formatLanguageLabel(draft.languageCode)}
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Sao chép nội dung này sang công cụ Text-to-Speech bên ngoài, sau đó tải MP3 ở tab Âm thanh.
+            </p>
           </div>
           <textarea
             readOnly
@@ -1735,7 +1750,7 @@ function NarrationTextModal({ draft, onClose }: { draft: NarrationDraftDto | nul
             <Button variant="secondary" onClick={onClose}>
               Đóng
             </Button>
-            <Button onClick={handleCopy}>{copied ? 'Đã sao chép' : 'Sao chép nội dung'}</Button>
+            <Button onClick={handleCopy}>{copied ? 'Đã sao chép' : 'Sao chép cho TTS'}</Button>
           </div>
         </div>
       ) : null}
@@ -1784,7 +1799,12 @@ function UploadNarrationAudioModal({
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
             <p className="font-semibold text-gray-900">{draft.title}</p>
-            <p className="text-xs text-gray-500">{formatLanguageLabel(draft.languageCode)}</p>
+            <p className="text-xs text-gray-500">
+              {draft.poiName ?? `POI ${draft.poiId}`} · {formatLanguageLabel(draft.languageCode)}
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Tải MP3 đã tạo từ công cụ Text-to-Speech bên ngoài cho đúng POI và ngôn ngữ này.
+            </p>
           </div>
           {error ? <Alert variant="error" message={error} /> : null}
           <Input
@@ -1807,7 +1827,7 @@ function UploadNarrationAudioModal({
             />
           </div>
           <p className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            Sau khi tải lên, audio sẽ được preview qua endpoint CMS bảo vệ.
+            Sau khi tải lên, audio sẽ được preview qua endpoint CMS bảo vệ và public chỉ phát qua endpoint audio bảo vệ.
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={handleClose}>

@@ -26,13 +26,19 @@ public class PublicAudioController(
             ?? throw new NotFoundException("Audio track", audioTrackId);
 
         var filePath = ResolveAudioFilePath(track.FileUrl);
-        if (!System.IO.File.Exists(filePath))
+        var fileInfo = new FileInfo(filePath);
+        if (!fileInfo.Exists)
         {
             throw new NotFoundException("Audio file", audioTrackId);
         }
 
+        if (fileInfo.Length <= 0)
+        {
+            throw new ValidationException(nameof(audioTrackId), "File audio không hợp lệ hoặc đang rỗng. Vui lòng tải lại MP3.");
+        }
+
         var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return File(stream, "audio/mpeg", enableRangeProcessing: true);
+        return File(stream, string.IsNullOrWhiteSpace(track.MimeType) ? "audio/mpeg" : track.MimeType, enableRangeProcessing: true);
     }
 
     private string ResolveAudioFilePath(string? fileUrl)

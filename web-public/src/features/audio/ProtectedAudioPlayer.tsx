@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AxiosError } from 'axios';
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { publicAudioTourApi, type PublicAudioTourAudioDto } from '../../api/publicAudioTourApi';
 import { ROUTES } from '../../routes/routeConstants';
@@ -18,7 +18,7 @@ export function ProtectedAudioPlayer({
   onUnauthorized,
 }: ProtectedAudioPlayerProps) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'required' | 'expired' | 'forbidden' | 'missing' | 'unknown'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'required' | 'expired' | 'forbidden' | 'missing' | 'invalid' | 'unknown'>('loading');
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -52,7 +52,7 @@ export function ProtectedAudioPlayer({
           return;
         }
 
-        const statusCode = error instanceof AxiosError ? error.response?.status : undefined;
+        const statusCode = axios.isAxiosError(error) ? error.response?.status : undefined;
         if (statusCode === 401) {
           setStatus('expired');
           onUnauthorized?.();
@@ -60,6 +60,8 @@ export function ProtectedAudioPlayer({
           setStatus('forbidden');
         } else if (statusCode === 404) {
           setStatus('missing');
+        } else if (error instanceof Error && error.message === 'invalid-audio') {
+          setStatus('invalid');
         } else {
           setStatus('unknown');
         }
@@ -121,6 +123,8 @@ function getStatusMessage(status: string): string {
       return 'Mã nghe hiện tại không áp dụng cho điểm này.';
     case 'missing':
       return 'Điểm này chưa có bản thuyết minh hoặc không còn khả dụng.';
+    case 'invalid':
+      return 'File audio của điểm này chưa phát được. Vui lòng thử lại sau.';
     case 'unknown':
       return 'Không thể tải audio. Vui lòng thử lại sau.';
     default:

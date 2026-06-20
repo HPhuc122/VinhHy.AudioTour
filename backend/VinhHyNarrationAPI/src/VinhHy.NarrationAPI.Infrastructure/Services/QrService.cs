@@ -140,7 +140,7 @@ public class QrService : IQrService
     {
         if (poiId.HasValue && tourId.HasValue)
         {
-            throw new ValidationException(nameof(CreateQrRequest.TourId), "QR code can target either a POI or a tour, not both.");
+            throw new ValidationException(nameof(CreateQrRequest.TourId), "Mã QR chỉ được gắn với một POI hoặc một tour, không được chọn cả hai.");
         }
 
         if (poiId.HasValue)
@@ -170,7 +170,7 @@ public class QrService : IQrService
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            throw new ValidationException(nameof(CreateQrRequest.Code), "QR code is required.");
+            throw new ValidationException(nameof(CreateQrRequest.Code), "Mã QR là bắt buộc.");
         }
     }
 
@@ -186,21 +186,21 @@ public class QrService : IQrService
 
         if (nextPriceAmount < 0)
         {
-            throw new ValidationException(nameof(UpdateQrRequest.PriceAmount), "Price amount cannot be negative.");
+            throw new ValidationException(nameof(UpdateQrRequest.PriceAmount), "Giá không được nhỏ hơn 0.");
         }
 
         if (nextRequiresPayment && nextPriceAmount <= 0)
         {
             throw new ValidationException(
                 nameof(UpdateQrRequest.PriceAmount),
-                "Price amount must be greater than 0 when payment is required.");
+                "Giá phải lớn hơn 0 khi mã QR yêu cầu thanh toán.");
         }
 
         if (nextAccessDurationMinutes is <= 0 or > MaxAccessDurationMinutes)
         {
             throw new ValidationException(
                 nameof(UpdateQrRequest.AccessDurationMinutes),
-                $"Access duration must be between 1 and {MaxAccessDurationMinutes} minutes.");
+                $"Thời lượng truy cập phải từ 1 đến {MaxAccessDurationMinutes} phút.");
         }
 
         qr.RequiresPayment = nextRequiresPayment;
@@ -224,6 +224,6 @@ public class QrService : IQrService
             }
         }
 
-        throw new ValidationException(nameof(CreateQrRequest.Code), "Unable to generate a unique QR code.");
+        throw new ValidationException(nameof(CreateQrRequest.Code), "Không thể tạo mã QR duy nhất. Vui lòng thử lại.");
     }
 }

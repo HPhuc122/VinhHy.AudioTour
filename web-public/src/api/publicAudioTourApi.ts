@@ -68,6 +68,18 @@ export const publicAudioTourApi = {
       responseType: 'blob',
     });
 
+    if (!isPlayableAudioBlob(res.data)) {
+      throw new Error('invalid-audio');
+    }
+
     return res.data;
   },
 };
+
+function isPlayableAudioBlob(blob: Blob): boolean {
+  if (!blob || blob.size <= 0) {
+    return false;
+  }
+
+  return !blob.type || blob.type.startsWith('audio/');
+}

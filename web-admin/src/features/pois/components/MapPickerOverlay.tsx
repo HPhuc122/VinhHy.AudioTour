@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {
   MAP_ATTRIBUTION,
   MAP_DEFAULT_POSITION,
@@ -34,6 +34,23 @@ function ClickHandler({ onSetTemp }: { onSetTemp: (lat: number, lng: number) => 
   return null;
 }
 
+function MapResizeHandler({ trigger }: { trigger: unknown }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const resize = () => map.invalidateSize();
+    const frameId = window.requestAnimationFrame(resize);
+    const timeoutId = window.setTimeout(resize, 250);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [map, trigger]);
+
+  return null;
+}
+
 export function MapPickerOverlay({ open, initialPosition, onClose, onConfirm }: Props) {
   const [tempPos, setTempPos] = useState<{ lat: number; lng: number }>(
     initialPosition ?? MAP_DEFAULT_POSITION,
@@ -47,7 +64,7 @@ export function MapPickerOverlay({ open, initialPosition, onClose, onConfirm }: 
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60">
-      <div className="relative h-[85%] w-[90%] overflow-hidden rounded-lg bg-white shadow-lg">
+      <div className="relative h-[85vh] min-h-[360px] w-[90%] overflow-hidden rounded-lg bg-white shadow-lg">
         <button
           type="button"
           onClick={onClose}
@@ -64,6 +81,7 @@ export function MapPickerOverlay({ open, initialPosition, onClose, onConfirm }: 
           style={{ width: '100%', height: '100%' }}
         >
           <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
+          <MapResizeHandler trigger={open} />
           <ClickHandler
             onSetTemp={(lat, lng) => {
               setTempPos({ lat, lng });
