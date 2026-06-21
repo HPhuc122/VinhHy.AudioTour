@@ -128,11 +128,10 @@ public class PublicPoiService : IPublicPoiService
     {
         var normalizedLanguage = string.IsNullOrWhiteSpace(languageCode)
             ? "vi"
-            : languageCode.Trim();
+            : languageCode.Trim().ToLowerInvariant();
 
         return poi.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
-            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi")
-            ?? poi.Translations.OrderBy(t => t.LanguageCode).FirstOrDefault();
+            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi");
     }
 
     private string BuildPublicImageUrl(int mediaFileId)

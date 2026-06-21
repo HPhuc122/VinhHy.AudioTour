@@ -407,10 +407,9 @@ public class TourService : ITourService
         IReadOnlyDictionary<int, string?> imageUrls)
     {
         var poi = tourPoi.Poi;
-        var normalizedLanguage = string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim();
+        var normalizedLanguage = string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
         var translation = poi.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
-            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi")
-            ?? poi.Translations.OrderBy(t => t.LanguageCode).FirstOrDefault();
+            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi");
         imageUrls.TryGetValue(poi.Id, out var imageUrl);
 
         return new PublicTourPoiDto
@@ -420,8 +419,8 @@ public class TourService : ITourService
             POIId = tourPoi.POIId,
             PoiCode = poi.Code,
             PoiName = translation?.Name ?? (string.IsNullOrWhiteSpace(poi.Name) ? poi.Code : poi.Name),
-            PoiDescription = translation?.Description,
-            PoiShortDescription = translation?.ShortDescription,
+            PoiDescription = translation?.Description ?? poi.Description,
+            PoiShortDescription = translation?.ShortDescription ?? poi.ShortDescription,
             Latitude = poi.Latitude,
             Longitude = poi.Longitude,
             RadiusMeters = poi.RadiusMeters,

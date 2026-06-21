@@ -79,16 +79,17 @@ public class PublicAudioTourService : IPublicAudioTourService
         int orderIndex,
         IReadOnlyList<AudioTrack>? explicitAudioTracks = null)
     {
-        var translation = SelectPoiTranslation(poi, languageCode);
+        var normalizedLanguage = NormalizeLanguageCode(languageCode);
+        var translation = SelectPoiTranslation(poi, normalizedLanguage);
         var audioTracks = explicitAudioTracks ?? poi.AudioTracks.ToArray();
 
         return new PublicAudioTourPoiDto
         {
             Id = poi.Id,
             Code = poi.Code,
-            Name = translation?.Name ?? poi.Code,
-            ShortDescription = translation?.ShortDescription,
-            NarrationText = translation?.Description,
+            Name = translation?.Name ?? (string.IsNullOrWhiteSpace(poi.Name) ? poi.Code : poi.Name),
+            ShortDescription = translation?.ShortDescription ?? poi.ShortDescription,
+            NarrationText = translation?.Description ?? poi.Description,
             Latitude = poi.Latitude,
             Longitude = poi.Longitude,
             ImageUrl = poi.ImageUrl,
@@ -96,9 +97,9 @@ public class PublicAudioTourService : IPublicAudioTourService
             OrderIndex = orderIndex,
             AudioTracks = audioTracks
                 .Where(track => track.IsActive && track.DeletedAt == null)
-                .OrderBy(track => track.LanguageCode == languageCode ? 0 : 1)
+                .OrderBy(track => track.LanguageCode == normalizedLanguage ? 0 : 1)
                 .ThenBy(track => track.LanguageCode)
-                .Select(track => MapAudio(track, translation?.Name ?? poi.Code))
+                .Select(track => MapAudio(track, translation?.Name ?? (string.IsNullOrWhiteSpace(poi.Name) ? poi.Code : poi.Name)))
                 .ToArray()
         };
     }
@@ -119,15 +120,21 @@ public class PublicAudioTourService : IPublicAudioTourService
             IsAvailable = !string.IsNullOrWhiteSpace(track.FileUrl)
         };
 
-    private static TourTranslation? SelectTourTranslation(Tour tour, string languageCode) =>
-        tour.Translations
-            .OrderBy(t => t.LanguageCode == languageCode ? 0 : t.LanguageCode == tour.DefaultLanguage ? 1 : 2)
-            .ThenBy(t => t.LanguageCode)
-            .FirstOrDefault();
+    private static TourTranslation? SelectTourTranslation(Tour tour, string languageCode)
+    {
+        var normalizedLanguage = NormalizeLanguageCode(languageCode);
+        var defaultLanguage = NormalizeLanguageCode(tour.DefaultLanguage);
 
-    private static PoiTranslation? SelectPoiTranslation(Poi poi, string languageCode) =>
-        poi.Translations
-            .OrderBy(t => t.LanguageCode == languageCode ? 0 : t.LanguageCode == "vi" ? 1 : 2)
-            .ThenBy(t => t.LanguageCode)
-            .FirstOrDefault();
+        return tour.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
+            ?? tour.Translations.FirstOrDefault(t => t.LanguageCode == defaultLanguage);
+    }
+
+    private static PoiTranslation? SelectPoiTranslation(Poi poi, string languageCode)
+    {
+        return poi.Translations.FirstOrDefault(t => t.LanguageCode == languageCode)
+            ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi");
+    }
+
+    private static string NormalizeLanguageCode(string? languageCode) =>
+        string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
 }

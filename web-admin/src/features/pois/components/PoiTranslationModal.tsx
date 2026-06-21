@@ -132,6 +132,12 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
     }
   }, [isOpen, poi?.id]);
 
+  useEffect(() => {
+    setTargetLanguageCodes((current) =>
+      current.filter((code) => targetLanguages.some((language) => language.code === code)),
+    );
+  }, [targetLanguages]);
+
   if (!isOpen) return null;
 
   const startAdd = () => {
@@ -173,6 +179,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
 
     const payload = {
       ...editing,
+      languageCode: editing.languageCode.trim().toLowerCase(),
       name: editing.name.trim(),
       shortDescription: editing.shortDescription.trim(),
       description: editing.description.trim(),
@@ -214,6 +221,11 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
 
   const handleGenerate = () => {
     setError(null);
+
+    if (!sourceLanguageCode) {
+      setError('Vui lòng chọn ngôn ngữ nguồn.');
+      return;
+    }
 
     if (targetLanguageCodes.length === 0) {
       setError('Vui lòng chọn ít nhất một ngôn ngữ đích.');
@@ -262,7 +274,9 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
                 {getTranslationProviderLabel(providerStatus)}
               </p>
               {providerStatus && !providerStatus.isConfigured ? (
-                <p className="mt-1 text-sm font-medium text-amber-700">Dịch vụ dịch chưa được cấu hình.</p>
+                <p className="mt-1 text-sm font-medium text-amber-700">
+                  Dịch vụ dịch chưa được cấu hình.
+                </p>
               ) : null}
             </div>
             <Button
@@ -349,7 +363,7 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
                 <option value="" disabled>Chọn ngôn ngữ</option>
                 {(editing.id ? activeLanguages : availableLanguages).map((language) => (
                   <option key={language.code} value={language.code}>
-                    {language.name} ({language.nativeName})
+                    {formatLanguageLabel(language.code, activeLanguages)}
                   </option>
                 ))}
               </select>
@@ -552,7 +566,7 @@ function getErrorMessage(error: any, fallback: string) {
 
 function getTranslationProviderLabel(providerStatus?: { isSimulated?: boolean } | null): string {
   return providerStatus?.isSimulated === false
-    ? 'Dịch tự động'
+    ? 'Dịch tự động bằng nhà cung cấp thật.'
     : 'Dịch mô phỏng / chưa kết nối dịch vụ dịch thật.';
 }
 
