@@ -13,7 +13,7 @@ public class RealApiTranslationOptions
 {
     public string? BaseUrl { get; set; }
 
-    public string EndpointPath { get; set; } = "/v1/chat/completions";
+    public string? EndpointPath { get; set; }
 
     public string? Model { get; set; }
 

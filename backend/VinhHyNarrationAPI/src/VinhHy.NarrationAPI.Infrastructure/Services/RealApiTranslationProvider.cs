@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
@@ -7,10 +9,15 @@ using VinhHy.NarrationAPI.Infrastructure.Options;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
-public class RealApiTranslationProvider(HttpClient httpClient, IOptions<TranslationOptions> options) : ITranslationProvider
+public class RealApiTranslationProvider(
+    HttpClient httpClient,
+    IOptions<TranslationOptions> options,
+    ILogger<RealApiTranslationProvider> logger) : ITranslationProvider
 {
-    private const string NotConfiguredMessage = "Dịch vụ dịch chưa được cấu hình";
-    private const string ProviderUnavailableMessage = "Dịch vụ dịch tự động tạm thời không khả dụng. Vui lòng thử lại sau.";
+    private const string NotConfiguredMessage = "D\u1ecbch v\u1ee5 d\u1ecbch ch\u01b0a \u0111\u01b0\u1ee3c c\u1ea5u h\u00ecnh";
+    private const string MissingApiKeyMessage = "Ch\u01b0a c\u1ea5u h\u00ecnh API key cho d\u1ecbch v\u1ee5 d\u1ecbch";
+    private const string ProviderUnavailableMessage = "D\u1ecbch v\u1ee5 d\u1ecbch \u0111ang l\u1ed7i ho\u1eb7c kh\u00f4ng ph\u1ea3n h\u1ed3i";
+    private const string InvalidResponseMessage = "D\u1ecbch v\u1ee5 d\u1ecbch tr\u1ea3 v\u1ec1 d\u1eef li\u1ec7u kh\u00f4ng h\u1ee3p l\u1ec7";
 
     public async Task<string> TranslateAsync(
         string sourceText,
@@ -22,9 +29,14 @@ public class RealApiTranslationProvider(HttpClient httpClient, IOptions<Translat
         var apiKey = ResolveApiKey(config);
         var endpoint = ResolveEndpoint(config);
 
-        if (!IsConfigured(config, apiKey, endpoint))
+        if (!HasRequiredConfiguration(options.Value, config, endpoint))
         {
             throw new AppException(NotConfiguredMessage);
+        }
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new AppException(MissingApiKeyMessage);
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -50,24 +62,55 @@ public class RealApiTranslationProvider(HttpClient httpClient, IOptions<Translat
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-        using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response;
+        try
         {
-            throw new AppException(ProviderUnavailableMessage, statusCode: 502);
+            response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.LogWarning(ex, "RealApi translation request failed before receiving a response.");
+            throw new AppException(ProviderUnavailableMessage, ex, statusCode: 502);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "RealApi translation request timed out.");
+            throw new AppException(ProviderUnavailableMessage, ex, statusCode: 502);
         }
 
-        var body = await response.Content.ReadFromJsonAsync<RealApiChatResponse>(cancellationToken)
-            .ConfigureAwait(false);
-        var translatedText = body?.Choices?
-            .Select(choice => choice.Message?.Content?.Trim())
-            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
-
-        if (string.IsNullOrWhiteSpace(translatedText))
+        using (response)
         {
-            throw new AppException(ProviderUnavailableMessage, statusCode: 502);
-        }
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "RealApi translation provider returned non-success status code {StatusCode}.",
+                    (int)response.StatusCode);
+                throw new AppException(ProviderUnavailableMessage, statusCode: 502);
+            }
 
-        return translatedText;
+            RealApiChatResponse? body;
+            try
+            {
+                body = await response.Content.ReadFromJsonAsync<RealApiChatResponse>(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (JsonException ex)
+            {
+                logger.LogWarning(ex, "RealApi translation provider returned invalid JSON.");
+                throw new AppException(InvalidResponseMessage, ex, statusCode: 502);
+            }
+
+            var translatedText = body?.Choices is { Count: > 0 }
+                ? body.Choices[0].Message?.Content?.Trim()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(translatedText))
+            {
+                throw new AppException(InvalidResponseMessage, statusCode: 502);
+            }
+
+            return translatedText;
+        }
     }
 
     public static bool IsConfigured(RealApiTranslationOptions config) =>
@@ -75,6 +118,18 @@ public class RealApiTranslationProvider(HttpClient httpClient, IOptions<Translat
 
     private static bool IsConfigured(RealApiTranslationOptions config, string? apiKey, Uri? endpoint) =>
         !string.IsNullOrWhiteSpace(apiKey)
+        && HasRequiredRealApiConfiguration(config, endpoint);
+
+    private static bool HasRequiredConfiguration(
+        TranslationOptions options,
+        RealApiTranslationOptions config,
+        Uri? endpoint) =>
+        string.Equals(options.Provider, TranslationProviderNames.RealApi, StringComparison.OrdinalIgnoreCase)
+        && HasRequiredRealApiConfiguration(config, endpoint);
+
+    private static bool HasRequiredRealApiConfiguration(RealApiTranslationOptions config, Uri? endpoint) =>
+        !string.IsNullOrWhiteSpace(config.BaseUrl)
+        && !string.IsNullOrWhiteSpace(config.EndpointPath)
         && endpoint is not null
         && !string.IsNullOrWhiteSpace(config.Model);
 
@@ -92,15 +147,13 @@ public class RealApiTranslationProvider(HttpClient httpClient, IOptions<Translat
 
     private static Uri? ResolveEndpoint(RealApiTranslationOptions config)
     {
-        if (string.IsNullOrWhiteSpace(config.BaseUrl))
+        if (string.IsNullOrWhiteSpace(config.BaseUrl) || string.IsNullOrWhiteSpace(config.EndpointPath))
         {
             return null;
         }
 
         var baseUrl = config.BaseUrl.Trim().TrimEnd('/');
-        var endpointPath = string.IsNullOrWhiteSpace(config.EndpointPath)
-            ? "/v1/chat/completions"
-            : config.EndpointPath.Trim();
+        var endpointPath = config.EndpointPath.Trim();
         var endpoint = $"{baseUrl}/{endpointPath.TrimStart('/')}";
 
         return Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) ? uri : null;
