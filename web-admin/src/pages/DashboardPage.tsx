@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
-import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
+import { Circle, CircleMarker, MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { ApiClientError, extractApiError } from '@/api/apiError';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -903,6 +903,18 @@ interface PoiMapPoint {
   longitude: number;
 }
 
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+}
+
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 8000,
+  maximumAge: 30000,
+};
+
 function PoiDashboardMap({
   points,
   onSelect,
@@ -910,22 +922,66 @@ function PoiDashboardMap({
   points: PoiMapPoint[];
   onSelect: (poi: PoiMapPoint) => void;
 }) {
+  const locationWatchIdRef = useRef<number | null>(null);
+  const shouldFollowUserRef = useRef(false);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    let cancelled = false;
+    shouldFollowUserRef.current = true;
+
+    if (locationWatchIdRef.current !== null) return;
+
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        if (cancelled || !shouldFollowUserRef.current) return;
+
+        setUserLocation(toUserLocation(position));
+      },
+      undefined,
+      GEOLOCATION_OPTIONS,
+    );
+
+    return () => {
+      cancelled = true;
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <MapContainer
-      center={points[0] ? [points[0].latitude, points[0].longitude] : MAP_DEFAULT_CENTER}
+      center={
+        userLocation
+          ? [userLocation.latitude, userLocation.longitude]
+          : points[0]
+            ? [points[0].latitude, points[0].longitude]
+            : MAP_DEFAULT_CENTER
+      }
       zoom={MAP_DEFAULT_ZOOM}
       maxZoom={MAP_MAX_ZOOM}
       scrollWheelZoom
       className="h-full w-full"
     >
       <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
-      <FitPoiBounds points={points} />
+      <FitPoiBounds points={points} disabled={Boolean(userLocation)} />
+      {userLocation ? <FollowUserLocation location={userLocation} shouldFollowRef={shouldFollowUserRef} /> : null}
+      {userLocation ? <UserLocationOverlay location={userLocation} /> : null}
       {points.map((poi) => (
         <Marker
           key={poi.id}
           position={[poi.latitude, poi.longitude]}
           icon={createPoiMarkerIcon(poi)}
-          eventHandlers={{ click: () => onSelect(poi) }}
+          eventHandlers={{
+            click: () => {
+              shouldFollowUserRef.current = false;
+              onSelect(poi);
+            },
+          }}
         >
           <Tooltip direction="top" offset={[0, -24]} opacity={1} sticky>
             <MapHoverCard poi={poi} />
@@ -948,6 +1004,66 @@ function PoiDashboardMap({
       ))}
     </MapContainer>
   );
+}
+
+function FollowUserLocation({
+  location,
+  shouldFollowRef,
+}: {
+  location: UserLocation;
+  shouldFollowRef: { current: boolean };
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!shouldFollowRef.current) return;
+
+    map.setView([location.latitude, location.longitude], map.getZoom() || MAP_DEFAULT_ZOOM);
+    map.invalidateSize();
+  }, [location.latitude, location.longitude, map, shouldFollowRef]);
+
+  return null;
+}
+
+function UserLocationOverlay({ location }: { location: UserLocation }) {
+  return (
+    <>
+      <CircleMarker
+        center={[location.latitude, location.longitude]}
+        radius={8}
+        pathOptions={{
+          color: '#ffffff',
+          fillColor: '#0ea5e9',
+          fillOpacity: 0.95,
+          weight: 3,
+        }}
+      >
+        <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+          Vị trí của bạn
+        </Tooltip>
+      </CircleMarker>
+      {location.accuracy ? (
+        <Circle
+          center={[location.latitude, location.longitude]}
+          radius={location.accuracy}
+          pathOptions={{
+            color: '#0ea5e9',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.08,
+            weight: 1,
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function toUserLocation(position: GeolocationPosition): UserLocation {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+  };
 }
 
 function createPoiMarkerIcon(poi: PoiMapPoint) {
@@ -1032,11 +1148,15 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
   );
 }
 
-function FitPoiBounds({ points }: { points: PoiMapPoint[] }) {
+function FitPoiBounds({ points, disabled }: { points: PoiMapPoint[]; disabled?: boolean }) {
   const map = useMap();
 
   useEffect(() => {
     window.setTimeout(() => map.invalidateSize(), 0);
+
+    if (disabled) {
+      return;
+    }
 
     if (points.length === 0) {
       map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
@@ -1051,7 +1171,7 @@ function FitPoiBounds({ points }: { points: PoiMapPoint[] }) {
 
     const bounds = L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
-  }, [map, points]);
+  }, [disabled, map, points]);
 
   return null;
 }

@@ -24,26 +24,41 @@ import {
 
 interface Props { lang: Lang; }
 
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+}
+
 const CATEGORY_STYLES = [
   { icon: 'M', color: '#2563eb' },
   { icon: 'F', color: '#16a34a' },
   { icon: 'S', color: '#f59e0b' },
 ] as const;
 
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 8000,
+  maximumAge: 30000,
+};
+
 export function MapPage({ lang }: Props) {
   const [searchParams] = useSearchParams();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
+  const locationWatchIdRef = useRef<number | null>(null);
+  const shouldFollowUserRef = useRef(false);
   const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [clientExpired, setClientExpired] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
 
   const tourId = searchParams.get('tour');
   const focusPoiId = Number(searchParams.get('poi'));
   const focusLat = searchParams.get('lat');
   const focusLng = searchParams.get('lng');
+  const hasUrlFocusTarget = Boolean(focusLat && focusLng) || (Number.isInteger(focusPoiId) && focusPoiId > 0);
 
   const { data: poisData, isLoading } = useQuery({
     queryKey: ['pois-map', lang],
@@ -67,7 +82,11 @@ export function MapPage({ lang }: Props) {
   useEffect(() => {
     if (!mapRef.current || leafletMapRef.current) return;
 
+    let cancelled = false;
+
     import('leaflet').then((L) => {
+      if (cancelled || !mapRef.current || leafletMapRef.current) return;
+
       const map = L.map(mapRef.current!, {
         center: MAP_DEFAULT_CENTER,
         zoom: MAP_DEFAULT_ZOOM,
@@ -81,11 +100,11 @@ export function MapPage({ lang }: Props) {
 
       leafletMapRef.current = map;
       setMapReady(true);
-      window.requestAnimationFrame(() => map.invalidateSize());
-      window.setTimeout(() => map.invalidateSize(), 250);
+      scheduleMapResize(map);
     });
 
     return () => {
+      cancelled = true;
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
@@ -99,12 +118,24 @@ export function MapPage({ lang }: Props) {
     const map = leafletMapRef.current;
     const resize = () => map.invalidateSize();
     const frameId = window.requestAnimationFrame(resize);
-    const timeoutId = window.setTimeout(resize, 250);
+    const timeoutIds = [100, 300].map((delay) => window.setTimeout(resize, delay));
+    const observer =
+      !mapRef.current || typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            resize();
+          });
+
+    if (mapRef.current) {
+      observer?.observe(mapRef.current);
+    }
+
     window.addEventListener('resize', resize);
 
     return () => {
       window.cancelAnimationFrame(frameId);
-      window.clearTimeout(timeoutId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      observer?.disconnect();
       window.removeEventListener('resize', resize);
     };
   }, [mapReady, selectedPoi, tourId]);
@@ -140,6 +171,7 @@ export function MapPage({ lang }: Props) {
         })
           .addTo(map)
           .on('click', () => {
+            shouldFollowUserRef.current = false;
             setClientExpired(false);
             setSelectedPoi(poi);
           });
@@ -164,14 +196,44 @@ export function MapPage({ lang }: Props) {
       if (tourDetail && tourDetail.pois.length > 1) {
         const latlngs = tourDetail.pois.map((p: PublicPoiDto) => [p.latitude, p.longitude] as [number, number]);
         L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
-        map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
+        if (!userLocation && !hasUrlFocusTarget) {
+          map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
+        }
+      }
+
+      if (userLocation) {
+        L.circleMarker([userLocation.latitude, userLocation.longitude], {
+          radius: 8,
+          color: '#ffffff',
+          fillColor: '#0ea5e9',
+          fillOpacity: 0.95,
+          weight: 3,
+        })
+          .addTo(map)
+          .bindTooltip('Vị trí của bạn', {
+            direction: 'top',
+            offset: [0, -10],
+            opacity: 1,
+          });
+
+        if (userLocation.accuracy) {
+          L.circle([userLocation.latitude, userLocation.longitude], {
+            radius: userLocation.accuracy,
+            color: '#0ea5e9',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.08,
+            weight: 1,
+          }).addTo(map);
+        }
       }
 
       if (focusLat && focusLng) {
         map.setView([parseFloat(focusLat), parseFloat(focusLng)], MAP_FOCUS_ZOOM);
       }
+
+      scheduleMapResize(map);
     });
-  }, [mapReady, poisData, tourDetail, focusLat, focusLng]);
+  }, [mapReady, poisData, tourDetail, focusLat, focusLng, userLocation, hasUrlFocusTarget]);
 
   const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
   const selectedDistance = selectedPoi && userLocation
@@ -185,10 +247,55 @@ export function MapPage({ lang }: Props) {
 
     const poi = listedPois.find((item) => item.id === focusPoiId);
     if (poi) {
+      shouldFollowUserRef.current = false;
       setSelectedPoi(poi);
       leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_FOCUS_ZOOM);
     }
   }, [focusPoiId, listedPois]);
+
+  useEffect(() => {
+    if (!mapReady || hasUrlFocusTarget || !navigator.geolocation) return;
+
+    let cancelled = false;
+    shouldFollowUserRef.current = true;
+
+    if (locationWatchIdRef.current !== null) return;
+
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        if (cancelled) return;
+
+        const nextLocation = toUserLocation(position);
+        setUserLocation(nextLocation);
+
+        if (shouldFollowUserRef.current) {
+          leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+          if (leafletMapRef.current) {
+            scheduleMapResize(leafletMapRef.current);
+          }
+        }
+      },
+      undefined,
+      GEOLOCATION_OPTIONS,
+    );
+
+    return () => {
+      cancelled = true;
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, [hasUrlFocusTarget, mapReady]);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, []);
 
   const requestLocation = () => {
     setLocationMessage(null);
@@ -197,17 +304,27 @@ export function MapPage({ lang }: Props) {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
+    shouldFollowUserRef.current = true;
+    if (locationWatchIdRef.current !== null) {
+      if (userLocation) {
+        leafletMapRef.current?.setView([userLocation.latitude, userLocation.longitude], MAP_FOCUS_ZOOM);
+      }
+      return;
+    }
+
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
-        const nextLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
+        const nextLocation = toUserLocation(position);
         setUserLocation(nextLocation);
-        leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+        if (shouldFollowUserRef.current) {
+          leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+          if (leafletMapRef.current) {
+            scheduleMapResize(leafletMapRef.current);
+          }
+        }
       },
       () => setLocationMessage('Không thể lấy vị trí hiện tại. Bạn vẫn có thể chọn POI trên bản đồ.'),
-      { enableHighAccuracy: true, timeout: 8000 },
+      GEOLOCATION_OPTIONS,
     );
   };
 
@@ -235,6 +352,7 @@ export function MapPage({ lang }: Props) {
               <button
                 key={poi.id}
                 onClick={() => {
+                  shouldFollowUserRef.current = false;
                   setClientExpired(false);
                   setSelectedPoi(poi);
                   leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_DEFAULT_ZOOM);
@@ -260,7 +378,7 @@ export function MapPage({ lang }: Props) {
         </div>
       </div>
 
-      <div className="relative min-h-[420px] flex-1 lg:min-h-0">
+      <div className="relative min-h-[420px] flex-1 lg:min-h-[calc(100vh-64px)]">
         <div ref={mapRef} className="absolute inset-0 h-full w-full" />
         {selectedPoi && (
           <PublicPoiInfoPanel
@@ -281,6 +399,21 @@ export function MapPage({ lang }: Props) {
       </div>
     </div>
   );
+}
+
+function scheduleMapResize(map: { invalidateSize: () => void }) {
+  const resize = () => map.invalidateSize();
+  window.requestAnimationFrame(resize);
+  window.setTimeout(resize, 100);
+  window.setTimeout(resize, 300);
+}
+
+function toUserLocation(position: GeolocationPosition): UserLocation {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+  };
 }
 
 function PublicPoiInfoPanel({

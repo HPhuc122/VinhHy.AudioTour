@@ -44,9 +44,9 @@ try
     {
         options.SwaggerDoc("v1", new OpenApiInfo
         {
-            Title = "VinhHy Narration API",
+            Title = "Audio Tour Khanh Hoi API",
             Version = "v1",
-            Description = "Audio tour narration API for Vinh Hy"
+            Description = "Audio tour narration API for Khanh Hoi, District 4"
         });
 
         var jwtScheme = new OpenApiSecurityScheme
@@ -101,7 +101,7 @@ try
     {
         if (app.Environment.IsDevelopment())
         {
-            await app.Services.MigrateAndSeedAsync();
+            await app.Services.MigrateAndSeedAsync(app.Configuration, app.Environment);
         }
     }
 

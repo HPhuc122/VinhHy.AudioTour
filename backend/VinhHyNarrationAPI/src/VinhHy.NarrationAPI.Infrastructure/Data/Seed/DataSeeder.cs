@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 
@@ -10,7 +12,11 @@ public static class DataSeeder
     private const string DefaultAdminEmail = "admin@vinhhy.local";
     private const string DefaultAdminPassword = "ChangeMe123!";
 
-    public static async Task SeedAsync(ApplicationDbContext db, CancellationToken cancellationToken = default)
+    public static async Task SeedAsync(
+        ApplicationDbContext db,
+        IConfiguration? configuration = null,
+        IHostEnvironment? environment = null,
+        CancellationToken cancellationToken = default)
     {
         await SeedRolesAsync(db, cancellationToken).ConfigureAwait(false);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -20,6 +26,17 @@ public static class DataSeeder
 
         await SeedAdminUserAsync(db, cancellationToken).ConfigureAwait(false);
         await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (configuration?.GetValue<bool>("SeedData:Enabled") == true &&
+            string.Equals(
+                configuration.GetValue<string>("SeedData:Scenario"),
+                "KhanhHoiDemo",
+                StringComparison.OrdinalIgnoreCase) &&
+            environment is not null &&
+            environment.IsDevelopment())
+        {
+            await KhanhHoiDemoSeeder.SeedAsync(db, environment, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static async Task SeedRolesAsync(ApplicationDbContext db, CancellationToken cancellationToken)

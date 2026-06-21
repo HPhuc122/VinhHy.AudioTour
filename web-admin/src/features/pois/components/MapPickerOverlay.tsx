@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {
@@ -16,6 +16,12 @@ const customRedIcon = L.divIcon({
   iconAnchor: [14, 40],
   popupAnchor: [0, -35],
 });
+
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 8000,
+  maximumAge: 30000,
+};
 
 interface Props {
   open: boolean;
@@ -39,25 +45,97 @@ function MapResizeHandler({ trigger }: { trigger: unknown }) {
   useEffect(() => {
     const resize = () => map.invalidateSize();
     const frameId = window.requestAnimationFrame(resize);
-    const timeoutId = window.setTimeout(resize, 250);
+    const timeoutIds = [100, 300].map((delay) => window.setTimeout(resize, delay));
+    const container = map.getContainer();
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            resize();
+          });
+
+    observer?.observe(container);
 
     return () => {
       window.cancelAnimationFrame(frameId);
-      window.clearTimeout(timeoutId);
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      observer?.disconnect();
     };
   }, [map, trigger]);
 
   return null;
 }
 
+function MapPositionHandler({ position }: { position: { lat: number; lng: number } }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView([position.lat, position.lng], map.getZoom() || MAP_DEFAULT_ZOOM);
+    map.invalidateSize();
+  }, [map, position.lat, position.lng]);
+
+  return null;
+}
+
 export function MapPickerOverlay({ open, initialPosition, onClose, onConfirm }: Props) {
+  const locationWatchIdRef = useRef<number | null>(null);
+  const shouldFollowUserRef = useRef(false);
   const [tempPos, setTempPos] = useState<{ lat: number; lng: number }>(
     initialPosition ?? MAP_DEFAULT_POSITION,
   );
 
   useEffect(() => {
-    setTempPos(initialPosition ?? MAP_DEFAULT_POSITION);
-  }, [initialPosition]);
+    if (!open) return;
+
+    if (initialPosition) {
+      shouldFollowUserRef.current = false;
+      setTempPos(initialPosition);
+      return;
+    }
+
+    setTempPos(MAP_DEFAULT_POSITION);
+
+    if (!navigator.geolocation) return;
+
+    let cancelled = false;
+    shouldFollowUserRef.current = true;
+
+    if (locationWatchIdRef.current !== null) return;
+
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        if (cancelled || !shouldFollowUserRef.current) return;
+
+        setTempPos({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        if (!cancelled) {
+          setTempPos(MAP_DEFAULT_POSITION);
+        }
+      },
+      GEOLOCATION_OPTIONS,
+    );
+
+    return () => {
+      cancelled = true;
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, [open, initialPosition?.lat, initialPosition?.lng]);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, []);
 
   if (!open) return null;
 
@@ -80,9 +158,11 @@ export function MapPickerOverlay({ open, initialPosition, onClose, onConfirm }: 
           style={{ width: '100%', height: '100%' }}
         >
           <TileLayer url={MAP_TILE_URL} attribution={MAP_ATTRIBUTION} maxZoom={MAP_MAX_ZOOM} />
-          <MapResizeHandler trigger={open} />
+          <MapResizeHandler trigger={`${open}:${tempPos.lat}:${tempPos.lng}`} />
+          <MapPositionHandler position={tempPos} />
           <ClickHandler
             onSetTemp={(lat, lng) => {
+              shouldFollowUserRef.current = false;
               setTempPos({ lat, lng });
             }}
           />
