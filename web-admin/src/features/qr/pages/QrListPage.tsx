@@ -12,7 +12,9 @@ export function QrListPage() {
   const qrsQuery = useQrsQuery();
   const deleteQrMutation = useDeleteQrMutation();
   const deletingQrId =
-    typeof deleteQrMutation.variables === 'number' ? deleteQrMutation.variables : null;
+    deleteQrMutation.isPending && typeof deleteQrMutation.variables === 'number'
+      ? deleteQrMutation.variables
+      : null;
 
   const handleDelete = (qr: QrDto) => {
     const confirmed = window.confirm(`Xóa mã QR ${qr.code}?`);

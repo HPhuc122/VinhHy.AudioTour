@@ -27,6 +27,12 @@ public interface INarrationDraftService
         string reason,
         CancellationToken cancellationToken = default);
 
+    Task<GenerateNarrationTranslationsResponse> GenerateTranslationsAsync(
+        int sourceDraftId,
+        GenerateNarrationTranslationsRequest request,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default);
+
     Task<NarrationDraftDto> GenerateAudioAsync(
         int id,
         int reviewerUserId,

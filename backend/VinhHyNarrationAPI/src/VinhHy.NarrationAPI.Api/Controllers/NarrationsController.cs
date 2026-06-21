@@ -76,6 +76,21 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
         return this.ApiOk(draft, "Narration draft rejected");
     }
 
+    [HttpPost("{id:int}/translations")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> GenerateTranslations(
+        int id,
+        [FromBody] GenerateNarrationTranslationsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await narrationDraftService.GenerateTranslationsAsync(
+            id,
+            request,
+            GetRequiredCurrentUserId(),
+            cancellationToken);
+        return this.ApiOk(result, "Narration translations generated");
+    }
+
     [HttpPost("{id:int}/generate-audio")]
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> GenerateAudio(int id, CancellationToken cancellationToken)

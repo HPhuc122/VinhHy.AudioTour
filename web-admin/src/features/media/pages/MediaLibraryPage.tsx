@@ -89,6 +89,9 @@ export function MediaLibraryPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [viewNarration, setViewNarration] = useState<NarrationDraftDto | null>(null);
   const [uploadAudioDraft, setUploadAudioDraft] = useState<NarrationDraftDto | null>(null);
+  const [translateNarrationDraft, setTranslateNarrationDraft] = useState<NarrationDraftDto | null>(null);
+  const [narrationTargetLanguageCodes, setNarrationTargetLanguageCodes] = useState<string[]>([]);
+  const [overwriteNarrations, setOverwriteNarrations] = useState(false);
   const [draftForm, setDraftForm] = useState({
     title: '',
     languageCode: 'vi',
@@ -288,6 +291,28 @@ export function MediaLibraryPage() {
       await invalidateSelectedPoiContent();
     },
   });
+  const generateNarrationTranslationsMutation = useMutation({
+    mutationFn: () => {
+      if (!translateNarrationDraft) {
+        throw new Error('Vui lòng chọn bản thuyết minh nguồn.');
+      }
+
+      return narrationsApi.generateTranslations(translateNarrationDraft.id, {
+        targetLanguageCodes: narrationTargetLanguageCodes,
+        overwriteExisting: overwriteNarrations,
+      });
+    },
+    onSuccess: async (result) => {
+      const skipped = result.skippedLanguageCodes.length
+        ? ` Bỏ qua: ${result.skippedLanguageCodes.join(', ')}.`
+        : '';
+      setNotice(`Đã tạo ${result.narrations.length} bản thuyết minh đã dịch.${skipped}`);
+      setTranslateNarrationDraft(null);
+      setNarrationTargetLanguageCodes([]);
+      setOverwriteNarrations(false);
+      await invalidateSelectedPoiContent();
+    },
+  });
   const saveTranslationMutation = useMutation({
     mutationFn: (payload: Translation) => {
       if (!currentPoi) {
@@ -426,6 +451,7 @@ export function MediaLibraryPage() {
     approveNarrationMutation.error,
     rejectNarrationMutation.error,
     uploadNarrationAudioMutation.error,
+    generateNarrationTranslationsMutation.error,
     saveTranslationMutation.error,
     deleteTranslationMutation.error,
     generateTranslationsMutation.error,
@@ -499,7 +525,10 @@ export function MediaLibraryPage() {
               canReview={canReviewContent}
               imageInputRef={imageInputRef}
               uploadLoading={uploadMutation.isPending}
-              busyId={getBusyMutationId(approveImageMutation.variables, rejectImageMutation.variables)}
+              busyId={getBusyMutationId(
+                approveImageMutation.isPending ? approveImageMutation.variables : undefined,
+                rejectImageMutation.isPending ? rejectImageMutation.variables : undefined,
+              )}
               onUpload={handleUploadImages}
               onPreview={setPreviewMedia}
               onApprove={(media) => approveImageMutation.mutate(media.id)}
@@ -520,7 +549,10 @@ export function MediaLibraryPage() {
               canReview={canReviewContent}
               form={draftForm}
               createLoading={createNarrationMutation.isPending}
-              busyId={getBusyMutationId(approveNarrationMutation.variables, rejectNarrationMutation.variables)}
+              busyId={getBusyMutationId(
+                approveNarrationMutation.isPending ? approveNarrationMutation.variables : undefined,
+                rejectNarrationMutation.isPending ? rejectNarrationMutation.variables : undefined,
+              )}
               onFormChange={setDraftForm}
               onSubmit={handleSubmitNarration}
               onApprove={(draft) => approveNarrationMutation.mutate(draft.id)}
@@ -529,6 +561,11 @@ export function MediaLibraryPage() {
                 setRejectReason('');
               }}
               onView={setViewNarration}
+              onTranslate={(draft) => {
+                setTranslateNarrationDraft(draft);
+                setNarrationTargetLanguageCodes([]);
+                setOverwriteNarrations(false);
+              }}
             />
           ) : null}
 
@@ -539,7 +576,9 @@ export function MediaLibraryPage() {
               isLoading={narrationsQuery.isLoading}
               canUploadAudio={canUploadNarrationAudio}
               isVendor={isVendor}
-              busyId={getBusyMutationId(uploadNarrationAudioMutation.variables)}
+              busyId={getBusyMutationId(
+                uploadNarrationAudioMutation.isPending ? uploadNarrationAudioMutation.variables : undefined,
+              )}
               onUploadAudio={setUploadAudioDraft}
             />
           ) : null}
@@ -586,6 +625,22 @@ export function MediaLibraryPage() {
         onSubmit={handleSubmitReject}
       />
       <NarrationTextModal draft={viewNarration} onClose={() => setViewNarration(null)} />
+      <TranslateNarrationModal
+        draft={translateNarrationDraft}
+        narrations={narrations}
+        languages={activeLanguages}
+        targetLanguageCodes={narrationTargetLanguageCodes}
+        overwriteExisting={overwriteNarrations}
+        isLoading={generateNarrationTranslationsMutation.isPending}
+        onTargetLanguageCodesChange={setNarrationTargetLanguageCodes}
+        onOverwriteExistingChange={setOverwriteNarrations}
+        onClose={() => {
+          setTranslateNarrationDraft(null);
+          setNarrationTargetLanguageCodes([]);
+          setOverwriteNarrations(false);
+        }}
+        onSubmit={() => generateNarrationTranslationsMutation.mutate()}
+      />
       <UploadNarrationAudioModal
         draft={uploadAudioDraft}
         isLoading={uploadNarrationAudioMutation.isPending}
@@ -926,6 +981,7 @@ function NarrationsTab({
   onApprove,
   onReject,
   onView,
+  onTranslate,
 }: {
   poi: PoiDto;
   drafts: NarrationDraftDto[];
@@ -941,6 +997,7 @@ function NarrationsTab({
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
   onView: (draft: NarrationDraftDto) => void;
+  onTranslate: (draft: NarrationDraftDto) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -973,6 +1030,7 @@ function NarrationsTab({
         onApprove={onApprove}
         onReject={onReject}
         onView={onView}
+        onTranslate={onTranslate}
       />
     </div>
   );
@@ -1413,6 +1471,7 @@ function NarrationList({
   onApprove,
   onReject,
   onView,
+  onTranslate,
 }: {
   drafts: NarrationDraftDto[];
   isLoading: boolean;
@@ -1421,6 +1480,7 @@ function NarrationList({
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
   onView: (draft: NarrationDraftDto) => void;
+  onTranslate: (draft: NarrationDraftDto) => void;
 }) {
   return (
     <Card className="p-0">
@@ -1456,6 +1516,11 @@ function NarrationList({
                 <td className="px-4 py-3 text-gray-500">{formatDate(draft.updatedAt ?? draft.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-2">
+                    {canReview && (draft.status === 'Approved' || draft.status === 'AudioGenerated') ? (
+                      <Button variant="secondary" size="sm" onClick={() => onTranslate(draft)}>
+                        Dịch thuyết minh
+                      </Button>
+                    ) : null}
                     <Button variant="ghost" size="sm" onClick={() => onView(draft)}>
                       Xem nội dung
                     </Button>
@@ -1713,6 +1778,114 @@ function RejectModal({
           </Button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+function TranslateNarrationModal({
+  draft,
+  narrations,
+  languages,
+  targetLanguageCodes,
+  overwriteExisting,
+  isLoading,
+  onTargetLanguageCodesChange,
+  onOverwriteExistingChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: NarrationDraftDto | null;
+  narrations: NarrationDraftDto[];
+  languages: LanguageDto[];
+  targetLanguageCodes: string[];
+  overwriteExisting: boolean;
+  isLoading: boolean;
+  onTargetLanguageCodesChange: (codes: string[]) => void;
+  onOverwriteExistingChange: (value: boolean) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const existingByLanguage = new Map(narrations.map((item) => [item.languageCode, item]));
+  const targets = languages.filter((language) => language.code !== draft?.languageCode);
+
+  const toggleLanguage = (code: string) => {
+    onTargetLanguageCodesChange(
+      targetLanguageCodes.includes(code)
+        ? targetLanguageCodes.filter((item) => item !== code)
+        : [...targetLanguageCodes, code],
+    );
+  };
+
+  const changeOverwrite = (value: boolean) => {
+    onOverwriteExistingChange(value);
+    onTargetLanguageCodesChange(
+      targetLanguageCodes.filter((code) => {
+        const existing = existingByLanguage.get(code);
+        return !existing || (value && !existing.generatedAudioTrackId && existing.status !== 'AudioGenerated');
+      }),
+    );
+  };
+
+  return (
+    <Modal open={Boolean(draft)} onClose={onClose} title="Dịch bản thuyết minh" scrollable>
+      {draft ? (
+        <div className="space-y-4">
+          <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+            <p className="font-semibold text-gray-900">{draft.title}</p>
+            <p className="mt-1 text-gray-600">Ngôn ngữ nguồn: {formatLanguageLabel(draft.languageCode)}</p>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-gray-700">Ngôn ngữ đích</span>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={overwriteExisting}
+                  onChange={(event) => changeOverwrite(event.target.checked)}
+                />
+                Ghi đè bản chưa có MP3
+              </label>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {targets.map((language) => {
+                const existing = existingByLanguage.get(language.code);
+                const hasAudio = Boolean(existing?.generatedAudioTrackId) || existing?.status === 'AudioGenerated';
+                const disabled = hasAudio || (Boolean(existing) && !overwriteExisting);
+                return (
+                  <label
+                    key={language.code}
+                    className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm ${
+                      disabled ? 'cursor-not-allowed bg-gray-50 text-gray-400' : 'cursor-pointer bg-white text-gray-800'
+                    }`}
+                  >
+                    <span>{formatTranslationLanguage(language.code, languages)}</span>
+                    <span className="flex items-center gap-2">
+                      {hasAudio ? <span className="text-xs">Đã có MP3</span> : existing ? <span className="text-xs">Đã có</span> : null}
+                      <input
+                        type="checkbox"
+                        disabled={disabled}
+                        checked={targetLanguageCodes.includes(language.code)}
+                        onChange={() => toggleLanguage(language.code)}
+                      />
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-600">
+            Tiêu đề và nội dung sẽ được dịch. Mỗi ngôn ngữ tạo thành một bản thuyết minh đã duyệt để admin tải MP3 tại tab Âm thanh.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose}>Hủy</Button>
+            <Button disabled={targetLanguageCodes.length === 0} isLoading={isLoading} onClick={onSubmit}>
+              Dịch thuyết minh
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </Modal>
   );
 }

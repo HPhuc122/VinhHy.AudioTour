@@ -13,6 +13,7 @@ import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/aud
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
+import { useI18n } from '../../i18n/I18nContext';
 import {
   MAP_ATTRIBUTION,
   MAP_DEFAULT_CENTER,
@@ -43,9 +44,12 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
 };
 
 export function MapPage({ lang }: Props) {
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
+  const contentLayersRef = useRef<any[]>([]);
+  const userLocationLayersRef = useRef<any[]>([]);
   const locationWatchIdRef = useRef<number | null>(null);
   const shouldFollowUserRef = useRef(false);
   const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
@@ -146,11 +150,8 @@ export function MapPage({ lang }: Props) {
     import('leaflet').then((L) => {
       const map = leafletMapRef.current;
 
-      map.eachLayer((layer: any) => {
-        if (layer instanceof L.Marker || layer instanceof L.Circle || layer instanceof L.Polyline) {
-          map.removeLayer(layer);
-        }
-      });
+      contentLayersRef.current.forEach((layer) => map.removeLayer(layer));
+      contentLayersRef.current = [];
 
       const pois = tourDetail ? tourDetail.pois : poisData.items;
 
@@ -184,46 +185,22 @@ export function MapPage({ lang }: Props) {
           className: 'vinhhy-map-hovercard',
         });
 
-        L.circle([poi.latitude, poi.longitude], {
+        const radiusCircle = L.circle([poi.latitude, poi.longitude], {
           radius: poi.radiusMeters ?? 30,
           color: style.color,
           fillColor: style.color,
           fillOpacity: 0.1,
           weight: 1,
         }).addTo(map);
+        contentLayersRef.current.push(marker, radiusCircle);
       });
 
       if (tourDetail && tourDetail.pois.length > 1) {
         const latlngs = tourDetail.pois.map((p: PublicPoiDto) => [p.latitude, p.longitude] as [number, number]);
-        L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
+        const tourLine = L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
+        contentLayersRef.current.push(tourLine);
         if (!userLocation && !hasUrlFocusTarget) {
           map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
-        }
-      }
-
-      if (userLocation) {
-        L.circleMarker([userLocation.latitude, userLocation.longitude], {
-          radius: 8,
-          color: '#ffffff',
-          fillColor: '#0ea5e9',
-          fillOpacity: 0.95,
-          weight: 3,
-        })
-          .addTo(map)
-          .bindTooltip('Vị trí của bạn', {
-            direction: 'top',
-            offset: [0, -10],
-            opacity: 1,
-          });
-
-        if (userLocation.accuracy) {
-          L.circle([userLocation.latitude, userLocation.longitude], {
-            radius: userLocation.accuracy,
-            color: '#0ea5e9',
-            fillColor: '#38bdf8',
-            fillOpacity: 0.08,
-            weight: 1,
-          }).addTo(map);
         }
       }
 
@@ -233,7 +210,47 @@ export function MapPage({ lang }: Props) {
 
       scheduleMapResize(map);
     });
-  }, [mapReady, poisData, tourDetail, focusLat, focusLng, userLocation, hasUrlFocusTarget]);
+  }, [mapReady, poisData, tourDetail, focusLat, focusLng, hasUrlFocusTarget]);
+
+  useEffect(() => {
+    if (!mapReady || !leafletMapRef.current) return;
+
+    let cancelled = false;
+    import('leaflet').then((L) => {
+      if (cancelled || !leafletMapRef.current) return;
+      const map = leafletMapRef.current;
+      userLocationLayersRef.current.forEach((layer) => map.removeLayer(layer));
+      userLocationLayersRef.current = [];
+      if (!userLocation) return;
+
+      const accuracyCircle = userLocation.accuracy
+        ? L.circle([userLocation.latitude, userLocation.longitude], {
+            radius: userLocation.accuracy,
+            color: '#0ea5e9',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.08,
+            weight: 1,
+          }).addTo(map)
+        : null;
+      const locationMarker = L.circleMarker([userLocation.latitude, userLocation.longitude], {
+        radius: 8,
+        color: '#ffffff',
+        fillColor: '#0ea5e9',
+        fillOpacity: 0.95,
+        weight: 3,
+      }).addTo(map).bindTooltip(t('currentLocation'), {
+        direction: 'top',
+        offset: [0, -10],
+        opacity: 1,
+      });
+
+      userLocationLayersRef.current = accuracyCircle
+        ? [accuracyCircle, locationMarker]
+        : [locationMarker];
+    });
+
+    return () => { cancelled = true; };
+  }, [mapReady, userLocation, t]);
 
   const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
   const selectedDistance = selectedPoi && userLocation
@@ -254,10 +271,10 @@ export function MapPage({ lang }: Props) {
   }, [focusPoiId, listedPois]);
 
   useEffect(() => {
-    if (!mapReady || hasUrlFocusTarget || !navigator.geolocation) return;
+    if (!mapReady || !navigator.geolocation) return;
 
     let cancelled = false;
-    shouldFollowUserRef.current = true;
+    shouldFollowUserRef.current = !hasUrlFocusTarget;
 
     if (locationWatchIdRef.current !== null) return;
 
@@ -270,6 +287,7 @@ export function MapPage({ lang }: Props) {
 
         if (shouldFollowUserRef.current) {
           leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+          shouldFollowUserRef.current = false;
           if (leafletMapRef.current) {
             scheduleMapResize(leafletMapRef.current);
           }
@@ -300,7 +318,7 @@ export function MapPage({ lang }: Props) {
   const requestLocation = () => {
     setLocationMessage(null);
     if (!navigator.geolocation) {
-      setLocationMessage('Trình duyệt chưa hỗ trợ định vị.');
+      setLocationMessage(t('geoUnsupported'));
       return;
     }
 
@@ -308,6 +326,7 @@ export function MapPage({ lang }: Props) {
     if (locationWatchIdRef.current !== null) {
       if (userLocation) {
         leafletMapRef.current?.setView([userLocation.latitude, userLocation.longitude], MAP_FOCUS_ZOOM);
+        shouldFollowUserRef.current = false;
       }
       return;
     }
@@ -318,12 +337,13 @@ export function MapPage({ lang }: Props) {
         setUserLocation(nextLocation);
         if (shouldFollowUserRef.current) {
           leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
+          shouldFollowUserRef.current = false;
           if (leafletMapRef.current) {
             scheduleMapResize(leafletMapRef.current);
           }
         }
       },
-      () => setLocationMessage('Không thể lấy vị trí hiện tại. Bạn vẫn có thể chọn POI trên bản đồ.'),
+      () => setLocationMessage(t('geoFailed')),
       GEOLOCATION_OPTIONS,
     );
   };
@@ -332,7 +352,7 @@ export function MapPage({ lang }: Props) {
     <div className="flex h-[calc(100vh-64px)] flex-col lg:flex-row">
       <div className="flex h-56 w-full shrink-0 flex-col overflow-hidden border-b border-gray-800 bg-gray-900 lg:h-auto lg:w-72 lg:border-b-0 lg:border-r">
         <div className="border-b border-gray-800 p-4">
-          <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : 'Bản đồ địa điểm'}</h2>
+          <h2 className="font-bold text-white">{tourDetail ? tourDetail.name : t('map')}</h2>
           <p className="mt-0.5 text-xs text-gray-400">
             {tourDetail ? `${tourDetail.pois.length} điểm dừng` : `${poisData?.totalCount ?? '-'} địa điểm`}
           </p>
@@ -341,7 +361,7 @@ export function MapPage({ lang }: Props) {
             onClick={requestLocation}
             className="mt-3 w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-gray-700"
           >
-            Dùng vị trí của tôi
+            {t('locateMe')}
           </button>
           {locationMessage ? <p className="mt-2 text-xs leading-5 text-amber-300">{locationMessage}</p> : null}
         </div>
@@ -433,6 +453,7 @@ function PublicPoiInfoPanel({
   onClose: () => void;
   onExpired: () => void;
 }) {
+  const { t } = useI18n();
   const hasAccess = Boolean(accessRecord?.accessToken) && !clientExpired;
 
   return (
@@ -472,24 +493,24 @@ function PublicPoiInfoPanel({
           to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
           className="block rounded-lg bg-emerald-600 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-emerald-700"
         >
-          Xem chi tiết
+          {t('viewDetails')}
         </Link>
         <Link
           to={hasAccess ? ROUTES.POI_DETAIL.replace(':id', String(poi.id)) : ROUTES.PACKAGES}
           className="block rounded-lg border border-gray-700 bg-gray-800 py-2 text-center text-xs font-medium text-gray-100 transition-colors hover:bg-gray-700"
         >
-          {hasAccess ? 'Nghe thuyết minh' : 'Mở quyền nghe'}
+          {hasAccess ? t('listen') : t('accessRequired')}
         </Link>
       </div>
 
       <div className="mt-4">
-        <h4 className="mb-2 text-sm font-semibold text-white">Thuyết minh audio</h4>
+        <h4 className="mb-2 text-sm font-semibold text-white">{t('selectedLanguageAudio')}</h4>
         {clientExpired ? (
           <AccessExpiredPanel />
         ) : !accessRecord?.accessToken ? (
           <AccessRequiredPanel
             title="Cần mã nghe"
-            message="Quét QR tại địa điểm hoặc chọn gói nghe để phát audio bảo vệ."
+            message={t('accessRequiredMessage')}
           />
         ) : audioTourQuery.isLoading ? (
           <Spinner />
@@ -520,7 +541,7 @@ function PublicPoiInfoPanel({
                   />
                 ))
             ) : (
-              <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">Điểm này chưa có bản thuyết minh.</div>
+              <div className="rounded-lg bg-gray-800 p-3 text-xs text-gray-400">{t('audioUnavailable')}</div>
             )}
           </div>
         )}

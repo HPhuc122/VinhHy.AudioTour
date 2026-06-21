@@ -87,7 +87,7 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
     [Fact]
     public async Task ServiceQrPass_AllowsAnyTourAudioTourEndpoint_AndRejectsMissingInvalidOrExpiredPass()
     {
-        var tourId = await SeedAudioTourAsync();
+        var (tourId, poiId) = await SeedAudioTourAsync();
         var qrCode = await SeedQrAsync(requiresPayment: false, priceAmount: 0m, durationMinutes: 60);
 
         var startResponse = await _client.PostAsJsonAsync(
@@ -97,12 +97,27 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
         Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
         var accessToken = await GetDataPropertyAsync<string>(startResponse, "accessToken");
 
-        var validRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/audio-tour/tours/{tourId}");
+        var validRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/audio-tour/tours/{tourId}?languageCode=vi");
         validRequest.Headers.Add("X-Guest-Access-Token", accessToken);
         var validResponse = await _client.SendAsync(validRequest);
 
         Assert.Equal(HttpStatusCode.OK, validResponse.StatusCode);
         Assert.Equal(tourId, await GetDataPropertyAsync<int>(validResponse, "id"));
+        var poiRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/public/audio-tour/pois/{poiId}?languageCode=vi");
+        poiRequest.Headers.Add("X-Guest-Access-Token", accessToken);
+        var poiResponse = await _client.SendAsync(poiRequest);
+        Assert.Equal(HttpStatusCode.OK, poiResponse.StatusCode);
+        using (var responseDoc = JsonDocument.Parse(await poiResponse.Content.ReadAsStringAsync()))
+        {
+            var audioTracks = responseDoc.RootElement
+                .GetProperty("data")
+                .GetProperty("audioTracks");
+            Assert.NotEmpty(audioTracks.EnumerateArray());
+            Assert.All(audioTracks.EnumerateArray(), track =>
+                Assert.Equal("vi", track.GetProperty("languageCode").GetString()));
+        }
 
         var missingResponse = await _client.GetAsync($"/api/v1/public/audio-tour/tours/{tourId}");
         Assert.Equal(HttpStatusCode.Unauthorized, missingResponse.StatusCode);
@@ -150,7 +165,7 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
         return qr.Code;
     }
 
-    private async Task<int> SeedAudioTourAsync()
+    private async Task<(int TourId, int PoiId)> SeedAudioTourAsync()
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -175,6 +190,7 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
             RadiusMeters = 30,
             Priority = 1,
             IsActive = true,
+            LifecycleStatus = PoiLifecycleStatus.Active,
             Category = "audio-smoke",
             CreatedAt = now,
             UpdatedAt = now
@@ -221,8 +237,19 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
             UpdatedAt = now
         });
 
+        await db.AudioTracks.AddAsync(new AudioTrack
+        {
+            POIId = poi.Id,
+            LanguageCode = "en",
+            AudioType = AudioTypes.Prerecorded,
+            FileUrl = "uploads/audio/audio-tour-smoke-en.mp3",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
         await db.SaveChangesAsync();
-        return tour.Id;
+        return (tour.Id, poi.Id);
     }
 
     private static async Task<T> GetDataPropertyAsync<T>(HttpResponseMessage response, string propertyName)

@@ -83,6 +83,45 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task GenerateNarrationTranslations_AsAdmin_CreatesApprovedTargetNarration()
+    {
+        await AuthenticateAdminAsync();
+        var poiId = await CreatePoiAsync();
+
+        var sourceResponse = await _client.PostAsJsonAsync(
+            "/api/v1/narrations",
+            new CreateNarrationDraftRequest
+            {
+                PoiId = poiId,
+                Title = "Vietnamese narration",
+                LanguageCode = "vi",
+                TextContent = "This narration text is long enough for translation.",
+                Voice = "female-south"
+            });
+        Assert.Equal(HttpStatusCode.OK, sourceResponse.StatusCode);
+
+        using var sourceDoc = JsonDocument.Parse(await sourceResponse.Content.ReadAsStringAsync());
+        var sourceId = sourceDoc.RootElement.GetProperty("data").GetProperty("id").GetInt32();
+
+        var response = await _client.PostAsJsonAsync(
+            $"/api/v1/narrations/{sourceId}/translations",
+            new GenerateNarrationTranslationsRequest
+            {
+                TargetLanguageCodes = ["en"],
+                OverwriteExisting = false
+            });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var responseDoc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var narrations = responseDoc.RootElement.GetProperty("data").GetProperty("narrations");
+        Assert.Equal(1, narrations.GetArrayLength());
+        Assert.Equal("en", narrations[0].GetProperty("languageCode").GetString());
+        Assert.Equal("Approved", narrations[0].GetProperty("status").GetString());
+        Assert.StartsWith("[en]", narrations[0].GetProperty("title").GetString());
+        Assert.StartsWith("[en]", narrations[0].GetProperty("textContent").GetString());
+    }
+
+    [Fact]
     public async Task CreatePoiTranslation_DuplicatePoiLanguage_ReturnsBadRequest()
     {
         await AuthenticateAdminAsync();
@@ -152,22 +191,21 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
     }
 
     [Fact]
-    public async Task GeneratePoiTranslations_WithRealProviderMissingConfig_ReturnsReadableError()
+    public async Task GeneratePoiTranslations_WithGoogleProviderMissingConfig_ReturnsReadableError()
     {
-        using var realProviderFactory = factory.WithWebHostBuilder(builder =>
+        using var googleProviderFactory = factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Translation:Provider"] = "RealApi",
-                    ["Translation:RealApi:BaseUrl"] = "",
-                    ["Translation:RealApi:Model"] = "",
-                    ["Translation:RealApi:ApiKey"] = ""
+                    ["Translation:Provider"] = "GoogleTranslate",
+                    ["Translation:GoogleTranslate:ApiKey"] = "",
+                    ["Translation:GoogleTranslate:ApiKeyEnvironmentVariable"] = ""
                 });
             });
         });
-        using var client = realProviderFactory.CreateClient();
+        using var client = googleProviderFactory.CreateClient();
 
         await AuthenticateAdminAsync(client);
         var poiId = await CreatePoiAsync(client);
@@ -177,7 +215,7 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
         using (var providerDoc = JsonDocument.Parse(await providerResponse.Content.ReadAsStringAsync()))
         {
             var provider = providerDoc.RootElement.GetProperty("data");
-            Assert.Equal("RealApi", provider.GetProperty("provider").GetString());
+            Assert.Equal("GoogleTranslate", provider.GetProperty("provider").GetString());
             Assert.False(provider.GetProperty("isConfigured").GetBoolean());
             Assert.False(provider.GetProperty("isSimulated").GetBoolean());
         }
@@ -194,7 +232,9 @@ public class ValidationEndpointTests(NarrationApiWebApplicationFactory factory)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.Equal("Dịch vụ dịch chưa được cấu hình", doc.RootElement.GetProperty("message").GetString());
+        Assert.Equal(
+            "D\u1ecbch v\u1ee5 d\u1ecbch ch\u01b0a \u0111\u01b0\u1ee3c c\u1ea5u h\u00ecnh",
+            doc.RootElement.GetProperty("message").GetString());
     }
 
     [Fact]

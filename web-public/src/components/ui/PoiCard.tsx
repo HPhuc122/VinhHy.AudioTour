@@ -1,57 +1,17 @@
 import { Link } from 'react-router-dom';
 import type { PublicPoiDto } from '../../types/api';
 import { ROUTES } from '../../routes/routeConstants';
+import { useI18n } from '../../i18n/I18nContext';
 
-interface Props {
-  poi: PublicPoiDto;
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  'ẩm thực': 'bg-orange-500/20 text-orange-300',
-  'di tích': 'bg-purple-500/20 text-purple-300',
-  'phong cảnh': 'bg-emerald-500/20 text-emerald-300',
-  'mua sắm': 'bg-blue-500/20 text-blue-300',
-};
-
-export function PoiCard({ poi }: Props) {
-  const catColor = poi.category ? (CATEGORY_COLORS[poi.category.toLowerCase()] ?? 'bg-gray-500/20 text-gray-300') : '';
-
+export function PoiCard({ poi }: { poi: PublicPoiDto }) {
+  const { t } = useI18n();
   return (
-    <Link
-      to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
-      className="group block rounded-xl overflow-hidden bg-gray-800 border border-gray-700 hover:border-emerald-500/50 transition-all hover:-translate-y-0.5"
-    >
-      {/* Image */}
-      <div className="h-44 bg-gray-700 overflow-hidden relative">
-        {poi.imageUrl ? (
-          <img
-            src={poi.imageUrl}
-            alt={poi.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl text-gray-600">📍</div>
-        )}
-        {poi.category && (
-          <span className={`absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full font-medium ${catColor}`}>
-            {poi.category}
-          </span>
-        )}
+    <Link to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))} className="group block overflow-hidden rounded-xl border border-gray-700 bg-gray-800 transition-all hover:-translate-y-0.5 hover:border-emerald-500/50">
+      <div className="relative h-44 overflow-hidden bg-gray-700">
+        {poi.imageUrl ? <img src={poi.imageUrl} alt={poi.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" /> : <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-gray-500">V</div>}
+        {poi.category ? <span className="absolute left-2 top-2 rounded-full bg-gray-950/80 px-2 py-0.5 text-xs font-medium text-gray-200">{poi.category}</span> : null}
       </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-semibold text-white text-sm mb-1 line-clamp-1 group-hover:text-emerald-400 transition-colors">
-          {poi.name}
-        </h3>
-        <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">
-          {poi.shortDescription ?? poi.description}
-        </p>
-        <div className="mt-3 flex items-center gap-1 text-xs text-emerald-500">
-          <span>Xem chi tiết</span>
-          <span>→</span>
-        </div>
-      </div>
+      <div className="p-4"><h3 className="mb-1 line-clamp-1 text-sm font-semibold text-white group-hover:text-emerald-400">{poi.name}</h3><p className="line-clamp-2 text-xs leading-relaxed text-gray-400">{poi.shortDescription ?? poi.description}</p><div className="mt-3 text-xs text-emerald-500">{t('viewDetails')} →</div></div>
     </Link>
   );
 }

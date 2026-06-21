@@ -12,7 +12,9 @@ export function TourListPage() {
   const toursQuery = useToursQuery({ page: 1, pageSize: 100 });
   const deleteTourMutation = useDeleteTourMutation();
   const deletingTourId =
-    typeof deleteTourMutation.variables === 'number' ? deleteTourMutation.variables : null;
+    deleteTourMutation.isPending && typeof deleteTourMutation.variables === 'number'
+      ? deleteTourMutation.variables
+      : null;
 
   const handleDelete = (tour: TourDto) => {
     const confirmed = window.confirm(`Xóa tour ${tour.code}?`);

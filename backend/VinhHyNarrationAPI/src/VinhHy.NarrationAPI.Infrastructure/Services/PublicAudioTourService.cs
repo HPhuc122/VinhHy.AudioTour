@@ -96,9 +96,11 @@ public class PublicAudioTourService : IPublicAudioTourService
             Category = poi.Category,
             OrderIndex = orderIndex,
             AudioTracks = audioTracks
-                .Where(track => track.IsActive && track.DeletedAt == null)
-                .OrderBy(track => track.LanguageCode == normalizedLanguage ? 0 : 1)
-                .ThenBy(track => track.LanguageCode)
+                .Where(track =>
+                    track.IsActive &&
+                    track.DeletedAt == null &&
+                    string.Equals(track.LanguageCode, normalizedLanguage, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(track => track.Title)
                 .Select(track => MapAudio(track, translation?.Name ?? (string.IsNullOrWhiteSpace(poi.Name) ? poi.Code : poi.Name)))
                 .ToArray()
         };

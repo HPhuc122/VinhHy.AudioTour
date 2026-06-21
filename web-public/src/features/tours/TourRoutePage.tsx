@@ -12,12 +12,14 @@ import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/audioTourErrors';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface Props {
   lang: Lang;
 }
 
 export function TourRoutePage({ lang }: Props) {
+  const { t } = useI18n();
   const { id } = useParams<{ id: string }>();
   const tourId = Number(id);
   const [accessRecord, setAccessRecord] = useState<GuestAccessRecord | null>(() =>
@@ -50,9 +52,9 @@ export function TourRoutePage({ lang }: Props) {
   if (!Number.isInteger(tourId) || tourId <= 0) {
     return (
       <div className="py-32 text-center text-gray-500">
-        <p>Không tìm thấy lộ trình tour này.</p>
+        <p>{t('notFoundTour')}</p>
         <Link to={ROUTES.TOURS} className="mt-4 inline-block text-emerald-400">
-          Quay lại danh sách tour
+          {t('backToTours')}
         </Link>
       </div>
     );
@@ -65,9 +67,9 @@ export function TourRoutePage({ lang }: Props) {
   if (publicTourQuery.isError || !publicTourQuery.data) {
     return (
       <div className="py-32 text-center text-gray-500">
-        <p>Không tìm thấy lộ trình tour này.</p>
+        <p>{t('notFoundTour')}</p>
         <Link to={ROUTES.TOURS} className="mt-4 inline-block text-emerald-400">
-          Quay lại danh sách tour
+          {t('backToTours')}
         </Link>
       </div>
     );
@@ -127,7 +129,7 @@ export function TourRoutePage({ lang }: Props) {
         to={ROUTES.TOUR_DETAIL.replace(':id', String(publicTour.id))}
         className="mb-6 inline-flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300"
       >
-        Quay lại chi tiết tour
+        {t('backToTours')}
       </Link>
 
       {hasAudioAccess && accessRecord ? (
@@ -143,7 +145,7 @@ export function TourRoutePage({ lang }: Props) {
         <h1 className="text-3xl font-bold text-white">{tourName}</h1>
         {tourDescription ? <p className="mt-3 max-w-3xl text-gray-300">{tourDescription}</p> : null}
         <div className="mt-4 flex flex-wrap gap-2 text-sm text-gray-300">
-          <span className="rounded-full bg-gray-800 px-3 py-1">{stops.length} điểm dừng</span>
+          <span className="rounded-full bg-gray-800 px-3 py-1">{stops.length} {t('stops')}</span>
           {publicTour.estimatedMinutes ? (
             <span className="rounded-full bg-gray-800 px-3 py-1">Khoảng {publicTour.estimatedMinutes} phút</span>
           ) : null}
@@ -218,24 +220,24 @@ export function TourRoutePage({ lang }: Props) {
                 to={selectedStop ? ROUTES.POI_DETAIL.replace(':id', String(selectedStop.id)) : ROUTES.POIS}
                 className="rounded-xl bg-emerald-600 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-emerald-700"
               >
-                Xem chi tiết điểm này
+                {t('viewDetails')}
               </Link>
               <Link
                 to={`${ROUTES.MAP}?tour=${publicTour.id}&lat=${selectedStop?.latitude ?? ''}&lng=${selectedStop?.longitude ?? ''}&poi=${selectedStop?.id ?? ''}`}
                 className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-center text-sm font-semibold text-gray-100 hover:bg-gray-700"
               >
-                Mở trên bản đồ
+                {t('viewMap')}
               </Link>
             </div>
 
             <div className="mt-5">
-              <h3 className="mb-3 text-sm font-semibold text-white">Audio của điểm này</h3>
+              <h3 className="mb-3 text-sm font-semibold text-white">{t('selectedLanguageAudio')}</h3>
               {clientExpired || audioErrorKind === 'unauthorized' ? (
                 <AccessExpiredPanel />
               ) : !hasAudioAccess ? (
                 <AccessRequiredPanel
-                  title="Cần mã nghe để phát tour"
-                  message="Bạn vẫn có thể xem lộ trình. Hãy quét QR hoặc chọn gói thuyết minh để nghe audio."
+                  title={t('accessRequired')}
+                  message={t('accessRequiredMessage')}
                 />
               ) : selectedStop?.audioTracks.some((track) => track.isAvailable) ? (
                 <div className="space-y-3">
@@ -253,7 +255,7 @@ export function TourRoutePage({ lang }: Props) {
                 </div>
               ) : (
                 <div className="rounded-xl border border-gray-800 bg-gray-950 p-4 text-sm text-gray-400">
-                  Điểm này chưa có bản thuyết minh.
+                  {t('audioUnavailable')}
                 </div>
               )}
             </div>

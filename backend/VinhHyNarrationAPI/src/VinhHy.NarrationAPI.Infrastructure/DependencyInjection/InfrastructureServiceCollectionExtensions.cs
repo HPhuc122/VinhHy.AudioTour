@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
@@ -54,7 +55,11 @@ public static class InfrastructureServiceCollectionExtensions
         return services;
     }
 
-    public static async Task MigrateAndSeedAsync(this IServiceProvider services, CancellationToken cancellationToken = default)
+    public static async Task MigrateAndSeedAsync(
+        this IServiceProvider services,
+        IConfiguration? configuration = null,
+        IHostEnvironment? environment = null,
+        CancellationToken cancellationToken = default)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -68,7 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
             await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        await DataSeeder.SeedAsync(db, cancellationToken).ConfigureAwait(false);
+        await DataSeeder.SeedAsync(db, configuration, environment, cancellationToken).ConfigureAwait(false);
     }
 
     private static void RegisterRepositories(IServiceCollection services)
@@ -126,12 +131,19 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<ITranslationProviderStatusService, TranslationProviderStatusService>();
         services.AddScoped<SimulatedTranslationProvider>();
-        services.AddHttpClient<RealApiTranslationProvider>();
+        services.AddHttpClient<GoogleTranslateProvider>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TranslationOptions>>();
+            var timeoutSeconds = options.Value.GoogleTranslate.TimeoutSeconds > 0
+                ? options.Value.GoogleTranslate.TimeoutSeconds
+                : 30;
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        });
         services.AddScoped<ITranslationProvider>(sp =>
         {
             var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TranslationOptions>>();
-            return string.Equals(options.Value.Provider, TranslationProviderNames.RealApi, StringComparison.OrdinalIgnoreCase)
-                ? sp.GetRequiredService<RealApiTranslationProvider>()
+            return TranslationProviderNames.Normalize(options.Value.Provider) == TranslationProviderNames.GoogleTranslate
+                ? sp.GetRequiredService<GoogleTranslateProvider>()
                 : sp.GetRequiredService<SimulatedTranslationProvider>();
         });
     }

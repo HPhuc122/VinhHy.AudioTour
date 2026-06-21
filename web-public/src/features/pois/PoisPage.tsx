@@ -1,98 +1,34 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { poisApi, mapPublicCategory } from '../../api/poisApi';
+import { poisApi } from '../../api/poisApi';
 import { PoiCard } from '../../components/ui/PoiCard';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface Props { lang: Lang; }
-
-const CATEGORIES = ['Tất cả', 'Ẩm thực', 'Di tích', 'Phong cảnh', 'Mua sắm'];
+const categories = [
+  { value: '', labels: { vi: 'Tất cả', en: 'All', zh: '全部', ko: '전체', ja: 'すべて', fr: 'Tous' } },
+  { value: 'restaurant', labels: { vi: 'Ẩm thực', en: 'Food', zh: '美食', ko: '음식', ja: 'グルメ', fr: 'Gastronomie' } },
+  { value: 'landmark', labels: { vi: 'Tham quan', en: 'Landmarks', zh: '景观', ko: '명소', ja: '名所', fr: 'Sites' } },
+  { value: 'museum', labels: { vi: 'Văn hóa', en: 'Culture', zh: '文化', ko: '문화', ja: '文化', fr: 'Culture' } },
+] as const;
 
 export function PoisPage({ lang }: Props) {
   const [page, setPage] = useState(1);
-  const [category, setCategory] = useState('Tất cả');
-  const PAGE_SIZE = 9;
-
-  const apiCategory = mapPublicCategory(category);
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['pois', lang, page, PAGE_SIZE, apiCategory],
-    queryFn: () => poisApi.getAll(page, PAGE_SIZE, lang, apiCategory),
-  });
-
+  const [category, setCategory] = useState('');
+  const { t } = useI18n();
+  const pageSize = 9;
+  const { data, isLoading, isError } = useQuery({ queryKey: ['pois', lang, page, pageSize, category], queryFn: () => poisApi.getAll(page, pageSize, lang, category || undefined) });
   const items = data?.items ?? [];
-
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12">
-      {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-white mb-2">Địa điểm</h1>
-        <p className="text-gray-400">Chọn địa điểm để xem vị trí, hình ảnh và trạng thái thuyết minh.</p>
-      </div>
-
-      {/* Category filter */}
-      <div className="flex gap-2 flex-wrap mb-8">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => { setCategory(cat); setPage(1); }}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              category === cat
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid */}
-      {isLoading ? (
-        <Spinner />
-      ) : isError ? (
-        <div className="text-center py-20 text-gray-500">Không thể tải danh sách địa điểm. Vui lòng thử lại sau.</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">Không tìm thấy địa điểm phù hợp</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {items.map((poi) => <PoiCard key={poi.id} poi={poi} />)}
-          </div>
-
-          {/* Pagination */}
-          {data && data.totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-10">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-700 transition-colors"
-              >
-                ← Trước
-              </button>
-              {Array.from({ length: data.totalPages }, (_, i) => i + 1).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`w-9 h-9 rounded-lg text-sm transition-colors ${
-                    p === page ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                disabled={page >= data.totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm disabled:opacity-40 hover:bg-gray-700 transition-colors"
-              >
-                Sau →
-              </button>
-            </div>
-          )}
-        </>
-      )}
+    <div className="mx-auto max-w-6xl px-4 py-12">
+      <div className="mb-10"><h1 className="mb-2 text-3xl font-bold text-white">{t('placesTitle')}</h1><p className="text-gray-400">{t('placesSubtitle')}</p></div>
+      <div className="mb-8 flex flex-wrap gap-2">{categories.map((item) => <button key={item.value} onClick={() => { setCategory(item.value); setPage(1); }} className={`rounded-full px-4 py-1.5 text-sm font-medium ${category === item.value ? 'bg-emerald-600 text-white' : 'border border-gray-700 bg-gray-800 text-gray-400'}`}>{item.labels[lang]}</button>)}</div>
+      {isLoading ? <Spinner /> : isError || items.length === 0 ? <div className="py-20 text-center text-gray-500">{t('noResults')}</div> : <>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">{items.map((poi) => <PoiCard key={poi.id} poi={poi} />)}</div>
+        {data && data.totalPages > 1 ? <div className="mt-10 flex justify-center gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg bg-gray-800 px-4 py-2 text-gray-300 disabled:opacity-40">←</button>{Array.from({ length: data.totalPages }, (_, index) => index + 1).map((value) => <button key={value} onClick={() => setPage(value)} className={`h-9 w-9 rounded-lg ${value === page ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{value}</button>)}<button disabled={page >= data.totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-lg bg-gray-800 px-4 py-2 text-gray-300 disabled:opacity-40">→</button></div> : null}
+      </>}
     </div>
   );
 }

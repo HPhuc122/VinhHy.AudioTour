@@ -48,7 +48,7 @@ export const publicAudioTourApi = {
         headers: { 'X-Guest-Access-Token': accessToken },
       },
     );
-    return res.data.data;
+    return filterAudioByLanguage(res.data.data, languageCode);
   },
 
   async getPoi(poiId: number, accessToken: string, languageCode = 'vi'): Promise<PublicAudioTourPoiDto> {
@@ -59,7 +59,7 @@ export const publicAudioTourApi = {
         headers: { 'X-Guest-Access-Token': accessToken },
       },
     );
-    return res.data.data;
+    return filterPoiAudioByLanguage(res.data.data, languageCode);
   },
 
   async getAudioBlob(audioTrackId: number, accessToken: string): Promise<Blob> {
@@ -75,6 +75,26 @@ export const publicAudioTourApi = {
     return res.data;
   },
 };
+
+function filterAudioByLanguage(tour: PublicAudioTourTourDto, languageCode: string): PublicAudioTourTourDto {
+  return {
+    ...tour,
+    pois: tour.pois.map((poi) => filterPoiAudioByLanguage(poi, languageCode)),
+  };
+}
+
+function filterPoiAudioByLanguage(
+  poi: PublicAudioTourPoiDto,
+  languageCode: string,
+): PublicAudioTourPoiDto {
+  const normalizedLanguage = languageCode.trim().toLowerCase();
+  return {
+    ...poi,
+    audioTracks: poi.audioTracks.filter(
+      (track) => track.languageCode.trim().toLowerCase() === normalizedLanguage,
+    ),
+  };
+}
 
 function isPlayableAudioBlob(blob: Blob): boolean {
   if (!blob || blob.size <= 0) {

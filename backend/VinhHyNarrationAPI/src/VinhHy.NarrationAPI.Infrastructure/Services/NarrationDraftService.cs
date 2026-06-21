@@ -22,15 +22,18 @@ public class NarrationDraftService : INarrationDraftService
 
     private readonly ApplicationDbContext _db;
     private readonly IHostEnvironment _environment;
+    private readonly ITranslationProvider _translationProvider;
     private readonly long _maxAudioFileSizeBytes;
 
     public NarrationDraftService(
         ApplicationDbContext db,
         IHostEnvironment environment,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ITranslationProvider translationProvider)
     {
         _db = db;
         _environment = environment;
+        _translationProvider = translationProvider;
         _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
             ?? DefaultMaxAudioFileSizeBytes;
     }
@@ -207,6 +210,118 @@ public class NarrationDraftService : INarrationDraftService
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<GenerateNarrationTranslationsResponse> GenerateTranslationsAsync(
+        int sourceDraftId,
+        GenerateNarrationTranslationsRequest request,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var source = await GetTrackedAsync(sourceDraftId, cancellationToken).ConfigureAwait(false);
+        if (source.Status != NarrationDraftStatuses.Approved && source.Status != NarrationDraftStatuses.AudioGenerated)
+        {
+            throw new ValidationException(nameof(sourceDraftId), "Only approved narration can be translated.");
+        }
+
+        var targetCodes = request.TargetLanguageCodes
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code.Trim().ToLowerInvariant())
+            .Where(code => code != source.LanguageCode.ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (targetCodes.Count == 0)
+        {
+            throw new ValidationException(nameof(request.TargetLanguageCodes), "Select at least one target language.");
+        }
+
+        var activeLanguageCodes = await _db.Languages
+            .AsNoTracking()
+            .Where(language => language.IsActive && targetCodes.Contains(language.Code))
+            .Select(language => language.Code)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var unsupportedCodes = targetCodes
+            .Except(activeLanguageCodes, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (unsupportedCodes.Count > 0)
+        {
+            throw new ValidationException(
+                nameof(request.TargetLanguageCodes),
+                $"Unsupported target languages: {string.Join(", ", unsupportedCodes)}.");
+        }
+
+        var existingByLanguage = await _db.NarrationDrafts
+            .Where(draft => draft.PoiId == source.PoiId && targetCodes.Contains(draft.LanguageCode))
+            .ToDictionaryAsync(draft => draft.LanguageCode, StringComparer.OrdinalIgnoreCase, cancellationToken)
+            .ConfigureAwait(false);
+
+        var generatedIds = new List<int>();
+        var skippedCodes = new List<string>();
+        var now = DateTime.UtcNow;
+
+        foreach (var targetCode in targetCodes)
+        {
+            existingByLanguage.TryGetValue(targetCode, out var targetDraft);
+            if (targetDraft is not null &&
+                (!request.OverwriteExisting || targetDraft.GeneratedAudioTrackId.HasValue || targetDraft.Status == NarrationDraftStatuses.AudioGenerated))
+            {
+                skippedCodes.Add(targetCode);
+                continue;
+            }
+
+            var translatedTitle = await _translationProvider
+                .TranslateAsync(source.Title, source.LanguageCode, targetCode, cancellationToken)
+                .ConfigureAwait(false);
+            var translatedText = await _translationProvider
+                .TranslateAsync(source.TextContent, source.LanguageCode, targetCode, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (targetDraft is null)
+            {
+                targetDraft = new NarrationDraft
+                {
+                    PoiId = source.PoiId,
+                    LanguageCode = targetCode,
+                    CreatedAt = now
+                };
+                await _db.NarrationDrafts.AddAsync(targetDraft, cancellationToken).ConfigureAwait(false);
+            }
+
+            targetDraft.Title = translatedTitle.Trim();
+            targetDraft.TextContent = translatedText.Trim();
+            targetDraft.Voice = source.Voice;
+            targetDraft.Status = NarrationDraftStatuses.Approved;
+            targetDraft.SubmittedByUserId = reviewerUserId;
+            targetDraft.SubmittedAt = now;
+            targetDraft.ReviewedByUserId = reviewerUserId;
+            targetDraft.ReviewedAt = now;
+            targetDraft.RejectionReason = null;
+            targetDraft.UpdatedAt = now;
+
+            await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            generatedIds.Add(targetDraft.Id);
+        }
+
+        var generated = generatedIds.Count == 0
+            ? []
+            : await _db.NarrationDrafts
+                .AsNoTracking()
+                .Include(draft => draft.Poi)
+                .Include(draft => draft.SubmittedByUser)
+                .Include(draft => draft.ReviewedByUser)
+                .Include(draft => draft.GeneratedAudioTrack)
+                .Where(draft => generatedIds.Contains(draft.Id))
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+        return new GenerateNarrationTranslationsResponse
+        {
+            Narrations = generated.Select(Map).ToList(),
+            SkippedLanguageCodes = skippedCodes
+        };
     }
 
     public async Task<NarrationDraftDto> GenerateAudioAsync(

@@ -3,7 +3,7 @@ import { httpClient } from '@/api/httpClient';
 const POI_TRANSLATIONS_BASE = '/api/v1/poi-translations';
 
 export interface TranslationProviderStatus {
-  provider: 'Simulated' | 'RealApi' | string;
+  provider: 'Simulated' | 'GoogleTranslate' | string;
   isSimulated: boolean;
   isConfigured: boolean;
 }

@@ -43,6 +43,28 @@ export const guestAccessStore = {
     return findRecord(() => true);
   },
 
+  getAllActive(): GuestAccessRecord[] {
+    const records = readRecords();
+    const activeRecords: GuestAccessRecord[] = [];
+    let changed = false;
+
+    for (const [qrCode, record] of Object.entries(records)) {
+      if (new Date(record.expiresAt).getTime() <= Date.now()) {
+        delete records[qrCode];
+        changed = true;
+        continue;
+      }
+
+      activeRecords.push(record);
+    }
+
+    if (changed) {
+      writeRecords(records);
+    }
+
+    return activeRecords;
+  },
+
   remove(qrCode: string): void {
     const records = readRecords();
     delete records[qrCode];
@@ -79,12 +101,41 @@ function findRecord(predicate: (record: GuestAccessRecord) => boolean): GuestAcc
 function readRecords(): Record<string, GuestAccessRecord> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Record<string, GuestAccessRecord>) : {};
+    if (!raw) {
+      return {};
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, GuestAccessRecord] => isGuestAccessRecord(entry[1])),
+    );
   } catch {
     return {};
   }
 }
 
 function writeRecords(records: Record<string, GuestAccessRecord>): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch {
+    // Storage can be unavailable in private browsing or when the browser quota is full.
+  }
+}
+
+function isGuestAccessRecord(value: unknown): value is GuestAccessRecord {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Partial<GuestAccessRecord>;
+  return typeof record.qrCode === 'string'
+    && record.qrCode.length > 0
+    && typeof record.accessToken === 'string'
+    && record.accessToken.length > 0
+    && typeof record.expiresAt === 'string'
+    && Number.isFinite(new Date(record.expiresAt).getTime());
 }

@@ -4,24 +4,26 @@ export type Lang = 'vi' | 'en' | 'zh' | 'ko' | 'ja' | 'fr';
 
 const LANG_KEY = 'vh_lang';
 
-export function useLanguage() {
-  const [lang, setLangState] = useState<Lang>(
-    () => (localStorage.getItem(LANG_KEY) as Lang) ?? 'vi',
-  );
+export const LANG_LABELS: Record<Lang, string> = {
+  vi: 'Tiếng Việt',
+  en: 'English',
+  zh: '中文',
+  ko: '한국어',
+  ja: '日本語',
+  fr: 'Français',
+};
 
-  const setLang = (l: Lang) => {
-    localStorage.setItem(LANG_KEY, l);
-    setLangState(l);
+export function useLanguage() {
+  const [lang, setLangState] = useState<Lang>(() => normalizeLanguage(localStorage.getItem(LANG_KEY)));
+
+  const setLang = (nextLanguage: Lang) => {
+    localStorage.setItem(LANG_KEY, nextLanguage);
+    setLangState(nextLanguage);
   };
 
   return { lang, setLang };
 }
 
-export const LANG_LABELS: Record<Lang, string> = {
-  vi: '🇻🇳 Tiếng Việt',
-  en: '🇬🇧 English',
-  zh: '🇨🇳 中文',
-  ko: '🇰🇷 한국어',
-  ja: '🇯🇵 日本語',
-  fr: '🇫🇷 Français',
-};
+function normalizeLanguage(value: string | null): Lang {
+  return value && value in LANG_LABELS ? value as Lang : 'vi';
+}

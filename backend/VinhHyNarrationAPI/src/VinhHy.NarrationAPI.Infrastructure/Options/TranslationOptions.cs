@@ -6,20 +6,14 @@ public class TranslationOptions
 
     public string Provider { get; set; } = "Simulated";
 
-    public RealApiTranslationOptions RealApi { get; set; } = new();
+    public GoogleTranslateOptions GoogleTranslate { get; set; } = new();
 }
 
-public class RealApiTranslationOptions
+public class GoogleTranslateOptions
 {
-    public string? BaseUrl { get; set; }
-
-    public string? EndpointPath { get; set; }
-
-    public string? Model { get; set; }
-
     public string? ApiKey { get; set; }
 
-    public string ApiKeyEnvironmentVariable { get; set; } = "VINHHY_TRANSLATION_API_KEY";
+    public string ApiKeyEnvironmentVariable { get; set; } = "GOOGLE_TRANSLATE_API_KEY";
 
     public int TimeoutSeconds { get; set; } = 30;
 }

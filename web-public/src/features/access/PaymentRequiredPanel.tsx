@@ -15,13 +15,13 @@ export function PaymentRequiredPanel({
   errorMessage,
   onPay,
 }: PaymentRequiredPanelProps) {
+  const { lang, t } = useI18n();
   return (
     <div className="rounded-2xl border border-pink-500/30 bg-gray-800 p-6 shadow-2xl">
-      <p className="mb-2 text-sm font-medium text-pink-300">Thanh toán MoMo mô phỏng</p>
-      <h1 className="mb-3 text-2xl font-bold text-white">{formatCurrency(amount, currency)}</h1>
+      <p className="mb-2 text-sm font-medium text-pink-300">{t('pay')}</p>
+      <h1 className="mb-3 text-2xl font-bold text-white">{formatCurrency(amount, currency, lang)}</h1>
       <p className="mb-6 text-sm leading-relaxed text-gray-300">
-        Vé thuyết minh toàn khu. Sử dụng AudioTour trong toàn khu trong {durationMinutes} phút
-        sau khi thanh toán mô phỏng thành công.
+        {t('passesText')} {durationMinutes} {t('minutes')}.
       </p>
 
       {errorMessage ? (
@@ -36,16 +36,17 @@ export function PaymentRequiredPanel({
         onClick={onPay}
         className="w-full rounded-xl bg-pink-600 py-3 text-sm font-medium text-white transition-colors hover:bg-pink-700 disabled:cursor-not-allowed disabled:bg-pink-900"
       >
-        {isPaying ? 'Đang xử lý...' : 'Thanh toán MoMo mô phỏng'}
+        {isPaying ? t('processing') : t('pay')}
       </button>
     </div>
   );
 }
 
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
+function formatCurrency(amount: number, currency: string, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,
   }).format(amount);
 }
+import { useI18n } from '../../i18n/I18nContext';

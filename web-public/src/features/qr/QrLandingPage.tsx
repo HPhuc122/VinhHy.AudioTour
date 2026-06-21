@@ -9,12 +9,14 @@ import { guestAccessStore } from '../access/guestAccessStore';
 import { PaymentRequiredPanel } from '../access/PaymentRequiredPanel';
 import { ROUTES } from '../../routes/routeConstants';
 import type { Lang } from '../../hooks/useLanguage';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface Props {
   lang: Lang;
 }
 
 export function QrLandingPage({ lang }: Props) {
+  const { t } = useI18n();
   const { code } = useParams<{ code: string }>();
   const [clientExpired, setClientExpired] = useState(false);
   const [storedAccess, setStoredAccess] = useState(() =>
@@ -136,7 +138,7 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-sm text-gray-400">Đang chuẩn bị vé thuyết minh toàn khu...</p>
+          <p className="mt-4 text-sm text-gray-400">{t('loading')}</p>
         </div>
       </div>
     );
@@ -174,7 +176,7 @@ export function QrLandingPage({ lang }: Props) {
             currency={startAccessQuery.data.currency}
             durationMinutes={startAccessQuery.data.accessDurationMinutes}
             isPaying={paymentMutation.isPending}
-            errorMessage={paymentMutation.isError ? 'Không thể thanh toán mô phỏng.' : null}
+            errorMessage={paymentMutation.isError ? t('cannotPlay') : null}
             onPay={() => paymentMutation.mutate()}
           />
           <div className="mt-6 text-center">
@@ -192,7 +194,7 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <Spinner />
-          <p className="mt-4 text-sm text-gray-400">Đang tải quyền truy cập AudioTour...</p>
+          <p className="mt-4 text-sm text-gray-400">{t('loading')}</p>
         </div>
       </div>
     );
@@ -203,7 +205,7 @@ export function QrLandingPage({ lang }: Props) {
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="max-w-sm text-center">
           <div className="mb-4 text-6xl">!</div>
-          <h1 className="mb-2 text-xl font-bold text-white">Không thể mở quyền nghe</h1>
+          <h1 className="mb-2 text-xl font-bold text-white">{t('accessRequired')}</h1>
           <p className="mb-6 text-sm text-gray-400">Mã nghe đã hết hạn hoặc không hợp lệ.</p>
           <Link
             to={ROUTES.HOME}
@@ -235,7 +237,7 @@ export function QrLandingPage({ lang }: Props) {
 
         {!tour && !poi ? (
           <div className="overflow-hidden rounded-2xl border border-gray-700 bg-gray-800 p-6 text-center shadow-2xl">
-            <h1 className="mb-3 text-2xl font-bold text-white">Sử dụng AudioTour trong toàn khu</h1>
+            <h1 className="mb-3 text-2xl font-bold text-white">{t('passBenefitArea')}</h1>
             <p className="mb-6 text-sm leading-relaxed text-gray-400">
               Vé của bạn có hiệu lực với mọi nội dung thuyết minh trong khu vực cho đến khi hết thời gian.
             </p>
@@ -244,13 +246,13 @@ export function QrLandingPage({ lang }: Props) {
                 to={ROUTES.TOURS}
                 className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
               >
-                Xem danh sách tour
+                {t('tours')}
               </Link>
               <Link
                 to={ROUTES.MAP}
                 className="block rounded-xl bg-gray-700 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-gray-600"
               >
-                Mở bản đồ
+                {t('map')}
               </Link>
             </div>
           </div>
@@ -272,13 +274,13 @@ export function QrLandingPage({ lang }: Props) {
                   to={ROUTES.TOUR_DETAIL.replace(':id', String(tour.id))}
                   className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
                 >
-                  Xem chi tiết tour
+                  {t('viewDetails')}
                 </Link>
                 <Link
                   to={ROUTES.TOUR_ROUTE.replace(':id', String(tour.id))}
                   className="block rounded-xl bg-gray-700 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-gray-600"
                 >
-                  Xem lộ trình
+                  {t('route')}
                 </Link>
               </div>
             </div>
@@ -306,7 +308,7 @@ export function QrLandingPage({ lang }: Props) {
                 to={ROUTES.POI_DETAIL.replace(':id', String(poi.poiId))}
                 className="block rounded-xl bg-emerald-600 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-emerald-700"
               >
-                Xem chi tiết địa điểm
+                {t('viewDetails')}
               </Link>
             </div>
           </div>

@@ -55,6 +55,16 @@ export interface UploadNarrationAudioRequest {
   durationSeconds?: number;
 }
 
+export interface GenerateNarrationTranslationsRequest {
+  targetLanguageCodes: string[];
+  overwriteExisting: boolean;
+}
+
+export interface GenerateNarrationTranslationsResponse {
+  narrations: NarrationDraftDto[];
+  skippedLanguageCodes: string[];
+}
+
 export function createNarrationsApi(httpClient: AxiosInstance) {
   return {
     async searchNarrations(filter: NarrationSearchFilter = {}): Promise<PagedResult<NarrationDraftDto>> {
@@ -111,6 +121,18 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
       const response = await httpClient.post<ApiResponse<NarrationDraftDto>>(
         `${NARRATIONS_BASE}/${id}/reject`,
         { reason },
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async generateTranslations(
+      id: number,
+      request: GenerateNarrationTranslationsRequest,
+    ): Promise<GenerateNarrationTranslationsResponse> {
+      const response = await httpClient.post<ApiResponse<GenerateNarrationTranslationsResponse>>(
+        `${NARRATIONS_BASE}/${id}/translations`,
+        request,
       );
 
       return unwrapApiResponse(response.data);
