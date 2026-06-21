@@ -74,7 +74,7 @@ public class PoiTranslationService : IPoiTranslationService
                 .GetByPoiAndLanguageAsync(request.POIId, languageCode, cancellationToken)
                 .ConfigureAwait(false) is not null)
         {
-            throw new ValidationException(nameof(request.LanguageCode), "Translation for this language already exists.");
+            throw new ValidationException(nameof(request.LanguageCode), "POI này đã có bản dịch cho ngôn ngữ đã chọn.");
         }
 
         var now = DateTime.UtcNow;
@@ -155,7 +155,7 @@ public class PoiTranslationService : IPoiTranslationService
     {
         if (request.PoiId <= 0)
         {
-            throw new ValidationException(nameof(request.PoiId), "POI is required.");
+            throw new ValidationException(nameof(request.PoiId), "Vui lòng chọn POI cần dịch.");
         }
 
         var poi = await EnsurePoiAccessAsync(request.PoiId, requesterUserId, requireOwnedPoi, cancellationToken)
@@ -165,19 +165,23 @@ public class PoiTranslationService : IPoiTranslationService
         await ValidateLanguageAsync(sourceLanguageCode, nameof(request.SourceLanguageCode), cancellationToken)
             .ConfigureAwait(false);
 
-        var targetLanguageCodes = (request.TargetLanguageCodes ?? [])
+        var requestedTargetLanguageCodes = (request.TargetLanguageCodes ?? [])
             .Select(NormalizeLanguageCode)
             .Where(code => !string.IsNullOrWhiteSpace(code))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(code => !string.Equals(code, sourceLanguageCode, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
-        if (targetLanguageCodes.Length == 0)
+        if (requestedTargetLanguageCodes.Length == 0)
         {
-            throw new ValidationException(nameof(request.TargetLanguageCodes), "At least one target language different from the source language is required.");
+            throw new ValidationException(nameof(request.TargetLanguageCodes), "Vui lòng chọn ít nhất một ngôn ngữ đích.");
         }
 
-        foreach (var targetLanguageCode in targetLanguageCodes)
+        if (requestedTargetLanguageCodes.Any(code => string.Equals(code, sourceLanguageCode, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ValidationException(nameof(request.TargetLanguageCodes), "Ngôn ngữ đích phải khác ngôn ngữ nguồn.");
+        }
+
+        foreach (var targetLanguageCode in requestedTargetLanguageCodes)
         {
             await ValidateLanguageAsync(targetLanguageCode, nameof(request.TargetLanguageCodes), cancellationToken)
                 .ConfigureAwait(false);
@@ -190,7 +194,7 @@ public class PoiTranslationService : IPoiTranslationService
         var skipped = new List<string>();
         var now = DateTime.UtcNow;
 
-        foreach (var targetLanguageCode in targetLanguageCodes)
+        foreach (var targetLanguageCode in requestedTargetLanguageCodes)
         {
             var existing = await _uow.PoiTranslations
                 .GetByPoiAndLanguageAsync(poi.Id, targetLanguageCode, cancellationToken)
@@ -268,13 +272,13 @@ public class PoiTranslationService : IPoiTranslationService
     {
         if (string.IsNullOrWhiteSpace(languageCode))
         {
-            throw new ValidationException(fieldName, "Language is required.");
+            throw new ValidationException(fieldName, "Vui lòng chọn ngôn ngữ.");
         }
 
         var normalizedCode = NormalizeLanguageCode(languageCode);
         if (normalizedCode.Length > MaxLanguageCodeLength)
         {
-            throw new ValidationException(fieldName, $"Language code cannot exceed {MaxLanguageCodeLength} characters.");
+            throw new ValidationException(fieldName, $"Mã ngôn ngữ không được vượt quá {MaxLanguageCodeLength} ký tự.");
         }
 
         var language = await _uow.Languages.GetByCodeAsync(normalizedCode, cancellationToken)
@@ -282,7 +286,7 @@ public class PoiTranslationService : IPoiTranslationService
 
         if (language is null || !language.IsActive)
         {
-            throw new ValidationException(fieldName, "Language does not exist or is inactive.");
+            throw new ValidationException(fieldName, "Ngôn ngữ không tồn tại hoặc đang bị tắt.");
         }
     }
 
@@ -304,7 +308,7 @@ public class PoiTranslationService : IPoiTranslationService
 
         if (string.IsNullOrWhiteSpace(sourceName) || string.IsNullOrWhiteSpace(sourceDescription))
         {
-            throw new ValidationException(nameof(sourceLanguageCode), "Source POI content is missing.");
+            throw new ValidationException(nameof(sourceLanguageCode), "POI chưa có nội dung nguồn để dịch.");
         }
 
         return new SourcePoiContent(
@@ -321,7 +325,7 @@ public class PoiTranslationService : IPoiTranslationService
     {
         if (string.IsNullOrWhiteSpace(sourceText))
         {
-            throw new ValidationException(nameof(sourceText), "Source text is required.");
+            throw new ValidationException(nameof(sourceText), "Nội dung nguồn không được để trống.");
         }
 
         return await _translationProvider
@@ -336,12 +340,12 @@ public class PoiTranslationService : IPoiTranslationService
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ValidationException(fieldName, $"{fieldName} is required.");
+            throw new ValidationException(fieldName, GetRequiredMessage(fieldName));
         }
 
         if (maxLength.HasValue && value.Trim().Length > maxLength.Value)
         {
-            throw new ValidationException(fieldName, $"{fieldName} cannot exceed {maxLength.Value} characters.");
+            throw new ValidationException(fieldName, $"{GetFieldLabel(fieldName)} không được vượt quá {maxLength.Value} ký tự.");
         }
     }
 
@@ -349,7 +353,7 @@ public class PoiTranslationService : IPoiTranslationService
     {
         if (!string.IsNullOrWhiteSpace(value) && value.Trim().Length > maxLength)
         {
-            throw new ValidationException(fieldName, $"{fieldName} cannot exceed {maxLength} characters.");
+            throw new ValidationException(fieldName, $"{GetFieldLabel(fieldName)} không được vượt quá {maxLength} ký tự.");
         }
     }
 
@@ -362,6 +366,18 @@ public class PoiTranslationService : IPoiTranslationService
             : value.Length <= maxLength
                 ? value
                 : value[..maxLength];
+
+    private static string GetRequiredMessage(string fieldName) =>
+        $"Vui lòng nhập {GetFieldLabel(fieldName).ToLowerInvariant()}.";
+
+    private static string GetFieldLabel(string fieldName) =>
+        fieldName switch
+        {
+            "Name" => "Tên bản dịch",
+            "Description" => "Mô tả bản dịch",
+            "ShortDescription" => "Mô tả ngắn",
+            _ => fieldName
+        };
 
     private sealed record SourcePoiContent(string Name, string? ShortDescription, string Description);
 }
