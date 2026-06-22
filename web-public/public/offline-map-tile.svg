@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#e5e7eb"/>
+  <g stroke="#d1d5db" stroke-width="1">
+    <path d="M0 64h256M0 128h256M0 192h256M64 0v256M128 0v256M192 0v256"/>
+    <path d="M0 0l256 256M256 0L0 256" opacity=".45"/>
+  </g>
+  <g fill="#6b7280" text-anchor="middle" font-family="system-ui, sans-serif">
+    <text x="128" y="122" font-size="18" font-weight="700">OFFLINE</text>
+    <text x="128" y="144" font-size="11">MAP NOT CACHED</text>
+  </g>
+</svg>

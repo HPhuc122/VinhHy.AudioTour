@@ -19,6 +19,9 @@ const en = {
   loadingPasses: 'Loading narration passes...', noPasses: 'No active narration passes.', free: 'Free', pay: 'Pay with MoMo',
   processing: 'Processing...', startListening: 'Start listening', passBenefitArea: 'Use AudioTour throughout the area',
   passBenefitPoi: 'Listen at places and along tour routes', passBenefitLanguage: 'Switch the website and audio language', accessExpired: 'Listening access has expired.', cannotPlay: 'Audio cannot be played.', accessRemaining: 'Listening time remaining', currentLocation: 'Your current location', locateMe: 'Use my current location', geoUnsupported: 'Location is not supported by this browser.', geoFailed: 'Unable to get your current location.',
+  directionsTo: 'Directions to', directions: 'Directions', directionsActive: 'Route displayed', routeWaitingForLocation: 'Waiting for your current location. Please allow the app to access GPS.', routeLoading: 'Finding a route...', routeDistance: 'Distance', routeDuration: 'Travel time',
+  routeNetworkError: 'Unable to connect to OpenRouteService. Please check your network connection.', routeApiKeyError: 'The OpenRouteService API key is invalid or does not have access.', routeNotFound: 'No suitable route was found between the selected points.', routeRateLimit: 'OpenRouteService is rate-limiting requests. Please try again later.', routeGeometryError: 'OpenRouteService returned invalid route data.', routeApiError: 'OpenRouteService error', routeLoadError: 'Unable to load the route. Please try again.',
+  offlineMapNotice: 'You are offline. Previously viewed map areas remain available; uncached areas show an offline placeholder.',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -39,6 +42,9 @@ const vi: Messages = {
   passesTitle: 'Gói thuyết minh toàn khu', passesText: 'Chọn gói và sử dụng AudioTour trong thời gian được cấp.', loadingPasses: 'Đang tải gói thuyết minh...',
   noPasses: 'Chưa có gói thuyết minh đang hoạt động.', free: 'Miễn phí', pay: 'Thanh toán MoMo', processing: 'Đang xử lý...', startListening: 'Bắt đầu nghe thuyết minh',
   passBenefitArea: 'Sử dụng AudioTour trong toàn khu', passBenefitPoi: 'Nghe tại POI và lộ trình tour', passBenefitLanguage: 'Đổi ngôn ngữ website và audio', accessExpired: 'Quyền nghe đã hết hạn.', cannotPlay: 'Không thể phát audio.', accessRemaining: 'Quyền nghe còn hiệu lực', currentLocation: 'Vị trí hiện tại của bạn', locateMe: 'Dùng vị trí hiện tại', geoUnsupported: 'Trình duyệt chưa hỗ trợ định vị.', geoFailed: 'Không thể lấy vị trí hiện tại.',
+  directionsTo: 'Đi đến', directions: 'Đi đến', directionsActive: 'Đang hiển thị đường đi', routeWaitingForLocation: 'Đang chờ vị trí hiện tại. Hãy cho phép ứng dụng truy cập GPS.', routeLoading: 'Đang tìm tuyến đường...', routeDistance: 'Quãng đường', routeDuration: 'Thời gian',
+  routeNetworkError: 'Không thể kết nối OpenRouteService. Vui lòng kiểm tra kết nối mạng.', routeApiKeyError: 'API Key OpenRouteService không hợp lệ hoặc không có quyền truy cập.', routeNotFound: 'Không tìm thấy tuyến đường phù hợp giữa các điểm đã chọn.', routeRateLimit: 'OpenRouteService đang giới hạn số lượt gọi. Vui lòng thử lại sau.', routeGeometryError: 'Dữ liệu tuyến đường OpenRouteService trả về không hợp lệ.', routeApiError: 'OpenRouteService báo lỗi', routeLoadError: 'Không thể tải tuyến đường. Vui lòng thử lại.',
+  offlineMapNotice: 'Bạn đang offline. Khu vực bản đồ đã xem vẫn dùng được; khu vực chưa lưu sẽ hiện ô báo offline.',
 };
 
 const zh: Messages = {
@@ -52,6 +58,9 @@ const zh: Messages = {
   explorePlaces: '探索景点', exploreTours: '探索路线', featuredPlaces: '精选景点', featuredTours: '精选路线', viewAll: '查看全部', passesTitle: '全区域语音包',
   passesText: '选择语音包并在有效期内使用。', loadingPasses: '正在加载语音包...', noPasses: '暂无可用语音包。', free: '免费', pay: '使用 MoMo 支付', processing: '处理中...',
   startListening: '开始收听', passBenefitArea: '全区域使用 AudioTour', passBenefitPoi: '收听景点和路线讲解', passBenefitLanguage: '切换网站和音频语言', accessExpired: '收听权限已过期。', cannotPlay: '无法播放音频。', accessRemaining: '剩余收听时间', currentLocation: '您的当前位置', locateMe: '使用当前位置', geoUnsupported: '浏览器不支持定位。', geoFailed: '无法获取当前位置。',
+  directionsTo: '前往', directions: '路线导航', directionsActive: '路线已显示', routeWaitingForLocation: '正在等待当前位置。请允许应用访问 GPS。', routeLoading: '正在规划路线...', routeDistance: '距离', routeDuration: '行程时间',
+  routeNetworkError: '无法连接 OpenRouteService，请检查网络连接。', routeApiKeyError: 'OpenRouteService API 密钥无效或没有访问权限。', routeNotFound: '无法在所选地点之间找到合适的路线。', routeRateLimit: 'OpenRouteService 请求次数已达限制，请稍后重试。', routeGeometryError: 'OpenRouteService 返回的路线数据无效。', routeApiError: 'OpenRouteService 错误', routeLoadError: '无法加载路线，请重试。',
+  offlineMapNotice: '您当前处于离线状态。已浏览的地图区域仍可使用；未缓存区域将显示离线占位图。',
 };
 
 const ko: Messages = {
@@ -65,6 +74,9 @@ const ko: Messages = {
   explorePlaces: '장소 둘러보기', exploreTours: '투어 둘러보기', featuredPlaces: '추천 장소', featuredTours: '추천 투어', viewAll: '전체 보기', passesTitle: '전 지역 해설 이용권',
   passesText: '이용권을 선택하고 유효 시간 동안 이용하세요.', loadingPasses: '이용권 불러오는 중...', noPasses: '활성 이용권이 없습니다.', free: '무료', pay: 'MoMo 결제', processing: '처리 중...',
   startListening: '해설 시작', passBenefitArea: '전 지역 AudioTour 이용', passBenefitPoi: '장소와 투어 해설 듣기', passBenefitLanguage: '웹사이트와 오디오 언어 변경', accessExpired: '청취 권한이 만료되었습니다.', cannotPlay: '오디오를 재생할 수 없습니다.', accessRemaining: '남은 청취 시간', currentLocation: '현재 위치', locateMe: '현재 위치 사용', geoUnsupported: '브라우저가 위치를 지원하지 않습니다.', geoFailed: '현재 위치를 가져올 수 없습니다.',
+  directionsTo: '목적지', directions: '길찾기', directionsActive: '경로 표시 중', routeWaitingForLocation: '현재 위치를 기다리는 중입니다. 앱의 GPS 접근을 허용해 주세요.', routeLoading: '경로 검색 중...', routeDistance: '거리', routeDuration: '이동 시간',
+  routeNetworkError: 'OpenRouteService에 연결할 수 없습니다. 네트워크 연결을 확인해 주세요.', routeApiKeyError: 'OpenRouteService API 키가 유효하지 않거나 접근 권한이 없습니다.', routeNotFound: '선택한 지점 사이의 적절한 경로를 찾을 수 없습니다.', routeRateLimit: 'OpenRouteService 요청 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.', routeGeometryError: 'OpenRouteService가 잘못된 경로 데이터를 반환했습니다.', routeApiError: 'OpenRouteService 오류', routeLoadError: '경로를 불러올 수 없습니다. 다시 시도해 주세요.',
+  offlineMapNotice: '오프라인 상태입니다. 이전에 본 지도 영역은 계속 사용할 수 있으며, 캐시되지 않은 영역에는 오프라인 표시가 나타납니다.',
 };
 
 const ja: Messages = {
@@ -78,6 +90,9 @@ const ja: Messages = {
   explorePlaces: 'スポットを探索', exploreTours: 'ツアーを探索', featuredPlaces: 'おすすめスポット', featuredTours: 'おすすめツアー', viewAll: 'すべて見る', passesTitle: '全エリア音声パス',
   passesText: 'パスを選び、有効時間内にご利用ください。', loadingPasses: 'パスを読み込み中...', noPasses: '利用可能なパスはありません。', free: '無料', pay: 'MoMoで支払う', processing: '処理中...',
   startListening: '音声ガイドを開始', passBenefitArea: '全エリアでAudioTourを利用', passBenefitPoi: 'スポットとツアーの音声を再生', passBenefitLanguage: 'サイトと音声の言語を変更', accessExpired: '再生権限の有効期限が切れました。', cannotPlay: '音声を再生できません。', accessRemaining: '残り再生時間', currentLocation: '現在地', locateMe: '現在地を使用', geoUnsupported: 'ブラウザは位置情報に対応していません。', geoFailed: '現在地を取得できません。',
+  directionsTo: '目的地', directions: '経路案内', directionsActive: 'ルートを表示中', routeWaitingForLocation: '現在地を待っています。アプリの GPS へのアクセスを許可してください。', routeLoading: 'ルートを検索中...', routeDistance: '距離', routeDuration: '移動時間',
+  routeNetworkError: 'OpenRouteService に接続できません。ネットワーク接続を確認してください。', routeApiKeyError: 'OpenRouteService API キーが無効か、アクセス権限がありません。', routeNotFound: '選択した地点間の適切なルートが見つかりません。', routeRateLimit: 'OpenRouteService のリクエスト制限に達しました。しばらくしてから再試行してください。', routeGeometryError: 'OpenRouteService から無効なルートデータが返されました。', routeApiError: 'OpenRouteService エラー', routeLoadError: 'ルートを読み込めません。もう一度お試しください。',
+  offlineMapNotice: 'オフラインです。以前に表示した地図エリアは引き続き利用でき、未保存のエリアにはオフライン表示が出ます。',
 };
 
 const fr: Messages = {
@@ -91,6 +106,9 @@ const fr: Messages = {
   explorePlaces: 'Explorer les lieux', exploreTours: 'Explorer les circuits', featuredPlaces: 'Lieux à découvrir', featuredTours: 'Circuits à découvrir', viewAll: 'Tout voir', passesTitle: 'Forfaits audio pour toute la zone',
   passesText: 'Choisissez un forfait et utilisez AudioTour pendant sa validité.', loadingPasses: 'Chargement des forfaits...', noPasses: 'Aucun forfait actif.', free: 'Gratuit', pay: 'Payer avec MoMo', processing: 'Traitement...',
   startListening: "Commencer l'écoute", passBenefitArea: 'AudioTour dans toute la zone', passBenefitPoi: 'Narration des lieux et circuits', passBenefitLanguage: 'Changer la langue du site et de l’audio', accessExpired: "L'accès d'écoute a expiré.", cannotPlay: "Impossible de lire l'audio.", accessRemaining: "Temps d'écoute restant", currentLocation: 'Votre position actuelle', locateMe: 'Utiliser ma position', geoUnsupported: "La localisation n'est pas prise en charge.", geoFailed: 'Impossible d’obtenir votre position.',
+  directionsTo: 'Itinéraire vers', directions: 'Itinéraire', directionsActive: 'Itinéraire affiché', routeWaitingForLocation: "En attente de votre position. Autorisez l'application à accéder au GPS.", routeLoading: "Recherche d'un itinéraire...", routeDistance: 'Distance', routeDuration: 'Durée du trajet',
+  routeNetworkError: 'Impossible de se connecter à OpenRouteService. Vérifiez votre connexion réseau.', routeApiKeyError: "La clé API OpenRouteService est invalide ou ne dispose pas des droits d'accès.", routeNotFound: "Aucun itinéraire approprié n'a été trouvé entre les points sélectionnés.", routeRateLimit: 'OpenRouteService limite actuellement les requêtes. Réessayez plus tard.', routeGeometryError: "OpenRouteService a renvoyé des données d'itinéraire invalides.", routeApiError: 'Erreur OpenRouteService', routeLoadError: "Impossible de charger l'itinéraire. Réessayez.",
+  offlineMapNotice: 'Vous êtes hors ligne. Les zones déjà consultées restent disponibles ; les zones non enregistrées affichent un indicateur hors ligne.',
 };
 
 const messages: Record<Lang, Messages> = { vi, en, zh, ko, ja, fr };

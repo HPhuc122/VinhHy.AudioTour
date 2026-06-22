@@ -13,13 +13,14 @@ import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/aud
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import { ProtectedAudioPlayer } from '../audio/ProtectedAudioPlayer';
-import { useI18n } from '../../i18n/I18nContext';
+import { useI18n, type MessageKey } from '../../i18n/I18nContext';
 import {
   MAP_ATTRIBUTION,
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   MAP_FOCUS_ZOOM,
   MAP_MAX_ZOOM,
+  MAP_OFFLINE_TILE_URL,
   MAP_TILE_URL,
 } from '../../config/mapConfig';
 
@@ -29,6 +30,27 @@ interface UserLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
+}
+
+interface RouteSummary {
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+interface DirectionsResult extends RouteSummary {
+  latLngs: [number, number][];
+}
+
+interface OrsDirectionsResponse {
+  routes?: Array<{
+    geometry?: string | { coordinates?: number[][] };
+    summary?: { distance?: number; duration?: number };
+  }>;
+  features?: Array<{
+    geometry?: { coordinates?: number[][] };
+    properties?: { summary?: { distance?: number; duration?: number } };
+  }>;
+  error?: string | { message?: string };
 }
 
 const CATEGORY_STYLES = [
@@ -43,6 +65,10 @@ const GEOLOCATION_OPTIONS: PositionOptions = {
   maximumAge: 30000,
 };
 
+const ORS_DIRECTIONS_URL = 'https://api.openrouteservice.org/v2/directions/driving-car';
+const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY?.trim()
+  || 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjcwN2MyZTA0Y2JjODQ0OTg4NWM4OTk3MjIwOTE4NTlmIiwiaCI6Im11cm11cjY0In0=';
+
 export function MapPage({ lang }: Props) {
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
@@ -50,19 +76,31 @@ export function MapPage({ lang }: Props) {
   const leafletMapRef = useRef<any>(null);
   const contentLayersRef = useRef<any[]>([]);
   const userLocationLayersRef = useRef<any[]>([]);
+  const routeLayerRef = useRef<any>(null);
   const locationWatchIdRef = useRef<number | null>(null);
   const shouldFollowUserRef = useRef(false);
+  const appliedUrlFocusRef = useRef<string | null>(null);
   const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
+  const [navigationPoi, setNavigationPoi] = useState<PublicPoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [clientExpired, setClientExpired] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const tourId = searchParams.get('tour');
   const focusPoiId = Number(searchParams.get('poi'));
   const focusLat = searchParams.get('lat');
   const focusLng = searchParams.get('lng');
+  const urlFocusSignature = `${focusPoiId}|${focusLat ?? ''}|${focusLng ?? ''}`;
   const hasUrlFocusTarget = Boolean(focusLat && focusLng) || (Number.isInteger(focusPoiId) && focusPoiId > 0);
+  // Rounding to about 11 metres prevents a noisy GPS watch from repeatedly
+  // consuming the Directions API quota while the user is standing still.
+  const routeStartLatitude = userLocation ? Number(userLocation.latitude.toFixed(4)) : null;
+  const routeStartLongitude = userLocation ? Number(userLocation.longitude.toFixed(4)) : null;
 
   const { data: poisData, isLoading } = useQuery({
     queryKey: ['pois-map', lang],
@@ -100,6 +138,7 @@ export function MapPage({ lang }: Props) {
       L.tileLayer(MAP_TILE_URL, {
         attribution: MAP_ATTRIBUTION,
         maxZoom: MAP_MAX_ZOOM,
+        errorTileUrl: MAP_OFFLINE_TILE_URL,
       }).addTo(map);
 
       leafletMapRef.current = map;
@@ -113,6 +152,17 @@ export function MapPage({ lang }: Props) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    const markOnline = () => setIsOnline(true);
+    const markOffline = () => setIsOnline(false);
+    window.addEventListener('online', markOnline);
+    window.addEventListener('offline', markOffline);
+    return () => {
+      window.removeEventListener('online', markOnline);
+      window.removeEventListener('offline', markOffline);
     };
   }, []);
 
@@ -195,22 +245,88 @@ export function MapPage({ lang }: Props) {
         contentLayersRef.current.push(marker, radiusCircle);
       });
 
-      if (tourDetail && tourDetail.pois.length > 1) {
-        const latlngs = tourDetail.pois.map((p: PublicPoiDto) => [p.latitude, p.longitude] as [number, number]);
-        const tourLine = L.polyline(latlngs, { color: '#10b981', weight: 2, dashArray: '6 4' }).addTo(map);
-        contentLayersRef.current.push(tourLine);
-        if (!userLocation && !hasUrlFocusTarget) {
-          map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
-        }
-      }
-
-      if (focusLat && focusLng) {
-        map.setView([parseFloat(focusLat), parseFloat(focusLng)], MAP_FOCUS_ZOOM);
-      }
-
       scheduleMapResize(map);
     });
-  }, [mapReady, poisData, tourDetail, focusLat, focusLng, hasUrlFocusTarget]);
+  }, [mapReady, poisData, tourDetail]);
+
+  useEffect(() => {
+    if (!mapReady || !leafletMapRef.current) return;
+
+    const map = leafletMapRef.current;
+    const controller = new AbortController();
+    let cancelled = false;
+
+    // A route has its own layer so replacing it never removes markers, popups,
+    // radius circles, the user-location layer, or any other map content.
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+    setRouteSummary(null);
+    setRouteError(null);
+
+    const routePois = tourId
+      ? tourDetail?.pois ?? []
+      : navigationPoi ? [navigationPoi] : [];
+    if (routePois.length === 0 || routeStartLatitude === null || routeStartLongitude === null) {
+      setRouteLoading(false);
+      return () => controller.abort();
+    }
+
+    setRouteLoading(true);
+    const coordinates: [number, number][] = [
+      [routeStartLongitude, routeStartLatitude],
+      ...routePois.map(
+        (poi: PublicPoiDto) => [poi.longitude, poi.latitude] as [number, number],
+      ),
+    ];
+
+    void (async () => {
+      try {
+        const result = await getDrivingRoute(coordinates, controller.signal);
+        if (cancelled || !leafletMapRef.current) return;
+
+        const L = await import('leaflet');
+        if (cancelled || !leafletMapRef.current) return;
+
+        // Remove once more in case another layer was assigned while the request
+        // was in flight. Only one route polyline can exist at any time.
+        if (routeLayerRef.current) {
+          map.removeLayer(routeLayerRef.current);
+        }
+
+        const routeLine = L.polyline(result.latLngs, {
+          color: '#10b981',
+          weight: 5,
+          opacity: 0.9,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+
+        routeLayerRef.current = routeLine;
+        setRouteSummary({
+          distanceMeters: result.distanceMeters,
+          durationSeconds: result.durationSeconds,
+        });
+        map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+        scheduleMapResize(map);
+      } catch (error) {
+        if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return;
+        setRouteError(getRouteErrorMessage(error, t));
+      } finally {
+        if (!cancelled) setRouteLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [mapReady, navigationPoi, routeStartLatitude, routeStartLongitude, t, tourDetail, tourId]);
+
+  useEffect(() => {
+    if (tourId) setNavigationPoi(null);
+  }, [tourId]);
 
   useEffect(() => {
     if (!mapReady || !leafletMapRef.current) return;
@@ -256,19 +372,47 @@ export function MapPage({ lang }: Props) {
   const selectedDistance = selectedPoi && userLocation
     ? getDistanceMeters(userLocation.latitude, userLocation.longitude, selectedPoi.latitude, selectedPoi.longitude)
     : null;
+  const selectedPoiId = selectedPoi?.id ?? null;
+  const navigationPoiId = navigationPoi?.id ?? null;
 
   useEffect(() => {
-    if (!listedPois.length || !Number.isInteger(focusPoiId) || focusPoiId <= 0) {
-      return;
+    if (!listedPois.length) return;
+
+    if (selectedPoiId) {
+      const localizedSelectedPoi = listedPois.find((item) => item.id === selectedPoiId);
+      if (localizedSelectedPoi) setSelectedPoi(localizedSelectedPoi);
     }
 
-    const poi = listedPois.find((item) => item.id === focusPoiId);
-    if (poi) {
-      shouldFollowUserRef.current = false;
-      setSelectedPoi(poi);
-      leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_FOCUS_ZOOM);
+    if (navigationPoiId) {
+      const localizedNavigationPoi = listedPois.find((item) => item.id === navigationPoiId);
+      if (localizedNavigationPoi) setNavigationPoi(localizedNavigationPoi);
     }
-  }, [focusPoiId, listedPois]);
+  }, [listedPois, navigationPoiId, selectedPoiId]);
+
+  useEffect(() => {
+    if (!mapReady || !leafletMapRef.current || appliedUrlFocusRef.current === urlFocusSignature) return;
+
+    if (Number.isInteger(focusPoiId) && focusPoiId > 0) {
+      if (!listedPois.length) return;
+      const poi = listedPois.find((item) => item.id === focusPoiId);
+      if (poi) {
+        shouldFollowUserRef.current = false;
+        setSelectedPoi(poi);
+        leafletMapRef.current.setView([poi.latitude, poi.longitude], MAP_FOCUS_ZOOM);
+        appliedUrlFocusRef.current = urlFocusSignature;
+        return;
+      }
+    }
+
+    const latitude = focusLat ? Number(focusLat) : NaN;
+    const longitude = focusLng ? Number(focusLng) : NaN;
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      shouldFollowUserRef.current = false;
+      leafletMapRef.current.setView([latitude, longitude], MAP_FOCUS_ZOOM);
+    }
+
+    appliedUrlFocusRef.current = urlFocusSignature;
+  }, [focusLat, focusLng, focusPoiId, listedPois, mapReady, urlFocusSignature]);
 
   useEffect(() => {
     if (!mapReady || !navigator.geolocation) return;
@@ -284,6 +428,7 @@ export function MapPage({ lang }: Props) {
 
         const nextLocation = toUserLocation(position);
         setUserLocation(nextLocation);
+        setLocationMessage(null);
 
         if (shouldFollowUserRef.current) {
           leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
@@ -293,7 +438,7 @@ export function MapPage({ lang }: Props) {
           }
         }
       },
-      undefined,
+      () => setLocationMessage(t('geoFailed')),
       GEOLOCATION_OPTIONS,
     );
 
@@ -304,7 +449,7 @@ export function MapPage({ lang }: Props) {
         locationWatchIdRef.current = null;
       }
     };
-  }, [hasUrlFocusTarget, mapReady]);
+  }, [hasUrlFocusTarget, mapReady, t]);
 
   useEffect(() => {
     return () => {
@@ -335,6 +480,7 @@ export function MapPage({ lang }: Props) {
       (position) => {
         const nextLocation = toUserLocation(position);
         setUserLocation(nextLocation);
+        setLocationMessage(null);
         if (shouldFollowUserRef.current) {
           leafletMapRef.current?.setView([nextLocation.latitude, nextLocation.longitude], MAP_FOCUS_ZOOM);
           shouldFollowUserRef.current = false;
@@ -364,6 +510,39 @@ export function MapPage({ lang }: Props) {
             {t('locateMe')}
           </button>
           {locationMessage ? <p className="mt-2 text-xs leading-5 text-amber-300">{locationMessage}</p> : null}
+          {(tourDetail?.pois.length || navigationPoi) ? (
+            <div className="mt-3 rounded-lg border border-gray-700 bg-gray-800 p-3 text-xs">
+              {navigationPoi && !tourId ? (
+                <p className="mb-2 truncate text-gray-300">
+                  {t('directionsTo')}: <span className="font-semibold text-white">{navigationPoi.name}</span>
+                </p>
+              ) : null}
+              {!userLocation ? (
+                <p className="leading-5 text-amber-300">
+                  {t('routeWaitingForLocation')}
+                </p>
+              ) : routeLoading ? (
+                <p className="text-gray-300">{t('routeLoading')}</p>
+              ) : routeError ? (
+                <p className="leading-5 text-red-300">{routeError}</p>
+              ) : routeSummary ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-gray-400">{t('routeDistance')}</p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {(routeSummary.distanceMeters / 1000).toFixed(2)} km
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">{t('routeDuration')}</p>
+                    <p className="mt-0.5 font-semibold text-white">
+                      {Math.ceil(routeSummary.durationSeconds / 60)} {t('minutes')}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -400,6 +579,11 @@ export function MapPage({ lang }: Props) {
 
       <div className="relative min-h-[420px] flex-1 lg:min-h-[calc(100vh-64px)]">
         <div ref={mapRef} className="absolute inset-0 h-full w-full" />
+        {!isOnline ? (
+          <div className="absolute left-3 top-3 z-[1000] max-w-xs rounded-lg border border-amber-400/40 bg-gray-900/95 px-3 py-2 text-xs leading-5 text-amber-200 shadow-lg">
+            {t('offlineMapNotice')}
+          </div>
+        ) : null}
         {selectedPoi && (
           <PublicPoiInfoPanel
             poi={selectedPoi}
@@ -407,6 +591,12 @@ export function MapPage({ lang }: Props) {
             accessRecord={accessRecord}
             audioTourQuery={audioTourQuery}
             clientExpired={clientExpired}
+            isNavigating={navigationPoi?.id === selectedPoi.id}
+            onNavigate={!tourId ? () => {
+              shouldFollowUserRef.current = false;
+              setNavigationPoi({ ...selectedPoi });
+              if (!userLocation) requestLocation();
+            } : undefined}
             onClose={() => setSelectedPoi(null)}
             onExpired={() => {
               if (accessRecord) {
@@ -428,6 +618,130 @@ function scheduleMapResize(map: { invalidateSize: () => void }) {
   window.setTimeout(resize, 300);
 }
 
+async function getDrivingRoute(
+  coordinates: [number, number][],
+  signal: AbortSignal,
+): Promise<DirectionsResult> {
+  const response = await fetch(ORS_DIRECTIONS_URL, {
+    method: 'POST',
+    signal,
+    headers: {
+      Authorization: ORS_API_KEY,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      coordinates,
+      instructions: false,
+    }),
+  });
+
+  let data: OrsDirectionsResponse | null = null;
+  try {
+    data = await response.json() as OrsDirectionsResponse;
+  } catch {
+    // The status-specific message below is more useful than a JSON parse error.
+  }
+
+  if (!response.ok) {
+    const apiMessage = typeof data?.error === 'string' ? data.error : data?.error?.message;
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('API_KEY_INVALID');
+    }
+    if (response.status === 404) {
+      throw new Error('ROUTE_NOT_FOUND');
+    }
+    if (apiMessage && /(?:could not|unable to|cannot) find (?:a )?route|route not found/i.test(apiMessage)) {
+      throw new Error('ROUTE_NOT_FOUND');
+    }
+    if (response.status === 429) {
+      throw new Error('API_RATE_LIMIT');
+    }
+    throw new Error(apiMessage || `ORS_API_${response.status}`);
+  }
+
+  const route = data?.routes?.[0];
+  const feature = data?.features?.[0];
+  const geometry = route?.geometry ?? feature?.geometry;
+  const summary = route?.summary ?? feature?.properties?.summary;
+
+  const latLngs = typeof geometry === 'string'
+    ? decodeOrsPolyline(geometry)
+    : geometry?.coordinates?.map(([longitude, latitude]) => [latitude, longitude] as [number, number]) ?? [];
+
+  if (latLngs.length < 2) {
+    throw new Error('ROUTE_NOT_FOUND');
+  }
+
+  return {
+    latLngs,
+    distanceMeters: Number(summary?.distance) || 0,
+    durationSeconds: Number(summary?.duration) || 0,
+  };
+}
+
+/** Decode the precision-5 encoded polyline returned by ORS JSON Directions. */
+function decodeOrsPolyline(encoded: string): [number, number][] {
+  const coordinates: [number, number][] = [];
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+
+  while (index < encoded.length) {
+    const latitudeChange = decodePolylineValue(encoded, index);
+    index = latitudeChange.nextIndex;
+    const longitudeChange = decodePolylineValue(encoded, index);
+    index = longitudeChange.nextIndex;
+    latitude += latitudeChange.value;
+    longitude += longitudeChange.value;
+    coordinates.push([latitude / 1e5, longitude / 1e5]);
+  }
+
+  return coordinates;
+}
+
+function decodePolylineValue(encoded: string, startIndex: number): { value: number; nextIndex: number } {
+  let index = startIndex;
+  let result = 0;
+  let shift = 0;
+  let byte: number;
+
+  do {
+    if (index >= encoded.length) throw new Error('ROUTE_GEOMETRY_INVALID');
+    byte = encoded.charCodeAt(index++) - 63;
+    result |= (byte & 0x1f) << shift;
+    shift += 5;
+  } while (byte >= 0x20);
+
+  return {
+    value: result & 1 ? ~(result >> 1) : result >> 1,
+    nextIndex: index,
+  };
+}
+
+function getRouteErrorMessage(error: unknown, t: (key: MessageKey) => string): string {
+  if (error instanceof TypeError) {
+    return t('routeNetworkError');
+  }
+
+  const message = error instanceof Error ? error.message : '';
+  if (message === 'API_KEY_INVALID') {
+    return t('routeApiKeyError');
+  }
+  if (message === 'ROUTE_NOT_FOUND') {
+    return t('routeNotFound');
+  }
+  if (message === 'API_RATE_LIMIT') {
+    return t('routeRateLimit');
+  }
+  if (message === 'ROUTE_GEOMETRY_INVALID') {
+    return t('routeGeometryError');
+  }
+  return message
+    ? `${t('routeApiError')}: ${message}`
+    : t('routeLoadError');
+}
+
 function toUserLocation(position: GeolocationPosition): UserLocation {
   return {
     latitude: position.coords.latitude,
@@ -442,6 +756,8 @@ function PublicPoiInfoPanel({
   accessRecord,
   audioTourQuery,
   clientExpired,
+  isNavigating,
+  onNavigate,
   onClose,
   onExpired,
 }: {
@@ -450,6 +766,8 @@ function PublicPoiInfoPanel({
   accessRecord: GuestAccessRecord | null;
   audioTourQuery: ReturnType<typeof useQuery>;
   clientExpired: boolean;
+  isNavigating: boolean;
+  onNavigate?: () => void;
   onClose: () => void;
   onExpired: () => void;
 }) {
@@ -489,6 +807,16 @@ function PublicPoiInfoPanel({
       </p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {onNavigate ? (
+          <button
+            type="button"
+            onClick={onNavigate}
+            disabled={isNavigating}
+            className="rounded-lg bg-sky-600 py-2 text-center text-xs font-semibold text-white transition-colors hover:bg-sky-700 disabled:cursor-default disabled:bg-sky-800 disabled:text-sky-200 sm:col-span-2"
+          >
+            {isNavigating ? t('directionsActive') : t('directions')}
+          </button>
+        ) : null}
         <Link
           to={ROUTES.POI_DETAIL.replace(':id', String(poi.id))}
           className="block rounded-lg bg-emerald-600 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-emerald-700"
