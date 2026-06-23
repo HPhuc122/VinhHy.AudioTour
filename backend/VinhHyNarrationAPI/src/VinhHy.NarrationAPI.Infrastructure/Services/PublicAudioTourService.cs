@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Http;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.PublicAudioTour.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 using VinhHy.NarrationAPI.Domain.Specifications;
 
@@ -11,11 +13,16 @@ public class PublicAudioTourService : IPublicAudioTourService
 {
     private readonly IUnitOfWork _uow;
     private readonly IPublicAccessService _publicAccessService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public PublicAudioTourService(IUnitOfWork uow, IPublicAccessService publicAccessService)
+    public PublicAudioTourService(
+        IUnitOfWork uow,
+        IPublicAccessService publicAccessService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _uow = uow;
         _publicAccessService = publicAccessService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<PublicAudioTourTourDto> GetTourAsync(
@@ -68,6 +75,9 @@ public class PublicAudioTourService : IPublicAudioTourService
         }
 
         var audioTracks = await _uow.AudioTracks.GetByPoiIdAsync(poiId, cancellationToken)
+            .ConfigureAwait(false);
+
+        await RecordPublicVisitAsync(poiId, TriggerTypes.Manual, languageCode, cancellationToken)
             .ConfigureAwait(false);
 
         return MapPoi(poi, languageCode, orderIndex: 0, audioTracks);
@@ -139,4 +149,40 @@ public class PublicAudioTourService : IPublicAudioTourService
 
     private static string NormalizeLanguageCode(string? languageCode) =>
         string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
+
+    private async Task RecordPublicVisitAsync(
+        int poiId,
+        string triggerType,
+        string? languageCode,
+        CancellationToken cancellationToken)
+    {
+        var deviceId = await ResolveKnownDeviceIdAsync(cancellationToken).ConfigureAwait(false);
+
+        await _uow.NarrationLogs.AddAsync(
+            new NarrationLog
+            {
+                POIId = poiId,
+                TriggerType = triggerType,
+                LanguageCode = NormalizeLanguageCode(languageCode),
+                PlayedAt = DateTime.UtcNow,
+                DeviceId = deviceId,
+                Synced = true
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string?> ResolveKnownDeviceIdAsync(CancellationToken cancellationToken)
+    {
+        var candidate = _httpContextAccessor.HttpContext?.Request.Headers["X-Guest-Device-Id"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var deviceId = candidate.Trim();
+        var device = await _uow.Devices.GetByDeviceIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
+        return device is null ? null : deviceId;
+    }
 }

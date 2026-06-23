@@ -27,11 +27,69 @@ export interface DashboardStatsDto {
   totalAudioPlays: number;
 }
 
+export interface AnalyticsDailyDto {
+  id: number;
+  poiId: number;
+  poiCode?: string | null;
+  date: string;
+  totalPlays: number;
+  gpsPlays: number;
+  qrPlays: number;
+  manualPlays: number;
+  uniqueDevices: number;
+}
+
+export interface AnalyticsSummaryDto {
+  totalPlays: number;
+  gpsPlays: number;
+  qrPlays: number;
+  manualPlays: number;
+  uniqueDevices: number;
+  from?: string | null;
+  to?: string | null;
+}
+
+export interface AnalyticsQueryFilter {
+  from?: string;
+  to?: string;
+  poiId?: number;
+}
+
 export function createAnalyticsApi(httpClient: AxiosInstance) {
   return {
     async getDashboard(): Promise<DashboardStatsDto> {
       const response = await httpClient.get<ApiResponse<DashboardStatsDto>>(
         `${ANALYTICS_BASE}/dashboard`,
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async getDaily(filter: AnalyticsQueryFilter = {}): Promise<AnalyticsDailyDto[]> {
+      const response = await httpClient.get<ApiResponse<AnalyticsDailyDto[]>>(
+        `${ANALYTICS_BASE}/daily`,
+        {
+          params: {
+            from: filter.from,
+            to: filter.to,
+            poiId: filter.poiId,
+          },
+        },
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async getSummary(filter: AnalyticsQueryFilter = {}): Promise<AnalyticsSummaryDto> {
+      const response = await httpClient.get<ApiResponse<AnalyticsSummaryDto>>(
+        `${ANALYTICS_BASE}/summary`,
+        {
+          params: {
+            from: filter.from,
+            to: filter.to,
+            poiId: filter.poiId,
+          },
+        },
       );
 
       return unwrapApiResponse(response.data);

@@ -1,11 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.PublicAccess.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Qr.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
+using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
 using VinhHy.NarrationAPI.Domain.Specifications;
 
@@ -26,11 +28,16 @@ public class PublicAccessService : IPublicAccessService
 
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public PublicAccessService(IUnitOfWork uow, IMapper mapper)
+    public PublicAccessService(
+        IUnitOfWork uow,
+        IMapper mapper,
+        IHttpContextAccessor httpContextAccessor)
     {
         _uow = uow;
         _mapper = mapper;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<StartAccessResponse> StartAsync(
@@ -76,6 +83,12 @@ public class PublicAccessService : IPublicAccessService
 
         await _uow.GuestAccessPasses.AddAsync(pass, cancellationToken).ConfigureAwait(false);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!qr.RequiresPayment && qr.PoiId.HasValue)
+        {
+            await RecordPublicVisitAsync(qr.PoiId.Value, TriggerTypes.Qr, languageCode: null, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         AccessPaymentSession? session = null;
         if (qr.RequiresPayment)
@@ -173,6 +186,12 @@ public class PublicAccessService : IPublicAccessService
         _uow.AccessPaymentSessions.Update(session);
         _uow.GuestAccessPasses.Update(pass);
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (pass.QrLocation.PoiId.HasValue)
+        {
+            await RecordPublicVisitAsync(pass.QrLocation.PoiId.Value, TriggerTypes.Qr, languageCode: null, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         return ToPaymentResponse(pass, token);
     }
@@ -392,5 +411,44 @@ public class PublicAccessService : IPublicAccessService
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(bytes);
+    }
+
+    private async Task RecordPublicVisitAsync(
+        int poiId,
+        string triggerType,
+        string? languageCode,
+        CancellationToken cancellationToken)
+    {
+        var deviceId = await ResolveKnownDeviceIdAsync(cancellationToken).ConfigureAwait(false);
+
+        await _uow.NarrationLogs.AddAsync(
+            new NarrationLog
+            {
+                POIId = poiId,
+                TriggerType = triggerType,
+                LanguageCode = NormalizeLanguageCode(languageCode),
+                PlayedAt = DateTime.UtcNow,
+                DeviceId = deviceId,
+                Synced = true
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string NormalizeLanguageCode(string? languageCode) =>
+        string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
+
+    private async Task<string?> ResolveKnownDeviceIdAsync(CancellationToken cancellationToken)
+    {
+        var candidate = _httpContextAccessor.HttpContext?.Request.Headers["X-Guest-Device-Id"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var deviceId = candidate.Trim();
+        var device = await _uow.Devices.GetByDeviceIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
+        return device is null ? null : deviceId;
     }
 }

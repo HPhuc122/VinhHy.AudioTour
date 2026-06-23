@@ -23,7 +23,7 @@ public static class RoleGroups
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.TourOperator}";
 
     public const string Analytics =
-        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.AnalyticsViewer}";
+        $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.AnalyticsViewer},{RoleNames.Vendor}";
 
     public const string AdminOrTourOrContent =
         $"{RoleNames.Admin},{RoleNames.SuperAdmin},{RoleNames.ContentAdmin},{RoleNames.TourOperator}";

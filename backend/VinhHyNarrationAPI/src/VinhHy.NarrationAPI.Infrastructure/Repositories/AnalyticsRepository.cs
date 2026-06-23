@@ -15,6 +15,7 @@ public class AnalyticsRepository : IAnalyticsRepository
         DateTime from,
         DateTime to,
         int? poiId = null,
+        int? ownerUserId = null,
         CancellationToken cancellationToken = default)
     {
         var fromDate = DateOnly.FromDateTime(from);
@@ -26,6 +27,9 @@ public class AnalyticsRepository : IAnalyticsRepository
 
         if (poiId.HasValue)
             query = query.Where(a => a.POIId == poiId.Value);
+
+        if (ownerUserId.HasValue)
+            query = query.Where(a => a.Poi.UserId == ownerUserId.Value);
 
         return await query
             .OrderBy(a => a.Date)

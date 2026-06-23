@@ -18,7 +18,11 @@ import {
   MAP_TILE_URL,
 } from '@/config/mapConfig';
 import { CmsAudioPreviewPlayer } from '@/features/audio/components/CmsAudioPreviewPlayer';
-import { useDashboardStatsQuery } from '@/features/analytics/hooks/useDashboardStatsQuery';
+import {
+  useAnalyticsDailyQuery,
+  useAnalyticsSummaryQuery,
+  useDashboardStatsQuery,
+} from '@/features/analytics/hooks/useDashboardStatsQuery';
 import { canViewAnalyticsDashboard, isAdminRole, isVendorRole } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
@@ -41,6 +45,8 @@ const CATEGORY_STYLES = [
   { icon: 'F', color: '#16a34a', light: '#dcfce7' },
   { icon: 'S', color: '#f59e0b', light: '#fef3c7' },
 ] as const;
+
+const ANALYTICS_RANGE_DAYS = 30;
 
 export const currentLocationIcon = L.divIcon({
   className: '',
@@ -99,6 +105,9 @@ function AdminDashboard({
 }) {
   const stats = dashboardQuery.data;
   const [selectedPoi, setSelectedPoi] = useState<PoiMapPoint | null>(null);
+  const analyticsFilter = useMemo(() => getRecentAnalyticsFilter(), []);
+  const dailyAnalyticsQuery = useAnalyticsDailyQuery(analyticsFilter);
+  const summaryAnalyticsQuery = useAnalyticsSummaryQuery(analyticsFilter);
   const poiPoints = useMemo(
     () => getPoiMapPoints(poisMapQuery.data?.items ?? []),
     [poisMapQuery.data],
@@ -133,6 +142,42 @@ function AdminDashboard({
         <DashboardCard label="Tổng âm thanh" value={stats?.totalAudioFiles} isLoading={dashboardQuery.isLoading} />
       </div>
 
+      <AnalyticsChartsSection
+        title="Thống kê truy cập 30 ngày"
+        description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
+        daily={dailyAnalyticsQuery.data}
+        summary={summaryAnalyticsQuery.data}
+        isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
+        error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
+      />
+
+      <BreakdownChartsSection
+        title="Cơ cấu vận hành"
+        description="Biểu đồ cột giúp so sánh nhanh các nhóm dữ liệu quản trị cần theo dõi."
+        isLoading={dashboardQuery.isLoading}
+        groups={[
+          {
+            title: 'Trạng thái POI/sạp',
+            items: [
+              { label: 'Chờ duyệt', value: stats?.pendingReviewPois ?? 0, color: '#f59e0b' },
+              { label: 'Chờ thanh toán', value: stats?.pendingPaymentPois ?? 0, color: '#2563eb' },
+              { label: 'Đang hoạt động', value: stats?.activePois ?? 0, color: '#16a34a' },
+              { label: 'Hết hạn', value: stats?.expiredPois ?? 0, color: '#6b7280' },
+              { label: 'Bị từ chối', value: stats?.rejectedPois ?? 0, color: '#dc2626' },
+            ],
+          },
+          {
+            title: 'Nội dung & tài nguyên',
+            items: [
+              { label: 'Tổng ảnh', value: stats?.totalImages ?? 0, color: '#0891b2' },
+              { label: 'Tổng âm thanh', value: stats?.totalAudioFiles ?? 0, color: '#7c3aed' },
+              { label: 'Ảnh chờ duyệt', value: stats?.pendingImages ?? 0, color: '#f59e0b' },
+              { label: 'Thuyết minh chờ duyệt', value: stats?.pendingNarrations ?? 0, color: '#ef4444' },
+              { label: 'QR đang hoạt động', value: stats?.activeQrCodes ?? 0, color: '#16a34a' },
+            ],
+          },
+        ]}
+      />
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Bản đồ địa điểm POI</h2>
@@ -199,6 +244,12 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
   const vendorPois = vendorPoisQuery.data?.items ?? [];
   const primaryPoi = useMemo(() => choosePrimaryVendorPoi(vendorPois), [vendorPois]);
   const primaryPoiId = primaryPoi?.id;
+  const vendorAnalyticsFilter = useMemo(
+    () => getRecentAnalyticsFilter(primaryPoiId),
+    [primaryPoiId],
+  );
+  const vendorDailyAnalyticsQuery = useAnalyticsDailyQuery(vendorAnalyticsFilter, { enabled: Boolean(primaryPoiId) });
+  const vendorSummaryAnalyticsQuery = useAnalyticsSummaryQuery(vendorAnalyticsFilter, { enabled: Boolean(primaryPoiId) });
   const primaryLifecycle = getLifecycleStatusValue(primaryPoi?.lifecycleStatus);
   const primaryPayment = getPaymentStatusValue(primaryPoi?.paymentStatus);
   const canPayPrimaryPoi =
@@ -302,6 +353,8 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
           vendorImagesAll.error,
           vendorNarrationsAll.error,
           vendorTranslationsQuery.error,
+          vendorDailyAnalyticsQuery.error,
+          vendorSummaryAnalyticsQuery.error,
         ]}
       />
 
@@ -368,6 +421,46 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
         <DashboardCard label="Bị từ chối" value={vendorPoisRejected.data?.totalCount} isLoading={dashboardLoading} />
       </div>
 
+      <AnalyticsChartsSection
+        title="Thống kê khách ghé sạp 30 ngày"
+        description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
+        daily={vendorDailyAnalyticsQuery.data}
+        summary={vendorSummaryAnalyticsQuery.data}
+        isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
+        error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
+        emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}
+      />
+
+      <BreakdownChartsSection
+        title="Cơ cấu sạp & nội dung"
+        description="Theo dõi tình trạng đăng ký sạp và tiến độ nội dung liên quan đến vendor."
+        isLoading={dashboardLoading || contentLoading}
+        groups={[
+          {
+            title: 'Trạng thái sạp',
+            items: [
+              { label: 'Chờ duyệt', value: vendorPoisPendingReview.data?.totalCount ?? 0, color: '#f59e0b' },
+              { label: 'Chờ thanh toán', value: vendorPoisPendingPayment.data?.totalCount ?? 0, color: '#2563eb' },
+              { label: 'Đang hoạt động', value: vendorPoisActive.data?.totalCount ?? 0, color: '#16a34a' },
+              { label: 'Bị từ chối', value: vendorPoisRejected.data?.totalCount ?? 0, color: '#dc2626' },
+            ],
+          },
+          {
+            title: 'Nội dung sạp chính',
+            items: [
+              { label: 'Ảnh đã duyệt', value: vendorImagesApproved.data?.totalCount ?? 0, color: '#16a34a' },
+              { label: 'Ảnh chờ duyệt', value: vendorImagesPending.data?.totalCount ?? 0, color: '#f59e0b' },
+              { label: 'Thuyết minh đã duyệt', value: vendorNarrationsApproved.data?.totalCount ?? 0, color: '#2563eb' },
+              { label: 'Thuyết minh có audio', value: vendorNarrationsAudio.data?.totalCount ?? 0, color: '#7c3aed' },
+              {
+                label: 'Bản dịch',
+                value: Array.isArray(vendorTranslationsQuery.data) ? vendorTranslationsQuery.data.length : 0,
+                color: '#0891b2',
+              },
+            ],
+          },
+        ]}
+      />
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Bản đồ sạp của tôi</h2>
@@ -885,6 +978,333 @@ function formatStat(value?: number | null): string {
   }
 
   return new Intl.NumberFormat().format(value);
+}
+
+type AnalyticsDailyDto = import('@/features/analytics/api/analyticsApi').AnalyticsDailyDto;
+type AnalyticsSummaryDto = import('@/features/analytics/api/analyticsApi').AnalyticsSummaryDto;
+
+function AnalyticsChartsSection({
+  title,
+  description,
+  daily,
+  summary,
+  isLoading,
+  error,
+  emptyMessage = 'Chưa có dữ liệu truy cập trong 30 ngày qua.',
+}: {
+  title: string;
+  description: string;
+  daily?: AnalyticsDailyDto[];
+  summary?: AnalyticsSummaryDto;
+  isLoading: boolean;
+  error: unknown;
+  emptyMessage?: string;
+}) {
+  const series = useMemo(() => buildDailySeries(daily ?? []), [daily]);
+  const trafficSources = useMemo(
+    () => [
+      { label: 'QR', value: summary?.qrPlays ?? 0, color: '#2563eb' },
+      { label: 'GPS', value: summary?.gpsPlays ?? 0, color: '#16a34a' },
+      { label: 'Thủ công', value: summary?.manualPlays ?? 0, color: '#f59e0b' },
+    ],
+    [summary],
+  );
+  const totalVisits = summary?.totalPlays ?? series.reduce((sum, item) => sum + item.totalPlays, 0);
+  const uniqueDevices = summary?.uniqueDevices ?? 0;
+  const hasData = totalVisits > 0 || series.some((item) => item.totalPlays > 0);
+  const errorMessage = getErrorMessage(error);
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <p className="text-sm text-gray-500">{description}</p>
+      </div>
+
+      {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <Card className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Lượt truy cập</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{isLoading ? '...' : formatStat(totalVisits)}</p>
+            </div>
+            <div className="flex gap-2 text-xs text-gray-500">
+              <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">Tổng</span>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">QR/GPS</span>
+            </div>
+          </div>
+          <div className="mt-4 h-64">
+            {isLoading ? (
+              <ChartPlaceholder label="Đang tải biểu đồ..." />
+            ) : hasData ? (
+              <LineTrafficChart data={series} />
+            ) : (
+              <ChartPlaceholder label={emptyMessage} />
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Tỉ lệ nguồn</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{isLoading ? '...' : formatStat(uniqueDevices)}</p>
+              <p className="text-xs text-gray-500">Thiết bị duy nhất</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            {isLoading ? (
+              <ChartPlaceholder label="Đang tải tỉ lệ..." />
+            ) : hasData ? (
+              <DonutTrafficChart items={trafficSources} />
+            ) : (
+              <ChartPlaceholder label={emptyMessage} />
+            )}
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+interface BreakdownItem {
+  label: string;
+  value: number;
+  color: string;
+}
+
+interface BreakdownGroup {
+  title: string;
+  items: BreakdownItem[];
+}
+
+function BreakdownChartsSection({
+  title,
+  description,
+  groups,
+  isLoading,
+}: {
+  title: string;
+  description: string;
+  groups: BreakdownGroup[];
+  isLoading: boolean;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <p className="text-sm text-gray-500">{description}</p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {groups.map((group) => (
+          <Card key={group.title} className="p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Biểu đồ cột</p>
+                <h3 className="mt-1 text-base font-semibold text-gray-900">{group.title}</h3>
+              </div>
+              <p className="rounded bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-500">
+                {formatStat(group.items.reduce((sum, item) => sum + item.value, 0))}
+              </p>
+            </div>
+            <div className="mt-5">
+              {isLoading ? (
+                <ChartPlaceholder label="Đang tải biểu đồ..." />
+              ) : (
+                <HorizontalBarChart items={group.items} />
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HorizontalBarChart({ items }: { items: BreakdownItem[] }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  const maxValue = Math.max(1, ...items.map((item) => item.value));
+
+  if (total <= 0) {
+    return <ChartPlaceholder label="Chưa có dữ liệu để vẽ biểu đồ." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map((item) => {
+        const widthPercent = Math.max(4, Math.round((item.value / maxValue) * 100));
+
+        return (
+          <div key={item.label} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium text-gray-700">{item.label}</span>
+              <span className="flex-shrink-0 text-xs font-semibold text-gray-500">
+                {formatStat(item.value)} · {formatPercent(item.value, total)}
+              </span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${widthPercent}%`, backgroundColor: item.color }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+interface DailySeriesPoint {
+  date: string;
+  label: string;
+  totalPlays: number;
+  qrPlays: number;
+  gpsPlays: number;
+  manualPlays: number;
+}
+
+function LineTrafficChart({ data }: { data: DailySeriesPoint[] }) {
+  const width = 720;
+  const height = 240;
+  const padding = { top: 18, right: 18, bottom: 34, left: 38 };
+  const maxValue = Math.max(1, ...data.flatMap((item) => [item.totalPlays, item.qrPlays, item.gpsPlays, item.manualPlays]));
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xFor = (index: number) => padding.left + (plotWidth * index) / Math.max(1, data.length - 1);
+  const yFor = (value: number) => padding.top + plotHeight - (plotHeight * value) / maxValue;
+  const pathFor = (key: keyof Pick<DailySeriesPoint, 'totalPlays' | 'qrPlays' | 'gpsPlays' | 'manualPlays'>) =>
+    data.map((item, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(item[key])}`).join(' ');
+  const ticks = [0, Math.ceil(maxValue / 2), maxValue];
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label="Biểu đồ lượt truy cập theo ngày">
+      {ticks.map((tick) => (
+        <g key={tick}>
+          <line x1={padding.left} x2={width - padding.right} y1={yFor(tick)} y2={yFor(tick)} stroke="#e5e7eb" />
+          <text x={8} y={yFor(tick) + 4} className="fill-gray-400 text-[11px]">{tick}</text>
+        </g>
+      ))}
+      <path d={pathFor('totalPlays')} fill="none" stroke="#111827" strokeWidth="3" strokeLinecap="round" />
+      <path d={pathFor('qrPlays')} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" />
+      <path d={pathFor('gpsPlays')} fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" />
+      <path d={pathFor('manualPlays')} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+      {data.map((item, index) => (
+        <g key={item.date}>
+          <circle cx={xFor(index)} cy={yFor(item.totalPlays)} r="3" fill="#111827" />
+          {index % Math.max(1, Math.ceil(data.length / 6)) === 0 || index === data.length - 1 ? (
+            <text x={xFor(index)} y={height - 10} textAnchor="middle" className="fill-gray-400 text-[10px]">{item.label}</text>
+          ) : null}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function DonutTrafficChart({ items }: { items: { label: string; value: number; color: string }[] }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  let offset = 25;
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-[150px_1fr] lg:grid-cols-1 xl:grid-cols-[150px_1fr]">
+      <svg viewBox="0 0 120 120" className="h-36 w-36" role="img" aria-label="Tỉ lệ nguồn truy cập">
+        <circle cx="60" cy="60" r="42" fill="none" stroke="#e5e7eb" strokeWidth="18" />
+        {items.map((item) => {
+          const dash = total > 0 ? (item.value / total) * 100 : 0;
+          const circle = (
+            <circle
+              key={item.label}
+              cx="60"
+              cy="60"
+              r="42"
+              fill="none"
+              stroke={item.color}
+              strokeWidth="18"
+              strokeDasharray={`${dash} ${100 - dash}`}
+              strokeDashoffset={offset}
+              pathLength="100"
+              transform="rotate(-90 60 60)"
+            />
+          );
+          offset -= dash;
+          return circle;
+        })}
+        <text x="60" y="56" textAnchor="middle" className="fill-gray-900 text-[18px] font-bold">{formatStat(total)}</text>
+        <text x="60" y="72" textAnchor="middle" className="fill-gray-400 text-[10px]">lượt</text>
+      </svg>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex items-center gap-2 text-gray-600">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+              {item.label}
+            </span>
+            <span className="font-semibold text-gray-900">{formatPercent(item.value, total)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChartPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="flex h-full min-h-36 items-center justify-center rounded-md border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-500">
+      {label}
+    </div>
+  );
+}
+
+function buildDailySeries(records: AnalyticsDailyDto[]): DailySeriesPoint[] {
+  const byDate = new Map<string, DailySeriesPoint>();
+
+  for (const record of records) {
+    const date = record.date.slice(0, 10);
+    const current = byDate.get(date) ?? {
+      date,
+      label: formatChartDate(date),
+      totalPlays: 0,
+      qrPlays: 0,
+      gpsPlays: 0,
+      manualPlays: 0,
+    };
+
+    current.totalPlays += record.totalPlays;
+    current.qrPlays += record.qrPlays;
+    current.gpsPlays += record.gpsPlays;
+    current.manualPlays += record.manualPlays;
+    byDate.set(date, current);
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function getRecentAnalyticsFilter(poiId?: number) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(to.getDate() - (ANALYTICS_RANGE_DAYS - 1));
+
+  return {
+    from: toDateOnlyString(from),
+    to: toDateOnlyString(to),
+    poiId,
+  };
+}
+
+function toDateOnlyString(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function formatChartDate(date: string): string {
+  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(date));
+}
+
+function formatPercent(value: number, total: number): string {
+  if (total <= 0) return '0%';
+  return `${Math.round((value / total) * 100)}%`;
 }
 
 interface PoiMapPoint {

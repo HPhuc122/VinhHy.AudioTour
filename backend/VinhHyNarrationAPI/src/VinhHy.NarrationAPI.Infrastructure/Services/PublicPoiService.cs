@@ -74,6 +74,7 @@ public class PublicPoiService : IPublicPoiService
         }
 
         var imageUrls = await GetPrimaryApprovedImageUrlsAsync([poi.Id], cancellationToken).ConfigureAwait(false);
+        await RecordPublicVisitAsync(poi.Id, TriggerTypes.Manual, languageCode, cancellationToken).ConfigureAwait(false);
         return MapPoi(poi, languageCode, imageUrls);
     }
 
@@ -103,7 +104,18 @@ public class PublicPoiService : IPublicPoiService
         IReadOnlyDictionary<int, string?> primaryImageUrls)
     {
         var translation = SelectTranslation(poi, languageCode);
-        primaryImageUrls.TryGetValue(poi.Id, out var imageUrl);
+        primaryImageUrls.TryGetValue(poi.Id, out var approvedImageUrl);
+        var storedImages = DeserializeImageUrls(poi.ImageUrls)
+            .Select(BuildPublicAssetUrl)
+            .ToList();
+        if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
+        {
+            var primary = BuildPublicAssetUrl(poi.ImageUrl);
+            storedImages.RemoveAll(url => string.Equals(url, primary, StringComparison.OrdinalIgnoreCase));
+            storedImages.Insert(0, primary);
+        }
+        if (storedImages.Count == 0 && approvedImageUrl is not null) storedImages.Add(approvedImageUrl);
+        var imageUrl = storedImages.FirstOrDefault();
 
         return new PublicPoiDto
         {
@@ -118,7 +130,7 @@ public class PublicPoiService : IPublicPoiService
             Priority = poi.Priority,
             Category = poi.Category,
             ImageUrl = imageUrl,
-            ImageUrls = imageUrl is null ? [] : [imageUrl],
+            ImageUrls = storedImages,
             CooldownSeconds = poi.CooldownSeconds,
             MinDwellSeconds = poi.MinDwellSeconds
         };
@@ -143,6 +155,21 @@ public class PublicPoiService : IPublicPoiService
         }
 
         return $"{request.Scheme}://{request.Host}/api/v1/public/media/images/{mediaFileId}";
+    }
+
+    private string BuildPublicAssetUrl(string relativePath)
+    {
+        if (Uri.TryCreate(relativePath, UriKind.Absolute, out _)) return relativePath;
+        var request = _httpContextAccessor.HttpContext?.Request;
+        var path = relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
+        return request is null ? path : $"{request.Scheme}://{request.Host}{path}";
+    }
+
+    private static IReadOnlyList<string> DeserializeImageUrls(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<string[]>(value) ?? []; }
+        catch (System.Text.Json.JsonException) { return []; }
     }
 
     private async Task EnforceExpiryAsync(Poi? poi, CancellationToken cancellationToken)
@@ -180,5 +207,44 @@ public class PublicPoiService : IPublicPoiService
         {
             await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private async Task RecordPublicVisitAsync(
+        int poiId,
+        string triggerType,
+        string? languageCode,
+        CancellationToken cancellationToken)
+    {
+        var deviceId = await ResolveKnownDeviceIdAsync(cancellationToken).ConfigureAwait(false);
+
+        await _uow.NarrationLogs.AddAsync(
+            new NarrationLog
+            {
+                POIId = poiId,
+                TriggerType = triggerType,
+                LanguageCode = NormalizeLanguageCode(languageCode),
+                PlayedAt = DateTime.UtcNow,
+                DeviceId = deviceId,
+                Synced = true
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string NormalizeLanguageCode(string? languageCode) =>
+        string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
+
+    private async Task<string?> ResolveKnownDeviceIdAsync(CancellationToken cancellationToken)
+    {
+        var candidate = _httpContextAccessor.HttpContext?.Request.Headers["X-Guest-Device-Id"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var deviceId = candidate.Trim();
+        var device = await _uow.Devices.GetByDeviceIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
+        return device is null ? null : deviceId;
     }
 }

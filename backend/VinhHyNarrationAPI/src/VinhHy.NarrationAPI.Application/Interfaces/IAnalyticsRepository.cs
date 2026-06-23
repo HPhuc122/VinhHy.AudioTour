@@ -8,6 +8,7 @@ public interface IAnalyticsRepository
         DateTime from,
         DateTime to,
         int? poiId = null,
+        int? ownerUserId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<AnalyticsDaily>> GetByPoiIdAsync(
