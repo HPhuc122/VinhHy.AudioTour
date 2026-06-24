@@ -1,6 +1,7 @@
 import { httpClient } from './httpClient';
 import { toursApi } from './toursApi';
 import type { ApiResponse, QrDto, QrPoiDto, QrResolveResponse, TourDetailDto } from '../types/api';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 interface RawQrPoiDto {
   id: number;
@@ -28,7 +29,7 @@ function mapPoi(poi: RawQrPoiDto): QrPoiDto {
     name: poi.name?.trim() || poi.displayName?.trim() || poi.code,
     description: poi.description ?? '',
     shortDescription: poi.shortDescription ?? null,
-    imageUrl: poi.imageUrl ?? null,
+    imageUrl: toPublicAssetUrl(poi.imageUrl),
     latitude: poi.latitude,
     longitude: poi.longitude,
     audioUrl: null,

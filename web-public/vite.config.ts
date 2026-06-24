@@ -4,4 +4,13 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    allowedHosts: ['.trycloudflare.com'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5082',
+        changeOrigin: true,
+      },
+    },
+  },
 })

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { routes } from '@/config/routes';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -119,6 +120,7 @@ export function MainLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -134,22 +136,31 @@ export function MainLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-100 lg:h-screen lg:flex-row lg:overflow-hidden">
-      <aside className="flex w-full flex-shrink-0 flex-col bg-gray-900 text-gray-100 lg:w-72">
-        <div className="flex h-16 items-center gap-3 border-b border-gray-700 px-5">
+      <aside className={`flex w-full flex-shrink-0 flex-col bg-gray-900 text-gray-100 transition-all duration-200 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}>
+        <div className={`flex h-16 items-center gap-3 border-b border-gray-700 px-5 ${isSidebarCollapsed ? 'lg:justify-center lg:px-3' : ''}`}>
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">
             K
           </div>
-          <div>
+          <div className={isSidebarCollapsed ? 'lg:hidden' : ''}>
             <p className="text-sm font-semibold leading-tight">KhanhHoi</p>
             <p className="text-xs text-gray-400">AudioTour CMS</p>
           </div>
+          <button
+            type="button"
+            className={`ml-auto hidden h-8 w-8 items-center justify-center rounded-md border border-gray-700 text-sm font-semibold text-gray-300 transition hover:bg-gray-800 hover:text-white lg:flex ${isSidebarCollapsed ? 'lg:ml-0' : ''}`}
+            aria-label={isSidebarCollapsed ? 'Mở sidebar' : 'Ẩn sidebar'}
+            title={isSidebarCollapsed ? 'Mở sidebar' : 'Ẩn sidebar'}
+            onClick={() => setIsSidebarCollapsed((value) => !value)}
+          >
+            {isSidebarCollapsed ? '>' : '<'}
+          </button>
         </div>
 
         <nav className="max-h-72 flex-1 overflow-y-auto px-3 py-4 lg:max-h-none" aria-label="Main navigation">
           <div className="flex flex-col gap-5">
             {navSections.map((section, sectionIndex) => (
               <section key={section.title ?? `section-${sectionIndex}`}>
-                {section.title ? (
+                {section.title && !isSidebarCollapsed ? (
                   <h2 className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                     {section.title}
                   </h2>
@@ -163,12 +174,13 @@ export function MainLayout() {
                           isNavItemActive(item.to, location.pathname, location.search)
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                        }`}
+                        } ${isSidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
+                        title={item.label}
                       >
                         <span className="flex h-5 w-5 items-center justify-center rounded bg-gray-800 text-[11px] font-semibold">
                           {item.icon}
                         </span>
-                        <span className="truncate">{item.label}</span>
+                        <span className={`truncate ${isSidebarCollapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
                       </Link>
                     </li>
                   ))}
@@ -180,14 +192,15 @@ export function MainLayout() {
 
         <div className="border-t border-gray-700 p-4">
           <div
-            className="mb-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className={`mb-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-white ${isSidebarCollapsed ? 'lg:justify-center' : ''}`}
             role="link"
             onClick={() => navigate(routes.profile)}
+            title={user?.username}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-xs font-bold uppercase text-white">
               {user?.username?.[0] ?? 'U'}
             </div>
-            <div className="min-w-0">
+            <div className={`min-w-0 ${isSidebarCollapsed ? 'lg:hidden' : ''}`}>
               <p className="truncate text-sm font-medium text-gray-200">{user?.username}</p>
               <p className="truncate text-xs text-gray-500">{displayRoleName(user?.role)}</p>
             </div>
@@ -195,10 +208,11 @@ export function MainLayout() {
 
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
+            className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 transition-colors hover:bg-red-900/40 hover:text-red-400 ${isSidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
+            title="Đăng xuất"
           >
             <span className="flex h-5 w-5 items-center justify-center text-xs font-semibold">X</span>
-            Đăng xuất
+            <span className={isSidebarCollapsed ? 'lg:hidden' : ''}>Đăng xuất</span>
           </button>
         </div>
       </aside>

@@ -25,6 +25,8 @@ export interface DashboardStatsDto {
   totalTourViews?: number | null;
   totalQrScans: number;
   totalAudioPlays: number;
+  totalSiteVisits: number;
+  totalVendorPoiVisits?: number | null;
 }
 
 export interface AnalyticsDailyDto {

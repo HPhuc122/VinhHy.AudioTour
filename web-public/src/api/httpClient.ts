@@ -1,12 +1,21 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5082';
-const NORMALIZED_BASE_URL = BASE_URL.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
+const BASE_URL = getApiBaseUrl();
 
 export const httpClient = axios.create({
-  baseURL: `${NORMALIZED_BASE_URL}/api/v1`,
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
+
+function getApiBaseUrl(): string {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (!configured) {
+    return '/api/v1';
+  }
+
+  const normalized = configured.replace(/\/+$/, '');
+  return normalized.replace(/\/api\/v1$/i, '') + '/api/v1';
+}
 
 httpClient.interceptors.request.use((config) => {
   if (typeof window === 'undefined') {

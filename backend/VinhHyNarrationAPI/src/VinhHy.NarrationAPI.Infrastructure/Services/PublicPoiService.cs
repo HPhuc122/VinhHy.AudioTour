@@ -114,14 +114,22 @@ public class PublicPoiService : IPublicPoiService
         approvedImages ??= [];
         var storedImages = DeserializeImageUrls(poi.ImageUrls)
             .Select(BuildPublicAssetUrl)
+            .OfType<string>()
             .ToList();
         if (!string.IsNullOrWhiteSpace(poi.ImageUrl))
         {
             var primary = BuildPublicAssetUrl(poi.ImageUrl);
-            storedImages.RemoveAll(url => string.Equals(url, primary, StringComparison.OrdinalIgnoreCase));
-            storedImages.Insert(0, primary);
+            if (primary is not null)
+            {
+                storedImages.RemoveAll(url => string.Equals(url, primary, StringComparison.OrdinalIgnoreCase));
+                storedImages.Insert(0, primary);
+            }
         }
-        if (storedImages.Count == 0 && approvedImageUrl is not null) storedImages.Add(approvedImageUrl);
+        if (approvedImageUrl is not null)
+        {
+            storedImages.RemoveAll(url => string.Equals(url, approvedImageUrl, StringComparison.OrdinalIgnoreCase));
+            storedImages.Insert(0, approvedImageUrl);
+        }
         var imageUrl = storedImages.FirstOrDefault();
         var menuImageUrls = approvedImages
             .Where(image => image.ImageCategory == MediaImageCategories.Menu)
@@ -185,21 +193,26 @@ public class PublicPoiService : IPublicPoiService
 
     private string BuildPublicImageUrl(int mediaFileId)
     {
-        var request = _httpContextAccessor.HttpContext?.Request;
-        if (request is null)
-        {
-            return $"/api/v1/public/media/images/{mediaFileId}";
-        }
-
-        return $"{request.Scheme}://{request.Host}/api/v1/public/media/images/{mediaFileId}";
+        return $"/api/v1/public/media/images/{mediaFileId}";
     }
 
-    private string BuildPublicAssetUrl(string relativePath)
+    private static string? BuildPublicAssetUrl(string relativePath)
     {
-        if (Uri.TryCreate(relativePath, UriKind.Absolute, out _)) return relativePath;
-        var request = _httpContextAccessor.HttpContext?.Request;
-        var path = relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
-        return request is null ? path : $"{request.Scheme}://{request.Host}{path}";
+        if (Uri.TryCreate(relativePath, UriKind.Absolute, out var absoluteUri))
+        {
+            return IsBlockedUploadPath(absoluteUri.AbsolutePath) ? null : relativePath;
+        }
+
+        return IsBlockedUploadPath(relativePath)
+            ? null
+            : relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
+    }
+
+    private static bool IsBlockedUploadPath(string path)
+    {
+        var normalized = path.Trim().Replace('\\', '/').TrimStart('/');
+        return normalized.StartsWith("uploads/images/", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("uploads/pois/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<string> DeserializeImageUrls(string? value)

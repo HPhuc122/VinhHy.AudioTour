@@ -33,7 +33,7 @@ public class PublicPackagesController(IQrService qrService, IConfiguration confi
         var configured =
             configuration["PUBLIC_WEB_BASE_URL"] ??
             configuration["PublicWeb:BaseUrl"] ??
-            "http://localhost:5173";
+            "http://192.168.1.14:5173";
 
         return configured.TrimEnd('/');
     }

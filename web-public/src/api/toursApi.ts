@@ -8,6 +8,7 @@ import type {
   TourDto,
   TourTranslationDto,
 } from '../types/api';
+import { toPublicAssetUrl } from '../utils/publicAssetUrl';
 
 function selectTranslation(tour: PublicTourDto, lang: string): TourTranslationDto | null {
   return (
@@ -39,7 +40,7 @@ function mapPoi(stop: PublicTourDto['pois'][number]): PublicPoiDto {
     longitude: stop.longitude,
     radiusMeters: stop.radiusMeters ?? 30,
     priority: stop.orderIndex,
-    imageUrl: stop.imageUrl ?? null,
+    imageUrl: toPublicAssetUrl(stop.imageUrl),
     category: stop.category ?? null,
     name: stop.poiName ?? stop.poiCode ?? `Stop ${stop.orderIndex}`,
     description: stop.poiDescription ?? stop.poiShortDescription ?? '',

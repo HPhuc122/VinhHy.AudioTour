@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { routes } from '@/config/routes';
 import type { QrDto } from '@/features/qr/api/qrApi';
-import { drawQrCode } from '@/utils/qrCodeCanvas';
+import { createQrSvg, drawQrCode } from '@/utils/qrCodeCanvas';
 import { formatVietnamDate } from '@/utils/dateTime';
 
 interface QrTableProps {
@@ -122,16 +122,33 @@ function QrCanvas({ value, code }: { value: string; code: string }) {
   const fileName = useMemo(() => `qr-${code}.png`, [code]);
 
   useEffect(() => {
-    if (canvasRef.current) {
-      drawQrCode(canvasRef.current, value, 3);
-    }
+    let ignore = false;
+
+    const render = async () => {
+      if (!canvasRef.current) {
+        return;
+      }
+
+      try {
+        await drawQrCode(canvasRef.current, value, { width: 192, margin: 4 });
+      } catch {
+        if (!ignore && canvasRef.current) {
+          const context = canvasRef.current.getContext('2d');
+          context?.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+      }
+    };
+
+    void render();
+
+    return () => {
+      ignore = true;
+    };
   }, [value]);
 
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
+  const handleDownload = async () => {
+    const canvas = document.createElement('canvas');
+    await drawQrCode(canvas, value, { width: 768, margin: 8 });
 
     const link = document.createElement('a');
     link.href = canvas.toDataURL('image/png');
@@ -139,12 +156,30 @@ function QrCanvas({ value, code }: { value: string; code: string }) {
     link.click();
   };
 
+  const handleDownloadSvg = async () => {
+    const svg = await createQrSvg(value);
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName.replace(/\.png$/i, '.svg');
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="flex w-24 flex-col items-center gap-2">
-      <canvas ref={canvasRef} className="h-20 w-20 rounded border border-gray-200 bg-white" />
-      <button type="button" className="text-xs text-blue-700 underline" onClick={handleDownload}>
-        Tải PNG
-      </button>
+    <div className="flex w-32 flex-col items-center gap-2">
+      <canvas ref={canvasRef} className="h-28 w-28 rounded border border-gray-200 bg-white" />
+      <div className="flex gap-2 text-xs">
+        <button type="button" className="text-blue-700 underline" onClick={handleDownload}>
+          Tải PNG
+        </button>
+        <button type="button" className="text-blue-700 underline" onClick={handleDownloadSvg}>
+          SVG
+        </button>
+      </div>
     </div>
   );
 }

@@ -22,7 +22,7 @@ try
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("CmsPolicy", policy =>
-            policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
+            policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "http://192.168.1.14:5173")
                 .AllowAnyHeader()
                 .AllowAnyMethod());
     });

@@ -415,9 +415,10 @@ public class TourService : ITourService
         var translation = poi.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
             ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi");
         imageUrls.TryGetValue(poi.Id, out var fallbackImageUrl);
-        var imageUrl = !string.IsNullOrWhiteSpace(poi.ImageUrl)
-            ? BuildPublicAssetUrl(poi.ImageUrl)
-            : fallbackImageUrl;
+        var imageUrl = fallbackImageUrl ?? (
+            !string.IsNullOrWhiteSpace(poi.ImageUrl)
+                ? BuildPublicAssetUrl(poi.ImageUrl)
+                : null);
 
         return new PublicTourPoiDto
         {
@@ -438,15 +439,22 @@ public class TourService : ITourService
         };
     }
 
-    private string BuildPublicAssetUrl(string relativePath)
+    private static string? BuildPublicAssetUrl(string relativePath)
     {
-        if (Uri.TryCreate(relativePath, UriKind.Absolute, out _))
+        if (Uri.TryCreate(relativePath, UriKind.Absolute, out var absoluteUri))
         {
-            return relativePath;
+            return IsBlockedUploadPath(absoluteUri.AbsolutePath) ? null : relativePath;
         }
 
-        var request = _httpContextAccessor.HttpContext?.Request;
-        var path = relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
-        return request is null ? path : $"{request.Scheme}://{request.Host}{path}";
+        return IsBlockedUploadPath(relativePath)
+            ? null
+            : relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
+    }
+
+    private static bool IsBlockedUploadPath(string path)
+    {
+        var normalized = path.Trim().Replace('\\', '/').TrimStart('/');
+        return normalized.StartsWith("uploads/images/", StringComparison.OrdinalIgnoreCase) ||
+            normalized.StartsWith("uploads/pois/", StringComparison.OrdinalIgnoreCase);
     }
 }

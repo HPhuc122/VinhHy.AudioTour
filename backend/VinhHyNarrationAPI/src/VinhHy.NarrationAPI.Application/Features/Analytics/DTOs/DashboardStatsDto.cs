@@ -41,4 +41,8 @@ public class DashboardStatsDto
     public int TotalQrScans { get; set; }
 
     public int TotalAudioPlays { get; set; }
+
+    public int TotalSiteVisits { get; set; }
+
+    public int? TotalVendorPoiVisits { get; set; }
 }

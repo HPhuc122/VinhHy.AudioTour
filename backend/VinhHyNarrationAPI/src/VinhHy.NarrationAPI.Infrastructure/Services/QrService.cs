@@ -26,7 +26,11 @@ public class QrService : IQrService
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
-        _publicWebBaseUrl = (configuration["PublicWeb:BaseUrl"] ?? "http://localhost:5173").TrimEnd('/');
+        _publicWebBaseUrl = (
+            configuration["PUBLIC_WEB_BASE_URL"] ??
+            configuration["PublicWeb:BaseUrl"] ??
+            "http://192.168.1.14:5173")
+            .TrimEnd('/');
     }
 
     public async Task<IReadOnlyList<QrDto>> GetAllAsync(CancellationToken cancellationToken = default)

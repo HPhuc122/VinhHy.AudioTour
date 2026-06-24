@@ -112,6 +112,7 @@ public class AnalyticsService : IAnalyticsService
         var ownerUserId = GetVendorOwnerUserId();
         var poiQuery = _db.Pois.AsNoTracking();
         var mediaQuery = _db.MediaFiles.AsNoTracking();
+        var siteNarrationQuery = _db.NarrationLogs.AsNoTracking();
         var narrationQuery = _db.NarrationLogs.AsNoTracking();
         var qrQuery = _db.QrLocations.AsNoTracking();
 
@@ -152,7 +153,11 @@ public class AnalyticsService : IAnalyticsService
             RejectedPois = await CountPoisByLifecycleAsync(poiQuery, PoiLifecycleStatus.Rejected, cancellationToken).ConfigureAwait(false),
             TotalTourViews = null,
             TotalQrScans = await narrationQuery.CountAsync(n => n.TriggerType == TriggerTypes.Qr, cancellationToken).ConfigureAwait(false),
-            TotalAudioPlays = await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
+            TotalAudioPlays = await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
+            TotalSiteVisits = await siteNarrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
+            TotalVendorPoiVisits = ownerUserId.HasValue
+                ? await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
+                : null
         };
     }
 

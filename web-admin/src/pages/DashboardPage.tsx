@@ -147,6 +147,8 @@ function AdminDashboard({
         description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
         daily={dailyAnalyticsQuery.data}
         summary={summaryAnalyticsQuery.data}
+        currentSiteVisits={stats?.totalSiteVisits ?? stats?.totalAudioPlays}
+        currentSiteVisitsLabel="Lượt truy cập website hiện tại"
         isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
         error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
       />
@@ -240,6 +242,7 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
     true,
     'vendor-rejected',
   );
+  const vendorDashboardStatsQuery = useDashboardStatsQuery({ enabled: true });
 
   const vendorPois = vendorPoisQuery.data?.items ?? [];
   const primaryPoi = useMemo(() => choosePrimaryVendorPoi(vendorPois), [vendorPois]);
@@ -353,6 +356,7 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
           vendorImagesAll.error,
           vendorNarrationsAll.error,
           vendorTranslationsQuery.error,
+          vendorDashboardStatsQuery.error,
           vendorDailyAnalyticsQuery.error,
           vendorSummaryAnalyticsQuery.error,
         ]}
@@ -426,6 +430,10 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
         description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
         daily={vendorDailyAnalyticsQuery.data}
         summary={vendorSummaryAnalyticsQuery.data}
+        currentSiteVisits={vendorDashboardStatsQuery.data?.totalSiteVisits}
+        currentSiteVisitsLabel="Lượt truy cập website hiện tại"
+        currentPoiVisits={vendorDashboardStatsQuery.data?.totalVendorPoiVisits ?? vendorDashboardStatsQuery.data?.totalAudioPlays}
+        currentPoiVisitsLabel="Lượt truy cập POI của tôi"
         isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
         error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
         emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}
@@ -988,6 +996,10 @@ function AnalyticsChartsSection({
   description,
   daily,
   summary,
+  currentSiteVisits,
+  currentSiteVisitsLabel,
+  currentPoiVisits,
+  currentPoiVisitsLabel,
   isLoading,
   error,
   emptyMessage = 'Chưa có dữ liệu truy cập trong 30 ngày qua.',
@@ -996,6 +1008,10 @@ function AnalyticsChartsSection({
   description: string;
   daily?: AnalyticsDailyDto[];
   summary?: AnalyticsSummaryDto;
+  currentSiteVisits?: number | null;
+  currentSiteVisitsLabel?: string;
+  currentPoiVisits?: number | null;
+  currentPoiVisitsLabel?: string;
   isLoading: boolean;
   error: unknown;
   emptyMessage?: string;
@@ -1052,6 +1068,24 @@ function AnalyticsChartsSection({
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Tỉ lệ nguồn</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{isLoading ? '...' : formatStat(uniqueDevices)}</p>
               <p className="text-xs text-gray-500">Thiết bị duy nhất</p>
+              <div className="mt-3 grid gap-2 text-xs text-gray-500">
+                {typeof currentSiteVisits !== 'undefined' ? (
+                  <div className="rounded-md bg-gray-50 px-3 py-2">
+                    <p>{currentSiteVisitsLabel ?? 'Lượt truy cập hiện tại'}</p>
+                    <p className="mt-1 text-base font-semibold text-gray-900">
+                      {isLoading ? '...' : formatStat(currentSiteVisits)}
+                    </p>
+                  </div>
+                ) : null}
+                {typeof currentPoiVisits !== 'undefined' ? (
+                  <div className="rounded-md bg-blue-50 px-3 py-2 text-blue-700">
+                    <p>{currentPoiVisitsLabel ?? 'Lượt truy cập POI hiện tại'}</p>
+                    <p className="mt-1 text-base font-semibold">
+                      {isLoading ? '...' : formatStat(currentPoiVisits)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="mt-4">
