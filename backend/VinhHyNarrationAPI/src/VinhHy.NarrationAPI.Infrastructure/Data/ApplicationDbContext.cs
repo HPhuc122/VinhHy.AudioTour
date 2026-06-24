@@ -64,5 +64,15 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AudioTrack>().HasQueryFilter(e => e.DeletedAt == null);
         modelBuilder.Entity<Tour>().HasQueryFilter(e => e.DeletedAt == null);
         modelBuilder.Entity<QrLocation>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<AnalyticsDaily>().HasQueryFilter(e => e.Poi.DeletedAt == null);
+        modelBuilder.Entity<GuestAccessPass>().HasQueryFilter(e => e.QrLocation.DeletedAt == null);
+        modelBuilder.Entity<AccessPaymentSession>().HasQueryFilter(e => e.GuestAccessPass.QrLocation.DeletedAt == null);
+        modelBuilder.Entity<NarrationDraft>().HasQueryFilter(e => e.Poi.DeletedAt == null);
+        modelBuilder.Entity<NarrationLog>().HasQueryFilter(e => e.Poi.DeletedAt == null);
+        modelBuilder.Entity<OfflinePackage>().HasQueryFilter(e => e.Tour.DeletedAt == null);
+        modelBuilder.Entity<PoiPaymentSession>().HasQueryFilter(e => e.Poi.DeletedAt == null);
+        modelBuilder.Entity<PoiTranslation>().HasQueryFilter(e => e.Poi.DeletedAt == null);
+        modelBuilder.Entity<TourPoi>().HasQueryFilter(e => e.Poi.DeletedAt == null && e.Tour.DeletedAt == null);
+        modelBuilder.Entity<TourTranslation>().HasQueryFilter(e => e.Tour.DeletedAt == null);
     }
 }

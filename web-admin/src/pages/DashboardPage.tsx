@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
@@ -19,10 +19,12 @@ import {
 } from '@/config/mapConfig';
 import { CmsAudioPreviewPlayer } from '@/features/audio/components/CmsAudioPreviewPlayer';
 import {
+  useAnalyticsGroupedQuery,
   useAnalyticsDailyQuery,
   useAnalyticsSummaryQuery,
   useDashboardStatsQuery,
 } from '@/features/analytics/hooks/useDashboardStatsQuery';
+import type { AnalyticsGroupBy, AnalyticsGroupedDto, AnalyticsQueryFilter } from '@/features/analytics/api/analyticsApi';
 import { canViewAnalyticsDashboard, isAdminRole, isVendorRole } from '@/features/auth/roleAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMediaQuery } from '@/features/media/hooks/useMediaQuery';
@@ -105,11 +107,15 @@ function AdminDashboard({
 }) {
   const stats = dashboardQuery.data;
   const [selectedPoi, setSelectedPoi] = useState<PoiMapPoint | null>(null);
-  const analyticsFilter = useMemo(() => getRecentAnalyticsFilter(), []);
-  const dailyAnalyticsQuery = useAnalyticsDailyQuery(analyticsFilter);
-  const summaryAnalyticsQuery = useAnalyticsSummaryQuery(analyticsFilter);
   const poiPoints = useMemo(
     () => getPoiMapPoints(poisMapQuery.data?.items ?? []),
+    [poisMapQuery.data],
+  );
+  const analyticsPoiOptions = useMemo(
+    () => (poisMapQuery.data?.items ?? []).map((poi) => ({
+      code: poi.code,
+      label: `${poi.name || poi.code} (${poi.code})`,
+    })),
     [poisMapQuery.data],
   );
 
@@ -150,14 +156,23 @@ function AdminDashboard({
       </div>
 
       <AnalyticsChartsSection
-        title="Thống kê truy cập 30 ngày"
+        title="Thống kê truy cập"
         description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
+<<<<<<< HEAD
         daily={dailyAnalyticsQuery.data}
         summary={summaryAnalyticsQuery.data}
         currentSiteVisits={stats?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
         error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
+=======
+        currentSiteVisits={stats?.activeVisitors}
+        currentSiteVisitsLabel="Khách đang online"
+        poiOptions={analyticsPoiOptions}
+        canSelectPoi
+        isLoading={false}
+        error={null}
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection
@@ -254,12 +269,6 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
   const vendorPois = vendorPoisQuery.data?.items ?? [];
   const primaryPoi = useMemo(() => choosePrimaryVendorPoi(vendorPois), [vendorPois]);
   const primaryPoiId = primaryPoi?.id;
-  const vendorAnalyticsFilter = useMemo(
-    () => getRecentAnalyticsFilter(primaryPoiId),
-    [primaryPoiId],
-  );
-  const vendorDailyAnalyticsQuery = useAnalyticsDailyQuery(vendorAnalyticsFilter, { enabled: Boolean(primaryPoiId) });
-  const vendorSummaryAnalyticsQuery = useAnalyticsSummaryQuery(vendorAnalyticsFilter, { enabled: Boolean(primaryPoiId) });
   const primaryLifecycle = getLifecycleStatusValue(primaryPoi?.lifecycleStatus);
   const primaryPayment = getPaymentStatusValue(primaryPoi?.paymentStatus);
   const canPayPrimaryPoi =
@@ -364,8 +373,6 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
           vendorNarrationsAll.error,
           vendorTranslationsQuery.error,
           vendorDashboardStatsQuery.error,
-          vendorDailyAnalyticsQuery.error,
-          vendorSummaryAnalyticsQuery.error,
         ]}
       />
 
@@ -433,17 +440,28 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
       </div>
 
       <AnalyticsChartsSection
-        title="Thống kê khách ghé sạp 30 ngày"
+        title="Thống kê khách ghé sạp"
         description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
+<<<<<<< HEAD
         daily={vendorDailyAnalyticsQuery.data}
         summary={vendorSummaryAnalyticsQuery.data}
+=======
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
         currentSiteVisits={vendorDashboardStatsQuery.data?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         currentPoiVisits={vendorDashboardStatsQuery.data?.activeVisitorsByPoi}
         currentPoiVisitsLabel="Khách đang ở sạp"
+<<<<<<< HEAD
         isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
         error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
         emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}
+=======
+        fixedPoiId={primaryPoiId}
+        isEnabled={Boolean(primaryPoiId)}
+        isLoading={false}
+        error={null}
+        emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong khoảng thời gian này.' : 'Chưa có sạp để thống kê.'}
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection
@@ -1025,9 +1043,13 @@ function AnalyticsChartsSection({
   currentSiteVisitsLabel,
   currentPoiVisits,
   currentPoiVisitsLabel,
+  fixedPoiId,
+  poiOptions = [],
+  canSelectPoi = false,
+  isEnabled = true,
   isLoading,
   error,
-  emptyMessage = 'Chưa có dữ liệu truy cập trong 30 ngày qua.',
+  emptyMessage = 'Chưa có dữ liệu truy cập trong khoảng thời gian này.',
 }: {
   title: string;
   description: string;
@@ -1037,23 +1059,52 @@ function AnalyticsChartsSection({
   currentSiteVisitsLabel?: string;
   currentPoiVisits?: number | null;
   currentPoiVisitsLabel?: string;
+  fixedPoiId?: number;
+  poiOptions?: Array<{ code: string; label: string }>;
+  canSelectPoi?: boolean;
+  isEnabled?: boolean;
   isLoading: boolean;
   error: unknown;
   emptyMessage?: string;
 }) {
-  const series = useMemo(() => buildDailySeries(daily ?? []), [daily]);
+  const [timeRange, setTimeRange] = useState<AnalyticsTimeRange>('last30Days');
+  const [groupBy, setGroupBy] = useState<AnalyticsGroupBy>('WeekOfMonth');
+  const [selectedPoiCode, setSelectedPoiCode] = useState('');
+  const groupByOptions = useMemo(() => getGroupByOptions(timeRange), [timeRange]);
+  const effectiveGroupBy = groupByOptions.some((option) => option.value === groupBy)
+    ? groupBy
+    : groupByOptions[0]?.value ?? 'Hour';
+  const analyticsRange = useMemo(() => getAnalyticsDateRange(timeRange), [timeRange]);
+  const analyticsFilter = useMemo<AnalyticsQueryFilter>(() => ({
+    ...analyticsRange,
+    poiId: fixedPoiId,
+    poiCode: canSelectPoi && selectedPoiCode ? selectedPoiCode : undefined,
+    groupBy: effectiveGroupBy,
+  }), [analyticsRange, canSelectPoi, effectiveGroupBy, fixedPoiId, selectedPoiCode]);
+  const dailyQuery = useAnalyticsDailyQuery(analyticsFilter, { enabled: isEnabled });
+  const summaryQuery = useAnalyticsSummaryQuery(analyticsFilter, { enabled: isEnabled });
+  const groupedQuery = useAnalyticsGroupedQuery(analyticsFilter, { enabled: isEnabled });
+  const effectiveDaily = dailyQuery.data ?? daily;
+  const effectiveSummary = summaryQuery.data ?? summary;
+  const effectiveIsLoading = isLoading || dailyQuery.isLoading || summaryQuery.isLoading || groupedQuery.isLoading;
+  const effectiveError = error || dailyQuery.error || summaryQuery.error || groupedQuery.error;
+  const series = useMemo(() => buildDailySeries(effectiveDaily ?? []), [effectiveDaily]);
+  useEffect(() => {
+    if (groupBy !== effectiveGroupBy) {
+      setGroupBy(effectiveGroupBy);
+    }
+  }, [effectiveGroupBy, groupBy]);
   const trafficSources = useMemo(
     () => [
-      { label: 'QR', value: summary?.qrPlays ?? 0, color: '#2563eb' },
-      { label: 'GPS', value: summary?.gpsPlays ?? 0, color: '#16a34a' },
-      { label: 'Thủ công', value: summary?.manualPlays ?? 0, color: '#f59e0b' },
+      { label: 'QR', value: effectiveSummary?.qrPlays ?? 0, color: '#2563eb' },
+      { label: 'GPS', value: effectiveSummary?.gpsPlays ?? 0, color: '#16a34a' },
+      { label: 'Thủ công', value: effectiveSummary?.manualPlays ?? 0, color: '#f59e0b' },
     ],
-    [summary],
+    [effectiveSummary],
   );
-  const totalVisits = summary?.totalPlays ?? series.reduce((sum, item) => sum + item.totalPlays, 0);
-  const uniqueDevices = summary?.uniqueDevices ?? 0;
+  const totalVisits = effectiveSummary?.totalPlays ?? series.reduce((sum, item) => sum + item.totalPlays, 0);
   const hasData = totalVisits > 0 || series.some((item) => item.totalPlays > 0);
-  const errorMessage = getErrorMessage(error);
+  const errorMessage = getErrorMessage(effectiveError);
 
   return (
     <section className="space-y-3">
@@ -1064,23 +1115,32 @@ function AnalyticsChartsSection({
 
       {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
 
+      <AnalyticsFilterBar
+        timeRange={timeRange}
+        groupBy={effectiveGroupBy}
+        selectedPoiCode={selectedPoiCode}
+        poiOptions={poiOptions}
+        groupByOptions={groupByOptions}
+        canSelectPoi={canSelectPoi}
+        onTimeRangeChange={setTimeRange}
+        onGroupByChange={setGroupBy}
+        onPoiCodeChange={setSelectedPoiCode}
+      />
+
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <Card className="p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Lượt truy cập</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{isLoading ? '...' : formatStat(totalVisits)}</p>
-            </div>
-            <div className="flex gap-2 text-xs text-gray-500">
-              <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">Tổng</span>
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">QR/GPS</span>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Biểu đồ nhóm</p>
+              <h3 className="mt-1 text-base font-semibold text-gray-900">{getGroupByLabel(effectiveGroupBy)}</h3>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{effectiveIsLoading ? '...' : formatStat(totalVisits)}</p>
             </div>
           </div>
           <div className="mt-4 h-64">
-            {isLoading ? (
+            {effectiveIsLoading ? (
               <ChartPlaceholder label="Đang tải biểu đồ..." />
-            ) : hasData ? (
-              <LineTrafficChart data={series} />
+            ) : groupedQuery.data?.length ? (
+              <GroupedColumnChart items={groupedQuery.data} />
             ) : (
               <ChartPlaceholder label={emptyMessage} />
             )}
@@ -1091,14 +1151,12 @@ function AnalyticsChartsSection({
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Tỉ lệ nguồn</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{isLoading ? '...' : formatStat(uniqueDevices)}</p>
-              <p className="text-xs text-gray-500">Thiết bị duy nhất</p>
               <div className="mt-3 grid gap-2 text-xs text-gray-500">
                 {typeof currentSiteVisits !== 'undefined' ? (
                   <div className="rounded-md bg-gray-50 px-3 py-2">
                     <p>{currentSiteVisitsLabel ?? 'Lượt truy cập hiện tại'}</p>
                     <p className="mt-1 text-base font-semibold text-gray-900">
-                      {isLoading ? '...' : formatStat(currentSiteVisits)}
+                      {effectiveIsLoading ? '...' : formatStat(currentSiteVisits)}
                     </p>
                   </div>
                 ) : null}
@@ -1106,7 +1164,7 @@ function AnalyticsChartsSection({
                   <div className="rounded-md bg-blue-50 px-3 py-2 text-blue-700">
                     <p>{currentPoiVisitsLabel ?? 'Lượt truy cập POI hiện tại'}</p>
                     <p className="mt-1 text-base font-semibold">
-                      {isLoading ? '...' : formatStat(currentPoiVisits)}
+                      {effectiveIsLoading ? '...' : formatStat(currentPoiVisits)}
                     </p>
                   </div>
                 ) : null}
@@ -1114,7 +1172,7 @@ function AnalyticsChartsSection({
             </div>
           </div>
           <div className="mt-4">
-            {isLoading ? (
+            {effectiveIsLoading ? (
               <ChartPlaceholder label="Đang tải tỉ lệ..." />
             ) : hasData ? (
               <DonutTrafficChart items={trafficSources} />
@@ -1124,8 +1182,155 @@ function AnalyticsChartsSection({
           </div>
         </Card>
       </div>
+
     </section>
   );
+}
+
+type AnalyticsTimeRange = 'today' | 'last7Days' | 'last30Days' | 'thisMonth' | 'thisYear';
+
+function AnalyticsFilterBar({
+  timeRange,
+  groupBy,
+  selectedPoiCode,
+  poiOptions,
+  groupByOptions,
+  canSelectPoi,
+  onTimeRangeChange,
+  onGroupByChange,
+  onPoiCodeChange,
+}: {
+  timeRange: AnalyticsTimeRange;
+  groupBy: AnalyticsGroupBy;
+  selectedPoiCode: string;
+  poiOptions: Array<{ code: string; label: string }>;
+  groupByOptions: Array<{ value: AnalyticsGroupBy; label: string }>;
+  canSelectPoi: boolean;
+  onTimeRangeChange: (value: AnalyticsTimeRange) => void;
+  onGroupByChange: (value: AnalyticsGroupBy) => void;
+  onPoiCodeChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-md border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-3">
+      <label className="grid gap-1 text-sm">
+        <span className="text-xs font-semibold uppercase text-gray-400">Thời gian</span>
+        <select
+          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+          value={timeRange}
+          onChange={(event) => onTimeRangeChange(event.target.value as AnalyticsTimeRange)}
+        >
+          <option value="today">Hôm nay</option>
+          <option value="last7Days">7 ngày gần nhất</option>
+          <option value="last30Days">30 ngày gần nhất</option>
+          <option value="thisMonth">Tháng này</option>
+          <option value="thisYear">Năm này</option>
+        </select>
+      </label>
+
+      <label className="grid gap-1 text-sm">
+        <span className="text-xs font-semibold uppercase text-gray-400">Nhóm theo</span>
+        <select
+          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+          value={groupBy}
+          onChange={(event) => onGroupByChange(event.target.value as AnalyticsGroupBy)}
+        >
+          {groupByOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+
+      {canSelectPoi ? (
+        <label className="grid gap-1 text-sm">
+          <span className="text-xs font-semibold uppercase text-gray-400">Sạp/POI</span>
+          <select
+            className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+            value={selectedPoiCode}
+            onChange={(event) => onPoiCodeChange(event.target.value)}
+          >
+            <option value="">Tổng tất cả sạp</option>
+            {poiOptions.map((poi) => (
+              <option key={poi.code} value={poi.code}>{poi.label}</option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+function GroupedColumnChart({ items }: { items: AnalyticsGroupedDto[] }) {
+  const maxValue = Math.max(1, ...items.map((item) => item.totalPlays));
+  const isDense = items.length >= 12;
+  return (
+    <div
+      className={`grid h-full min-h-56 items-end pb-2 ${isDense ? 'gap-0.5' : 'gap-3'}`}
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+    >
+      {items.map((item) => {
+        const heightPercent = item.totalPlays > 0
+          ? Math.max(6, Math.round((item.totalPlays / maxValue) * 100))
+          : 0;
+        return (
+          <div
+            key={item.key}
+            className="flex h-full min-w-0 flex-col items-center justify-end gap-1.5"
+          >
+            <span className={`${isDense ? 'text-[10px]' : 'text-xs'} font-semibold text-gray-900`}>
+              {formatStat(item.totalPlays)}
+            </span>
+            <div className={`flex h-40 w-full items-end rounded-t-sm bg-gray-50 ${isDense ? 'px-px' : 'px-2'}`}>
+              <div
+                className={`mx-auto w-full rounded-t-sm bg-blue-600 ${isDense ? 'max-w-3' : ''}`}
+                style={{ height: `${heightPercent}%` }}
+              />
+            </div>
+            <span className={`w-full truncate text-center font-medium text-gray-500 ${isDense ? 'text-[9px]' : 'text-xs'}`}>
+              {item.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function getGroupByLabel(groupBy: AnalyticsGroupBy): string {
+  switch (groupBy) {
+    case 'Hour':
+      return 'Theo khung giờ';
+    case 'DayOfWeek':
+      return 'Theo ngày trong tuần';
+    case 'WeekOfMonth':
+      return 'Theo tuần trong tháng';
+    case 'MonthOfYear':
+      return 'Theo tháng trong năm';
+    default:
+      return 'Theo ngày trong tháng';
+  }
+}
+
+function getGroupByOptions(range: AnalyticsTimeRange): Array<{ value: AnalyticsGroupBy; label: string }> {
+  const allOptions: Array<{ value: AnalyticsGroupBy; label: string }> = [
+    { value: 'Hour', label: 'Khung giờ' },
+    { value: 'DayOfWeek', label: 'Ngày trong tuần' },
+    { value: 'WeekOfMonth', label: 'Tuần trong tháng' },
+    { value: 'DayOfMonth', label: 'Ngày trong tháng' },
+    { value: 'MonthOfYear', label: 'Tháng trong năm' },
+  ];
+
+  switch (range) {
+    case 'today':
+      return allOptions.filter((option) => option.value === 'Hour');
+    case 'last7Days':
+      return allOptions.filter((option) => option.value === 'Hour' || option.value === 'DayOfWeek');
+    case 'last30Days':
+      return allOptions.filter(
+        (option) => option.value === 'Hour' || option.value === 'DayOfWeek' || option.value === 'WeekOfMonth',
+      );
+    default:
+      return allOptions;
+  }
 }
 
 interface BreakdownItem {
@@ -1226,43 +1431,6 @@ interface DailySeriesPoint {
   manualPlays: number;
 }
 
-function LineTrafficChart({ data }: { data: DailySeriesPoint[] }) {
-  const width = 720;
-  const height = 240;
-  const padding = { top: 18, right: 18, bottom: 34, left: 38 };
-  const maxValue = Math.max(1, ...data.flatMap((item) => [item.totalPlays, item.qrPlays, item.gpsPlays, item.manualPlays]));
-  const plotWidth = width - padding.left - padding.right;
-  const plotHeight = height - padding.top - padding.bottom;
-  const xFor = (index: number) => padding.left + (plotWidth * index) / Math.max(1, data.length - 1);
-  const yFor = (value: number) => padding.top + plotHeight - (plotHeight * value) / maxValue;
-  const pathFor = (key: keyof Pick<DailySeriesPoint, 'totalPlays' | 'qrPlays' | 'gpsPlays' | 'manualPlays'>) =>
-    data.map((item, index) => `${index === 0 ? 'M' : 'L'} ${xFor(index)} ${yFor(item[key])}`).join(' ');
-  const ticks = [0, Math.ceil(maxValue / 2), maxValue];
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img" aria-label="Biểu đồ lượt truy cập theo ngày">
-      {ticks.map((tick) => (
-        <g key={tick}>
-          <line x1={padding.left} x2={width - padding.right} y1={yFor(tick)} y2={yFor(tick)} stroke="#e5e7eb" />
-          <text x={8} y={yFor(tick) + 4} className="fill-gray-400 text-[11px]">{tick}</text>
-        </g>
-      ))}
-      <path d={pathFor('totalPlays')} fill="none" stroke="#111827" strokeWidth="3" strokeLinecap="round" />
-      <path d={pathFor('qrPlays')} fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" />
-      <path d={pathFor('gpsPlays')} fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" />
-      <path d={pathFor('manualPlays')} fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
-      {data.map((item, index) => (
-        <g key={item.date}>
-          <circle cx={xFor(index)} cy={yFor(item.totalPlays)} r="3" fill="#111827" />
-          {index % Math.max(1, Math.ceil(data.length / 6)) === 0 || index === data.length - 1 ? (
-            <text x={xFor(index)} y={height - 10} textAnchor="middle" className="fill-gray-400 text-[10px]">{item.label}</text>
-          ) : null}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 function DonutTrafficChart({ items }: { items: { label: string; value: number; color: string }[] }) {
   const total = items.reduce((sum, item) => sum + item.value, 0);
   let offset = 25;
@@ -1341,15 +1509,30 @@ function buildDailySeries(records: AnalyticsDailyDto[]): DailySeriesPoint[] {
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function getRecentAnalyticsFilter(poiId?: number) {
+function getAnalyticsDateRange(range: AnalyticsTimeRange): Pick<AnalyticsQueryFilter, 'from' | 'to'> {
   const to = new Date();
-  const from = new Date();
-  from.setDate(to.getDate() - (ANALYTICS_RANGE_DAYS - 1));
+  const from = new Date(to);
+
+  switch (range) {
+    case 'today':
+      break;
+    case 'last7Days':
+      from.setDate(to.getDate() - 6);
+      break;
+    case 'thisMonth':
+      from.setDate(1);
+      break;
+    case 'thisYear':
+      from.setMonth(0, 1);
+      break;
+    default:
+      from.setDate(to.getDate() - (ANALYTICS_RANGE_DAYS - 1));
+      break;
+  }
 
   return {
     from: toDateOnlyString(from),
     to: toDateOnlyString(to),
-    poiId,
   };
 }
 

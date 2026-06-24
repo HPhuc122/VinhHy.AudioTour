@@ -12,5 +12,9 @@ public interface IAnalyticsService
         AnalyticsQueryFilter filter,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<AnalyticsGroupedDto>> GetGroupedAsync(
+        AnalyticsQueryFilter filter,
+        CancellationToken cancellationToken = default);
+
     Task<DashboardStatsDto> GetDashboardAsync(CancellationToken cancellationToken = default);
 }
