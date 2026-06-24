@@ -30,6 +30,15 @@ public class AnalyticsController(IAnalyticsService analyticsService) : Controlle
         return this.ApiOk(result);
     }
 
+    [HttpGet("grouped")]
+    public async Task<IActionResult> GetGrouped(
+        [FromQuery] AnalyticsQueryFilter filter,
+        CancellationToken cancellationToken)
+    {
+        var result = await analyticsService.GetGroupedAsync(filter, cancellationToken);
+        return this.ApiOk(result);
+    }
+
     [HttpGet("dashboard")]
     public async Task<IActionResult> GetDashboard(CancellationToken cancellationToken)
     {

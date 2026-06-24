@@ -8,6 +8,7 @@ export const analyticsQueryKeys = {
   dashboard: () => [...analyticsQueryKeys.all, 'dashboard'] as const,
   daily: (filter: AnalyticsQueryFilter) => [...analyticsQueryKeys.all, 'daily', filter] as const,
   summary: (filter: AnalyticsQueryFilter) => [...analyticsQueryKeys.all, 'summary', filter] as const,
+  grouped: (filter: AnalyticsQueryFilter) => [...analyticsQueryKeys.all, 'grouped', filter] as const,
 };
 
 export function useDashboardStatsQuery(options?: { enabled?: boolean }) {
@@ -41,6 +42,18 @@ export function useAnalyticsSummaryQuery(filter: AnalyticsQueryFilter, options?:
   return useQuery({
     queryKey: analyticsQueryKeys.summary(filter),
     queryFn: () => analyticsApi.getSummary(filter),
+    enabled: options?.enabled ?? true,
+    refetchInterval: options?.enabled === false ? false : 10000,
+  });
+}
+
+export function useAnalyticsGroupedQuery(filter: AnalyticsQueryFilter, options?: { enabled?: boolean }) {
+  const { httpClient } = useAuth();
+  const analyticsApi = useMemo(() => createAnalyticsApi(httpClient), [httpClient]);
+
+  return useQuery({
+    queryKey: analyticsQueryKeys.grouped(filter),
+    queryFn: () => analyticsApi.getGrouped(filter),
     enabled: options?.enabled ?? true,
     refetchInterval: options?.enabled === false ? false : 10000,
   });

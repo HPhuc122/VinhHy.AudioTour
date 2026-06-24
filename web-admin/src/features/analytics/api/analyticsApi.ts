@@ -55,10 +55,25 @@ export interface AnalyticsSummaryDto {
   to?: string | null;
 }
 
+export type AnalyticsGroupBy = 'Hour' | 'DayOfWeek' | 'DayOfMonth' | 'MonthOfYear' | 'WeekOfMonth';
+
+export interface AnalyticsGroupedDto {
+  key: string;
+  label: string;
+  sortOrder: number;
+  totalPlays: number;
+  gpsPlays: number;
+  qrPlays: number;
+  manualPlays: number;
+  uniqueDevices: number;
+}
+
 export interface AnalyticsQueryFilter {
   from?: string;
   to?: string;
   poiId?: number;
+  poiCode?: string;
+  groupBy?: AnalyticsGroupBy;
 }
 
 export function createAnalyticsApi(httpClient: AxiosInstance) {
@@ -79,6 +94,7 @@ export function createAnalyticsApi(httpClient: AxiosInstance) {
             from: filter.from,
             to: filter.to,
             poiId: filter.poiId,
+            poiCode: filter.poiCode,
           },
         },
       );
@@ -94,6 +110,24 @@ export function createAnalyticsApi(httpClient: AxiosInstance) {
             from: filter.from,
             to: filter.to,
             poiId: filter.poiId,
+            poiCode: filter.poiCode,
+          },
+        },
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
+    async getGrouped(filter: AnalyticsQueryFilter = {}): Promise<AnalyticsGroupedDto[]> {
+      const response = await httpClient.get<ApiResponse<AnalyticsGroupedDto[]>>(
+        `${ANALYTICS_BASE}/grouped`,
+        {
+          params: {
+            from: filter.from,
+            to: filter.to,
+            poiId: filter.poiId,
+            poiCode: filter.poiCode,
+            groupBy: filter.groupBy,
           },
         },
       );
