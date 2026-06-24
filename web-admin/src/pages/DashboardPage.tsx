@@ -154,8 +154,8 @@ function AdminDashboard({
         description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
         daily={dailyAnalyticsQuery.data}
         summary={summaryAnalyticsQuery.data}
-        currentSiteVisits={stats?.totalSiteVisits ?? stats?.totalAudioPlays}
-        currentSiteVisitsLabel="Lượt truy cập website hiện tại"
+        currentSiteVisits={stats?.activeVisitors}
+        currentSiteVisitsLabel="Khách đang online"
         isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
         error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
       />
@@ -437,10 +437,10 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
         description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
         daily={vendorDailyAnalyticsQuery.data}
         summary={vendorSummaryAnalyticsQuery.data}
-        currentSiteVisits={vendorDashboardStatsQuery.data?.totalSiteVisits}
-        currentSiteVisitsLabel="Lượt truy cập website hiện tại"
-        currentPoiVisits={vendorDashboardStatsQuery.data?.totalVendorPoiVisits ?? vendorDashboardStatsQuery.data?.totalAudioPlays}
-        currentPoiVisitsLabel="Lượt truy cập POI của tôi"
+        currentSiteVisits={vendorDashboardStatsQuery.data?.activeVisitors}
+        currentSiteVisitsLabel="Khách đang online"
+        currentPoiVisits={vendorDashboardStatsQuery.data?.activeVisitorsByPoi}
+        currentPoiVisitsLabel="Khách đang ở sạp"
         isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
         error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
         emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}

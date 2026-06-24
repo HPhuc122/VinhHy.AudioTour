@@ -51,4 +51,10 @@ public class DashboardStatsDto
     /// Resets to 0 on API restart. Reflects "right now" visitor count.
     /// </summary>
     public int ActiveVisitors { get; set; }
+
+    /// <summary>
+    /// For vendor role only: number of browser sessions currently viewing this vendor's primary POI.
+    /// Null for admin/analytics roles.
+    /// </summary>
+    public int? ActiveVisitorsByPoi { get; set; }
 }

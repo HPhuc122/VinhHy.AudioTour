@@ -29,6 +29,8 @@ export interface DashboardStatsDto {
   totalVendorPoiVisits?: number | null;
   /** Number of browsers currently open on the public web (in-memory presence). */
   activeVisitors: number;
+  /** Vendor only: number of browsers currently viewing this vendor's primary POI. */
+  activeVisitorsByPoi?: number | null;
 }
 
 export interface AnalyticsDailyDto {

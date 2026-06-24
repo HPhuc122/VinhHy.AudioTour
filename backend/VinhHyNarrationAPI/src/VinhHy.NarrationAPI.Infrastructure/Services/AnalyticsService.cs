@@ -161,7 +161,10 @@ public class AnalyticsService : IAnalyticsService
             TotalVendorPoiVisits = ownerUserId.HasValue
                 ? await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
                 : null,
-            ActiveVisitors = _presence.CountActive()
+            ActiveVisitors = _presence.CountActive(),
+            ActiveVisitorsByPoi = ownerUserId.HasValue
+                ? await GetVendorPrimaryPoiActiveVisitorsAsync(ownerUserId.Value, cancellationToken).ConfigureAwait(false)
+                : null
         };
     }
 
@@ -205,6 +208,25 @@ public class AnalyticsService : IAnalyticsService
         return ownerUserId.HasValue
             ? query.Where(n => n.Poi.UserId == ownerUserId.Value)
             : query;
+    }
+
+
+    private async Task<int> GetVendorPrimaryPoiActiveVisitorsAsync(int ownerUserId, CancellationToken cancellationToken)
+    {
+        var primaryPoiCode = await _db.Pois
+            .AsNoTracking()
+            .Where(p => p.UserId == ownerUserId)
+            .OrderBy(p =>
+                p.LifecycleStatus == PoiLifecycleStatus.PendingPayment ? 0 :
+                p.LifecycleStatus == PoiLifecycleStatus.PendingReview  ? 1 :
+                p.LifecycleStatus == PoiLifecycleStatus.Approved       ? 2 :
+                p.LifecycleStatus == PoiLifecycleStatus.Active         ? 3 :
+                p.LifecycleStatus == PoiLifecycleStatus.Rejected       ? 4 : 5)
+            .Select(p => p.Code)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return primaryPoiCode is null ? 0 : _presence.CountActiveByPoi(primaryPoiCode);
     }
 
     private int? GetVendorOwnerUserId()
