@@ -51,6 +51,10 @@ public static class InfrastructureServiceCollectionExtensions
         RegisterServices(services);
         ConfigureJwtAuthentication(services, configuration);
 
+        // In-memory presence tracking (singleton — lives for the lifetime of the process)
+        services.AddSingleton<PresenceStore>();
+        services.AddHostedService<PresencePurgeService>();
+
         return services;
     }
 

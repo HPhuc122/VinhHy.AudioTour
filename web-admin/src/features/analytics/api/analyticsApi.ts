@@ -27,6 +27,8 @@ export interface DashboardStatsDto {
   totalAudioPlays: number;
   totalSiteVisits: number;
   totalVendorPoiVisits?: number | null;
+  /** Number of browsers currently open on the public web (in-memory presence). */
+  activeVisitors: number;
 }
 
 export interface AnalyticsDailyDto {
