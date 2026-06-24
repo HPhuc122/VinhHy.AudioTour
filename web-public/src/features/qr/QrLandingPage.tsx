@@ -49,8 +49,8 @@ export function QrLandingPage({ lang }: Props) {
       (validateQuery.isSuccess && validateQuery.data?.isValid === false));
 
   const startAccessQuery = useQuery({
-    queryKey: ['guest-access-start', code],
-    queryFn: () => publicAccessApi.start(code!),
+    queryKey: ['guest-access-start', code, lang],
+    queryFn: () => publicAccessApi.start(code!, lang),
     enabled: shouldStartAccess,
     retry: false,
   });
@@ -72,7 +72,7 @@ export function QrLandingPage({ lang }: Props) {
   }, [code, startAccessQuery.data]);
 
   const paymentMutation = useMutation({
-    mutationFn: () => publicAccessApi.simulatePayment(startAccessQuery.data!.paymentSessionId!, true),
+    mutationFn: () => publicAccessApi.simulatePayment(startAccessQuery.data!.paymentSessionId!, true, lang),
     onSuccess: (data) => {
       if (!code || !data.accessToken || !data.expiresAt) {
         return;

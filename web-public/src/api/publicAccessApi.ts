@@ -33,17 +33,22 @@ export interface ValidateAccessResponse {
 }
 
 export const publicAccessApi = {
-  async start(qrCode: string): Promise<StartAccessResponse> {
+  async start(qrCode: string, languageCode = 'vi'): Promise<StartAccessResponse> {
     const res = await httpClient.post<ApiResponse<StartAccessResponse>>('/public/access/start', {
       qrCode,
+      languageCode,
     });
     return res.data.data;
   },
 
-  async simulatePayment(paymentSessionId: number, success = true): Promise<SimulatePaymentResponse> {
+  async simulatePayment(
+    paymentSessionId: number,
+    success = true,
+    languageCode = 'vi',
+  ): Promise<SimulatePaymentResponse> {
     const res = await httpClient.post<ApiResponse<SimulatePaymentResponse>>(
       '/public/access/simulate-payment',
-      { paymentSessionId, success },
+      { paymentSessionId, success, languageCode },
     );
     return res.data.data;
   },

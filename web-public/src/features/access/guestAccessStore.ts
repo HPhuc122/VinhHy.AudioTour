@@ -1,3 +1,5 @@
+import { isAccessExpired, parseAccessExpiresAt } from './accessTime';
+
 export interface GuestAccessRecord {
   qrCode: string;
   accessToken: string;
@@ -16,7 +18,7 @@ export const guestAccessStore = {
       return null;
     }
 
-    if (new Date(record.expiresAt).getTime() <= Date.now()) {
+    if (isAccessExpired(record.expiresAt)) {
       delete records[qrCode];
       writeRecords(records);
       return null;
@@ -49,7 +51,7 @@ export const guestAccessStore = {
     let changed = false;
 
     for (const [qrCode, record] of Object.entries(records)) {
-      if (new Date(record.expiresAt).getTime() <= Date.now()) {
+      if (isAccessExpired(record.expiresAt)) {
         delete records[qrCode];
         changed = true;
         continue;
@@ -77,7 +79,7 @@ function findRecord(predicate: (record: GuestAccessRecord) => boolean): GuestAcc
   let changed = false;
 
   for (const [qrCode, record] of Object.entries(records)) {
-    if (new Date(record.expiresAt).getTime() <= Date.now()) {
+    if (isAccessExpired(record.expiresAt)) {
       delete records[qrCode];
       changed = true;
       continue;
@@ -137,5 +139,5 @@ function isGuestAccessRecord(value: unknown): value is GuestAccessRecord {
     && typeof record.accessToken === 'string'
     && record.accessToken.length > 0
     && typeof record.expiresAt === 'string'
-    && Number.isFinite(new Date(record.expiresAt).getTime());
+    && Number.isFinite(parseAccessExpiresAt(record.expiresAt));
 }

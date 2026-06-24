@@ -86,7 +86,7 @@ public class PublicAccessService : IPublicAccessService
 
         if (!qr.RequiresPayment && qr.PoiId.HasValue)
         {
-            await RecordPublicVisitAsync(qr.PoiId.Value, TriggerTypes.Qr, languageCode: null, cancellationToken)
+            await RecordPublicVisitAsync(qr.PoiId.Value, TriggerTypes.Qr, request.LanguageCode, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -189,7 +189,7 @@ public class PublicAccessService : IPublicAccessService
 
         if (pass.QrLocation.PoiId.HasValue)
         {
-            await RecordPublicVisitAsync(pass.QrLocation.PoiId.Value, TriggerTypes.Qr, languageCode: null, cancellationToken)
+            await RecordPublicVisitAsync(pass.QrLocation.PoiId.Value, TriggerTypes.Qr, request.LanguageCode, cancellationToken)
                 .ConfigureAwait(false);
         }
 

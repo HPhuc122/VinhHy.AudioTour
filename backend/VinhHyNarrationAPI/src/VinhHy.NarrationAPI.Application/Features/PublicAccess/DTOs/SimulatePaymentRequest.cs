@@ -5,4 +5,6 @@ public class SimulatePaymentRequest
     public int PaymentSessionId { get; set; }
 
     public bool Success { get; set; } = true;
+
+    public string? LanguageCode { get; set; }
 }
