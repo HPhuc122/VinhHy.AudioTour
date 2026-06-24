@@ -41,11 +41,3 @@ export function useUpdateUser(id: number) {
     },
   });
 }
-
-export function useDeleteUser() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => usersApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: USER_KEYS.all }),
-  });
-}

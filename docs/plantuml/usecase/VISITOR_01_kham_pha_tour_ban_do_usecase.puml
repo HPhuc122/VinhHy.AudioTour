@@ -1,0 +1,43 @@
+@startuml
+title Use Case Diagram - Visitor - Kham pha, tour va ban do
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Visitor" as Visitor
+
+rectangle "KhanhHoi AudioTour Web Public" {
+  usecase "UC18\nKham pha va tim\nkiem POI cong khai" as UC18
+  usecase "UC19\nXem tour va\nthu tu lo trinh" as UC19
+  usecase "UC20\nXem ban do\nva chi duong" as UC20
+  usecase "Xem chi tiet\nPOI" as PoiDetail
+  usecase "Xem diem dung\ntrong tour" as TourStops
+  usecase "Xem marker POI\ntren ban do" as MapMarker
+  usecase "Tinh duong di\nbang dich vu ban do" as Direction
+}
+
+Visitor --> UC18
+Visitor --> UC19
+Visitor --> UC20
+
+PoiDetail ..> UC18 : <<extend>>
+UC19 ..> TourStops : <<include>>
+TourStops ..> UC18 : <<include>>
+UC20 ..> MapMarker : <<include>>
+Direction ..> UC20 : <<extend>>
+UC20 ..> UC18 : <<include>>
+
+@enduml

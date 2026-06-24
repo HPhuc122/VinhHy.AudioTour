@@ -19,7 +19,6 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
-  email?: string;
   password?: string;
   roleId?: number;
   preferredLanguage?: string;

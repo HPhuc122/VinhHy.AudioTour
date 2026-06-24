@@ -1,4 +1,6 @@
 using AutoMapper;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Users.DTOs;
@@ -12,11 +14,13 @@ public class UserService : IUserService
 {
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public UserService(IUnitOfWork uow, IMapper mapper)
+    public UserService(IUnitOfWork uow, IMapper mapper, IHttpContextAccessor httpContextAccessor)
     {
         _uow = uow;
         _mapper = mapper;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<UserDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -74,9 +78,6 @@ public class UserService : IUserService
         var user = await _uow.Users.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(User), id);
 
-        if (request.Email is not null)
-            user.Email = request.Email;
-
         if (request.RoleId.HasValue)
         {
             var role = await _uow.Roles.GetByIdAsync(request.RoleId.Value, cancellationToken).ConfigureAwait(false)
@@ -92,7 +93,14 @@ public class UserService : IUserService
             user.IsActive = request.IsActive.Value;
 
         if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            if (GetCurrentUserId() != id)
+            {
+                throw new ForbiddenException("Admins cannot change another user's password.");
+            }
+
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        }
 
         user.UpdatedAt = DateTime.UtcNow;
         _uow.Users.Update(user);
@@ -103,10 +111,17 @@ public class UserService : IUserService
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var user = await _uow.Users.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
+        _ = await _uow.Users.GetByIdAsync(id, cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(User), id);
 
-        _uow.Users.Delete(user);
-        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        throw new ForbiddenException("Deleting users is disabled.");
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var value = _httpContextAccessor.HttpContext?.User
+            .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return int.TryParse(value, out var id) ? id : null;
     }
 }

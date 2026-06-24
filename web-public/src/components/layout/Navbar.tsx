@@ -49,8 +49,8 @@ export function Navbar({ lang, setLang }: Props) {
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
         <Link to={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">V</div>
-          <span className="hidden text-sm font-bold text-white sm:block">VinhHy AudioTour</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-sm font-bold text-white">K</div>
+          <span className="hidden text-sm font-bold text-white sm:block">KhanhHoi AudioTour</span>
         </Link>
 
         <div className="hidden items-center gap-6 md:flex">

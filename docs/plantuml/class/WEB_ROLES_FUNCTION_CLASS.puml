@@ -1,0 +1,215 @@
+@startuml
+title So do lop chuc nang - Web Admin, Web Vendor, Guest
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+left to right direction
+
+package "Web Admin" {
+  class "Admin_DashboardPage" as AdminDashboard {
+    +XemTheThongKe()
+    +XemLineChart30Ngay()
+    +XemDonutNguonTruyCap()
+    +XemCotNgangVanHanh()
+    +XemBanDoPOI()
+  }
+
+  class "Admin_ContentPages" as AdminContent {
+    +QuanLyPOI()
+    +DuyetPOI()
+    +QuanLyBanDichPOI()
+    +KiemDuyetHinhAnh()
+    +KiemDuyetThuyetMinh()
+    +QuanLyTour()
+    +QuanLyQR()
+  }
+
+  class "Admin_SystemPages" as AdminSystem {
+    +QuanLyNguoiDung()
+    +QuanLyVaiTro()
+    +QuanLyNgonNgu()
+  }
+}
+
+package "Web Vendor" {
+  class "Vendor_DashboardPage" as VendorDashboard {
+    +XemTrangThaiSap()
+    +XemKhachGheSap30Ngay()
+    +XemTiLeNguonTruyCap()
+    +XemCoCauNoiDungSap()
+    +ThanhToanKichHoatSap()
+  }
+
+  class "Vendor_PoiPages" as VendorPoi {
+    +DangKySap()
+    +CapNhatSap()
+    +XemTrangThaiDuyet()
+    +GuiYeuCauDuyet()
+  }
+
+  class "Vendor_ContentPages" as VendorContent {
+    +TaiHinhAnhLen()
+    +SoanThuyetMinh()
+    +QuanLyBanDichPOI()
+    +XemTrangThaiKiemDuyet()
+  }
+}
+
+package "Guest" {
+  class "Guest_PublicPages" as GuestPublic {
+    +XemTrangChu()
+    +TimKiemPOI()
+    +XemChiTietPOI()
+    +XemTour()
+  }
+
+  class "Guest_MapPage" as GuestMap {
+    +XemBanDo()
+    +XemMarkerPOI()
+    +TinhDuongDiBenNgoai()
+  }
+
+  class "Guest_QrAudioPages" as GuestQrAudio {
+    +QuetQR()
+    +ChonGoiThuyetMinh()
+    +ThanhToanMoPhong()
+    +MoAccessPass()
+    +NgheAudioBaoVe()
+  }
+}
+
+package "Backend API" {
+  class "AnalyticsController" as AnalyticsController {
+    +GetDashboard()
+    +GetDaily()
+    +GetSummary()
+  }
+
+  class "PoisController" as PoisController {
+    +GetPois()
+    +CreatePoi()
+    +UpdatePoi()
+    +SoftDeletePoi()
+    +ApprovePoi()
+    +RejectPoi()
+    +CreatePaymentSession()
+  }
+
+  class "MediaController" as MediaController {
+    +GetMedia()
+    +UploadMedia()
+    +ApproveMedia()
+    +RejectMedia()
+  }
+
+  class "NarrationsController" as NarrationsController {
+    +GetNarrations()
+    +CreateDraft()
+    +SubmitDraft()
+    +ApproveDraft()
+    +RejectDraft()
+    +AttachAudio()
+  }
+
+  class "PoiTranslationsController" as PoiTranslationsController {
+    +GetTranslations()
+    +CreateTranslation()
+    +UpdateTranslation()
+    +DeleteTranslation()
+  }
+
+  class "ToursController" as ToursController {
+    +GetTours()
+    +CreateTour()
+    +UpdateTour()
+    +ManageStops()
+  }
+
+  class "QrController" as QrController {
+    +GetQrCodes()
+    +CreateQr()
+    +UpdateQr()
+    +ScanQr()
+  }
+
+  class "PublicPoisController" as PublicPoisController {
+    +GetPublicPois()
+    +GetPublicPoiDetail()
+  }
+
+  class "PublicToursController" as PublicToursController {
+    +GetPublicTours()
+    +GetPublicTourDetail()
+  }
+
+  class "PublicAccessController" as PublicAccessController {
+    +GetPackages()
+    +CreatePaymentSession()
+    +IssueAccessPass()
+    +ValidateAccessPass()
+  }
+
+  class "AudioController" as AudioController {
+    +GetProtectedAudio()
+  }
+}
+
+package "Business va Data" {
+  class "AnalyticsService" as AnalyticsService {
+    +GetDashboardAsync()
+    +GetDailyAsync()
+    +GetSummaryAsync()
+    -GetVendorOwnerUserId()
+    -EnsureVendorOwnsPoiAsync()
+  }
+
+  class "ApplicationDbContext" as DbContext {
+    +Pois
+    +Tours
+    +QrLocations
+    +MediaFiles
+    +NarrationDrafts
+    +NarrationLogs
+    +PoiTranslations
+  }
+}
+
+AdminDashboard --> AnalyticsController : /dashboard, /daily, /summary
+AdminDashboard --> PoisController : POI ban do
+AdminContent --> PoisController : CRUD va duyet POI
+AdminContent --> MediaController : duyet hinh anh
+AdminContent --> NarrationsController : duyet thuyet minh
+AdminContent --> PoiTranslationsController : ban dich POI
+AdminContent --> ToursController : tour va diem dung
+AdminContent --> QrController : ma QR
+
+VendorDashboard --> PoisController : sap cua toi
+VendorDashboard --> AnalyticsController : /daily va /summary theo poiId
+VendorDashboard --> MediaController : thong ke hinh anh sap
+VendorDashboard --> NarrationsController : thong ke thuyet minh sap
+VendorDashboard --> PoiTranslationsController : thong ke ban dich sap
+VendorPoi --> PoisController : dang ky va cap nhat sap
+VendorPoi --> PoisController : thanh toan mo phong
+VendorContent --> MediaController : upload hinh anh
+VendorContent --> NarrationsController : soan thuyet minh
+VendorContent --> PoiTranslationsController : quan ly ban dich
+
+GuestPublic --> PublicPoisController : xem POI cong khai
+GuestPublic --> PublicToursController : xem tour cong khai
+GuestMap --> PublicPoisController : lay marker POI
+GuestQrAudio --> QrController : quet QR
+GuestQrAudio --> PublicAccessController : goi va access pass
+GuestQrAudio --> AudioController : nghe audio bao ve
+
+AnalyticsController --> AnalyticsService : xu ly thong ke
+AnalyticsService --> DbContext : doc POI, QR, media, log
+
+note right of AnalyticsService
+Vendor duoc goi analytics
+nhung du lieu bi gioi han
+theo POI/sap thuoc tai khoan Vendor.
+end note
+
+@enduml

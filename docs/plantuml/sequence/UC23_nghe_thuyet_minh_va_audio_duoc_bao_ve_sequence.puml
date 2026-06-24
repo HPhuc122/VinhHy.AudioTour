@@ -1,0 +1,46 @@
+@startuml
+title Sequence Diagram - UC23 Nghe thuyet minh va audio duoc bao ve
+
+actor "Khach co guest access pass" as Actor
+participant "Presentation Layer\nWebPublicUI - PoiDetailPage, TourRoutePage, MapPage va ProtectedAudioPlayer" as UI
+participant "Business Logic Layer\nPublicAudioTourController + PublicAudioController + PublicAudioTourService + PublicAccessService" as Business
+participant "Data Access Layer\nGuestAccessPassRepository + AudioTrackRepository + PoiRepository + TourRepository + TourPoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo POI/tour va chon nghe
+UI -> UI: Lay access token da luu
+UI -> Business: Gui token, POI/tour id va ngon ngu
+Business -> DataAccess: Tim pass theo token hash
+DataAccess -> Database: Doc GuestAccessPass va QrLocation
+Database --> DataAccess: Tra pass
+DataAccess --> Business: Tra du lieu pass
+Business -> Business: Kiem tra Active, han dung va scope
+alt Token thieu, sai hoac het han
+  Business -> DataAccess: Cap nhat Expired neu can
+  DataAccess -> Database: Ghi trang thai pass
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra loi khong duoc xac thuc
+  UI --> Actor: Xoa pass va hien thi het han
+else Pass khong cho phep POI/tour
+  Business --> UI: Tra loi khong co quyen
+  UI --> Actor: Yeu cau chon goi phu hop
+else Pass hop le
+  Business -> DataAccess: Doc POI/tour, narration va AudioTrack active
+  DataAccess -> Database: Doc noi dung va quan he TourPoi
+  Database --> DataAccess: Tra du lieu audio tour
+  DataAccess --> Business: Tra metadata
+  Business --> UI: Tra narration va danh sach track theo ngon ngu
+  Actor -> UI: Bam phat mot track
+  UI -> Business: Gui token va audioTrackId de stream
+  Business -> DataAccess: Doc track va kiem tra lai scope POI
+  DataAccess -> Database: Doc AudioTrack, POI va pass
+  Database --> DataAccess: Tra du lieu
+  alt Track active, POI public, file MP3 hop le va dung scope
+    Business --> UI: Stream file audio co ho tro tua
+    UI --> Actor: Phat audio
+  else Track/file khong ton tai hoac khong hop le
+    Business --> UI: Tra khong tim thay hoac file loi
+    UI --> Actor: Hien thi audio chua san sang
+  end
+end
+@enduml

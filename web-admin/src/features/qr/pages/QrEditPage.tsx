@@ -16,6 +16,7 @@ export function QrEditPage() {
   const updateQrMutation = useUpdateQrMutation();
   const queryError = getErrorMessage(qrQuery.error);
   const mutationError = getErrorMessage(updateQrMutation.error);
+  const returnView = qrQuery.data?.qrKind === 'AudioPackage' ? 'payment' : 'access';
 
   const initialValues = useMemo(() => {
     if (!qrQuery.data) {
@@ -23,6 +24,8 @@ export function QrEditPage() {
     }
 
     return {
+      name: qrQuery.data.name,
+      qrKind: qrQuery.data.qrKind,
       poiId: qrQuery.data.poiId ?? null,
       tourId: qrQuery.data.tourId ?? null,
       isActive: qrQuery.data.isActive,
@@ -56,12 +59,14 @@ export function QrEditPage() {
             initialValues={initialValues}
             isSubmitting={updateQrMutation.isPending}
             errorMessage={mutationError}
-            onCancel={() => navigate(routes.qr)}
+            onCancel={() => navigate(`${routes.qr}?view=${returnView}`)}
             onSubmit={(values) => {
               updateQrMutation.mutate(
                 {
                   id: parsedQrId,
                   values: {
+                    name: values.name,
+                    qrKind: values.qrKind,
                     poiId: values.poiId,
                     tourId: values.tourId,
                     isActive: values.isActive,
@@ -72,7 +77,7 @@ export function QrEditPage() {
                 },
                 {
                   onSuccess: () => {
-                    navigate(routes.qr);
+                    navigate(`${routes.qr}?view=${values.qrKind === 'AudioPackage' ? 'payment' : 'access'}`);
                   },
                 },
               );

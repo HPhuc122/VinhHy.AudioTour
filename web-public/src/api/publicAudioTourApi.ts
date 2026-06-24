@@ -15,6 +15,8 @@ export interface PublicAudioTourAudioDto {
   isAvailable: boolean;
 }
 
+export type AudioTourTriggerType = 'manual' | 'gps' | 'qr';
+
 export interface PublicAudioTourPoiDto {
   id: number;
   code: string;
@@ -51,11 +53,16 @@ export const publicAudioTourApi = {
     return filterAudioByLanguage(res.data.data, languageCode);
   },
 
-  async getPoi(poiId: number, accessToken: string, languageCode = 'vi'): Promise<PublicAudioTourPoiDto> {
+  async getPoi(
+    poiId: number,
+    accessToken: string,
+    languageCode = 'vi',
+    triggerType: AudioTourTriggerType = 'manual',
+  ): Promise<PublicAudioTourPoiDto> {
     const res = await httpClient.get<ApiResponse<PublicAudioTourPoiDto>>(
       `/public/audio-tour/pois/${poiId}`,
       {
-        params: { languageCode },
+        params: { languageCode, triggerType },
         headers: { 'X-Guest-Access-Token': accessToken },
       },
     );

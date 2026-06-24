@@ -1,0 +1,44 @@
+@startuml
+title Sequence Diagram - UC14 Quan ly ma QR gan POI Tour
+
+actor "Admin / ContentAdmin" as Actor
+participant "Presentation Layer\nWebAdminUI - QrListPage va QrForm" as UI
+participant "Business Logic Layer\nQrController + QrService + SoftDeleteService" as Business
+participant "Data Access Layer\nQrRepository + PoiRepository + TourRepository + DeletedRecordRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo danh sach QR
+UI -> Business: Gui yeu cau doc danh sach
+Business -> Business: Kiem tra quyen ContentManagement
+Business -> DataAccess: Doc QrLocation
+DataAccess -> Database: Doc du lieu QR va target
+Database --> DataAccess: Tra danh sach
+DataAccess --> Business: Tra ket qua
+Business --> UI: Hien thi QR
+
+alt Tao hoac cap nhat QR
+  Actor -> UI: Chon POI/Tour va cau hinh access
+  UI -> Business: Gui yeu cau luu QR
+  Business -> DataAccess: Kiem tra target ton tai
+  DataAccess -> Database: Doc Poi hoac Tour
+  Database --> DataAccess: Tra target
+  alt Target, gia va thoi luong hop le
+    Business -> Business: Sinh code duy nhat neu tao moi
+    Business -> DataAccess: Ghi QrLocation
+    DataAccess -> Database: Tao hoac cap nhat QR
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra QR da luu
+    UI --> Actor: Cap nhat danh sach va ma QR
+  else Chon sai target hoac cau hinh khong hop le
+    Business --> UI: Tra thong bao loi
+    UI --> Actor: Hien thi loi form
+  end
+else Xoa QR
+  UI -> Business: Gui yeu cau xoa
+  Business -> DataAccess: Doc QR va ghi xoa mem
+  DataAccess -> Database: Cap nhat DeletedAt va DeletedRecord
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra ket qua
+  UI --> Actor: Cap nhat danh sach
+end
+@enduml

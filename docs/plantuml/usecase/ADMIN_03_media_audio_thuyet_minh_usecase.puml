@@ -1,0 +1,48 @@
+@startuml
+title Use Case Diagram - Admin - Media, audio va thuyet minh
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Admin" as Admin
+
+rectangle "KhanhHoi AudioTour Web Admin" {
+  usecase "UC09\nKiem duyet va\nquan ly hinh anh" as UC09
+  usecase "UC11\nKiem duyet ban\nthuyet minh" as UC11
+  usecase "UC12\nDich thuyet minh\nva gan MP3" as UC12
+  usecase "UC01\nDang nhap" as UC01
+  usecase "Xem thu vien\nmedia" as MediaList
+  usecase "Duyet hoac tu choi\nhinh anh" as ReviewImage
+  usecase "Duyet hoac tu choi\nban thuyet minh" as ReviewNarration
+  usecase "Tao ban dich\nthuyet minh" as TranslateNarration
+  usecase "Tai len va gan\nfile MP3" as AttachMp3
+}
+
+Admin --> UC09
+Admin --> UC11
+Admin --> UC12
+
+UC09 ..> UC01 : <<include>>
+UC11 ..> UC01 : <<include>>
+UC12 ..> UC01 : <<include>>
+UC09 ..> MediaList : <<include>>
+UC09 ..> ReviewImage : <<include>>
+UC11 ..> ReviewNarration : <<include>>
+UC12 ..> TranslateNarration : <<include>>
+UC12 ..> AttachMp3 : <<include>>
+UC12 ..> UC11 : <<extend>>
+
+@enduml

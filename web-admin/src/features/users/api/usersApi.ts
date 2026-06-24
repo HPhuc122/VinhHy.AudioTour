@@ -36,9 +36,6 @@ export const usersApi = {
     return unwrapApiResponse(res.data);
   },
 
-  async delete(id: number): Promise<void> {
-    await httpClient.delete(`${USERS_BASE}/${id}`);
-  },
 };
 
 function unwrapApiResponse<T>(body: ApiResponse<T>): T {

@@ -141,6 +141,40 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
         Assert.Equal(HttpStatusCode.Unauthorized, expiredResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task PublicPoiAudioTourEndpoint_WhenTriggeredByGps_StoresGpsNarrationLog()
+    {
+        var (_, poiId) = await SeedAudioTourAsync();
+        var qrCode = await SeedQrAsync(requiresPayment: false, priceAmount: 0m, durationMinutes: 60);
+
+        var startResponse = await _client.PostAsJsonAsync(
+            "/api/v1/public/access/start",
+            new StartAccessRequest { QrCode = qrCode });
+
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+        var accessToken = await GetDataPropertyAsync<string>(startResponse, "accessToken");
+
+        var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"/api/v1/public/audio-tour/pois/{poiId}?languageCode=vi&triggerType=gps");
+        request.Headers.Add("X-Guest-Access-Token", accessToken);
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var log = await db.NarrationLogs
+            .Where(item => item.POIId == poiId)
+            .OrderByDescending(item => item.Id)
+            .FirstAsync();
+
+        Assert.Equal(TriggerTypes.Gps, log.TriggerType);
+        Assert.Equal("vi", log.LanguageCode);
+        Assert.True(log.Synced);
+    }
+
     private async Task<string> SeedQrAsync(bool requiresPayment, decimal priceAmount, int durationMinutes)
     {
         using var scope = factory.Services.CreateScope();

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { publicAccessApi } from '../../api/publicAccessApi';
 import { qrApi } from '../../api/qrApi';
@@ -18,6 +18,7 @@ interface Props {
 export function QrLandingPage({ lang }: Props) {
   const { t } = useI18n();
   const { code } = useParams<{ code: string }>();
+  const navigate = useNavigate();
   const [clientExpired, setClientExpired] = useState(false);
   const [storedAccess, setStoredAccess] = useState(() =>
     code ? guestAccessStore.get(code) : null,
@@ -123,6 +124,14 @@ export function QrLandingPage({ lang }: Props) {
     retry: false,
   });
 
+  useEffect(() => {
+    if (!visibleAccess || !contentQuery.data?.poi) {
+      return;
+    }
+
+    navigate(ROUTES.POI_DETAIL.replace(':id', String(contentQuery.data.poi.poiId)), { replace: true });
+  }, [contentQuery.data, navigate, visibleAccess]);
+
   const handleExpired = () => {
     if (!code) {
       return;
@@ -181,7 +190,7 @@ export function QrLandingPage({ lang }: Props) {
           />
           <div className="mt-6 text-center">
             <Link to={ROUTES.HOME} className="text-xs text-gray-500 transition-colors hover:text-gray-300">
-              Về VinhHy AudioTour
+              Về KhanhHoi AudioTour
             </Link>
           </div>
         </div>
@@ -316,7 +325,7 @@ export function QrLandingPage({ lang }: Props) {
 
         <div className="mt-6 text-center">
           <Link to={ROUTES.HOME} className="text-xs text-gray-500 transition-colors hover:text-gray-300">
-            Về VinhHy AudioTour
+            Về KhanhHoi AudioTour
           </Link>
         </div>
       </div>

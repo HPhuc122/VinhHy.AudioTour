@@ -1,0 +1,50 @@
+@startuml
+title Sequence Diagram - UC07 Quan ly ban dich POI
+
+actor "Admin / ContentAdmin / Vendor" as Actor
+participant "Presentation Layer\nWebAdminUI - PoiTranslationModal va MediaLibraryPage" as UI
+participant "Business Logic Layer\nPoiTranslationsController + PoiTranslationService + TranslationProvider" as Business
+participant "Data Access Layer\nPoiTranslationRepository + PoiRepository + LanguageRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo ban dich cua POI
+UI -> Business: Gui yeu cau doc ban dich
+Business -> Business: Kiem tra quyen va owner neu la Vendor
+Business -> DataAccess: Doc POI va cac ban dich
+DataAccess -> Database: Doc POI, PoiTranslation va Language
+Database --> DataAccess: Tra du lieu
+DataAccess --> Business: Tra ket qua
+Business --> UI: Hien thi danh sach va provider
+
+alt Tao, sua hoac xoa thu cong
+  Actor -> UI: Nhap noi dung va ngon ngu
+  UI -> Business: Gui yeu cau luu hoac xoa
+  Business -> DataAccess: Kiem tra POI, owner, ngon ngu va trung lap
+  DataAccess -> Database: Doc du lieu lien quan
+  Database --> DataAccess: Tra ket qua kiem tra
+  alt Du lieu hop le
+    Business -> DataAccess: Ghi thay doi ban dich
+    DataAccess -> Database: Tao, cap nhat hoac xoa PoiTranslation
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra ket qua
+  else Sai owner, ngon ngu hoac bi trung
+    Business --> UI: Tra thong bao loi
+  end
+else Sinh ban dich
+  Actor -> UI: Chon nguon, cac ngon ngu dich va che do ghi de
+  UI -> Business: Gui yeu cau sinh ban dich
+  Business -> DataAccess: Doc noi dung nguon va ngon ngu active
+  DataAccess -> Database: Doc POI, ban dich va Language
+  Database --> DataAccess: Tra du lieu nguon
+  alt Co noi dung nguon va ngon ngu hop le
+    Business -> Business: Dich tung noi dung bang provider da cau hinh
+    Business -> DataAccess: Ghi cac ban dich moi hoac cap nhat
+    DataAccess -> Database: Luu PoiTranslation
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra ban dich va danh sach bo qua
+  else Khong co nguon hoac ngon ngu khong hop le
+    Business --> UI: Tra thong bao loi
+  end
+end
+UI --> Actor: Cap nhat danh sach hoac hien thi loi
+@enduml

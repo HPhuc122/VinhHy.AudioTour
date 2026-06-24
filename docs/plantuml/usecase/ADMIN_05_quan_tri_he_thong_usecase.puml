@@ -1,0 +1,46 @@
+@startuml
+title Use Case Diagram - Admin - Quan tri he thong
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Admin" as Admin
+
+rectangle "KhanhHoi AudioTour Web Admin" {
+  usecase "UC15\nQuan ly ngon ngu" as UC15
+  usecase "UC16\nQuan ly nguoi dung" as UC16
+  usecase "UC17\nQuan ly vai tro" as UC17
+  usecase "UC01\nDang nhap" as UC01
+  usecase "Them, sua, xoa\nngon ngu" as CrudLanguage
+  usecase "Them, sua, xoa\nnguoi dung" as CrudUser
+  usecase "Them, sua, xoa\nvai tro" as CrudRole
+  usecase "Gan vai tro\ncho nguoi dung" as AssignRole
+}
+
+Admin --> UC15
+Admin --> UC16
+Admin --> UC17
+
+UC15 ..> UC01 : <<include>>
+UC16 ..> UC01 : <<include>>
+UC17 ..> UC01 : <<include>>
+UC15 ..> CrudLanguage : <<include>>
+UC16 ..> CrudUser : <<include>>
+UC17 ..> CrudRole : <<include>>
+UC16 ..> AssignRole : <<include>>
+AssignRole ..> UC17 : <<include>>
+
+@enduml

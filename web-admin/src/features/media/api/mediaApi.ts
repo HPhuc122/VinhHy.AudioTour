@@ -24,6 +24,7 @@ export interface MediaFileDto {
   uploadedByUserId?: number | null;
   uploadedByUsername?: string | null;
   poiId?: number | null;
+  imageCategory?: 'Menu' | 'Highlight' | null;
   poiCode?: string | null;
   poiName?: string | null;
   approvalStatus: ApprovalStatus;
@@ -48,6 +49,7 @@ export interface MediaSearchFilter {
 export interface UploadMediaRequest {
   file: File;
   poiId?: number;
+  imageCategory?: 'Menu' | 'Highlight';
 }
 
 export function createMediaApi(httpClient: AxiosInstance) {
@@ -98,6 +100,9 @@ export function createMediaApi(httpClient: AxiosInstance) {
       form.append('file', request.file);
       if (request.poiId) {
         form.append('poiId', String(request.poiId));
+      }
+      if (request.imageCategory) {
+        form.append('imageCategory', request.imageCategory);
       }
 
       const response = await httpClient.post<ApiResponse<MediaFileDto>>(

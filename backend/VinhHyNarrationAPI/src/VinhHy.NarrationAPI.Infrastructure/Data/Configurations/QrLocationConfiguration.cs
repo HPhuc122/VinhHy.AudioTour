@@ -13,6 +13,7 @@ public class QrLocationConfiguration : IEntityTypeConfiguration<QrLocation>
         builder.HasKey(e => e.Id);
 
         builder.Property(e => e.Code).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Name).HasMaxLength(200);
         builder.Property(e => e.IsActive).HasDefaultValue(true);
         builder.Property(e => e.RequiresPayment).HasDefaultValue(false);
         builder.Property(e => e.PriceAmount).HasPrecision(18, 2).HasDefaultValue(0m);

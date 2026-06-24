@@ -6,6 +6,12 @@ public class QrDto
 
     public string Code { get; set; } = null!;
 
+    public string Name { get; set; } = null!;
+
+    public string QrKind { get; set; } = QrKinds.AudioPackage;
+
+    public string PublicUrl { get; set; } = null!;
+
     public int? PoiId { get; set; }
 
     public string? PoiCode { get; set; }

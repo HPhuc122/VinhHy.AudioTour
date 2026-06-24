@@ -2,6 +2,10 @@ namespace VinhHy.NarrationAPI.Application.Features.Qr.DTOs;
 
 public class CreateQrRequest
 {
+    public string? Name { get; set; }
+
+    public string? QrKind { get; set; }
+
     public string? Code { get; set; }
 
     public int? PoiId { get; set; }

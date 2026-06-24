@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Configuration;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Pois.DTOs;
 using VinhHy.NarrationAPI.Application.Features.Qr.DTOs;
@@ -18,24 +19,26 @@ public class QrService : IQrService
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
+    private readonly string _publicWebBaseUrl;
 
-    public QrService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete)
+    public QrService(IUnitOfWork uow, IMapper mapper, SoftDeleteService softDelete, IConfiguration configuration)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
+        _publicWebBaseUrl = (configuration["PublicWeb:BaseUrl"] ?? "http://localhost:5173").TrimEnd('/');
     }
 
     public async Task<IReadOnlyList<QrDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var items = await _uow.QrLocations.GetAllAsync(cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<IReadOnlyList<QrDto>>(items);
+        return items.Select(MapQr).ToArray();
     }
 
     public async Task<QrDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var qr = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return qr is null ? null : _mapper.Map<QrDto>(qr);
+        return qr is null ? null : MapQr(qr);
     }
 
     public async Task<QrDto?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
@@ -44,7 +47,7 @@ public class QrService : IQrService
             .GetByCodeAsync(code, activeOnly: true, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        return qr is null ? null : _mapper.Map<QrDto>(qr);
+        return qr is null ? null : MapQr(qr);
     }
 
     public async Task<QrResolveResponse?> ResolveAsync(string code, CancellationToken cancellationToken = default)
@@ -65,7 +68,7 @@ public class QrService : IQrService
 
         return new QrResolveResponse
         {
-            Qr = _mapper.Map<QrDto>(qr),
+            Qr = MapQr(qr),
             Poi = qr.Poi is null ? null : _mapper.Map<PoiDto>(qr.Poi),
             Tour = qr.Tour is null ? null : _mapper.Map<TourDto>(qr.Tour)
         };
@@ -74,18 +77,21 @@ public class QrService : IQrService
     public async Task<IReadOnlyList<QrDto>> GetPublicPackagesAsync(CancellationToken cancellationToken = default)
     {
         var packages = await _uow.QrLocations.GetActiveServiceLevelAsync(cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<IReadOnlyList<QrDto>>(packages);
+        return packages.Select(MapQr).ToArray();
     }
 
     public async Task<QrDto> CreateAsync(CreateQrRequest request, CancellationToken cancellationToken = default)
     {
+        var qrKind = request.QrKind ?? InferKind(request.PoiId, request.TourId);
+        (request.PoiId, request.TourId) = NormalizeAndValidateKind(qrKind, request.PoiId, request.TourId);
         await ValidateTargetAsync(request.PoiId, request.TourId, cancellationToken).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         var qr = _mapper.Map<QrLocation>(request);
-        ApplyPaymentConfig(qr, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
+        ApplyKindConfig(qr, qrKind, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
         qr.Code = await GenerateUniqueCodeAsync(GetCodePrefix(request.PoiId, request.TourId), cancellationToken)
             .ConfigureAwait(false);
+        qr.Name = string.IsNullOrWhiteSpace(request.Name) ? qr.Code : request.Name.Trim();
         qr.CreatedAt = now;
         qr.UpdatedAt = now;
 
@@ -93,7 +99,7 @@ public class QrService : IQrService
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         var saved = await _uow.QrLocations.GetByIdAsync(qr.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<QrDto>(saved!);
+        return MapQr(saved!);
     }
 
     public async Task<QrDto> UpdateAsync(
@@ -104,16 +110,25 @@ public class QrService : IQrService
         var qr = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(QrLocation), id);
 
+        var qrKind = request.QrKind ?? InferKind(request.PoiId, request.TourId);
+        (request.PoiId, request.TourId) = NormalizeAndValidateKind(qrKind, request.PoiId, request.TourId);
         await ValidateTargetAsync(request.PoiId, request.TourId, cancellationToken).ConfigureAwait(false);
         qr.PoiId = request.PoiId;
         qr.TourId = request.TourId;
+        if (request.Name is not null)
+        {
+            var name = request.Name.Trim();
+            if (name.Length == 0) throw new ValidationException(nameof(request.Name), "Tên QR không được để trống.");
+            if (name.Length > 200) throw new ValidationException(nameof(request.Name), "Tên QR không được vượt quá 200 ký tự.");
+            qr.Name = name;
+        }
 
         if (request.IsActive.HasValue)
         {
             qr.IsActive = request.IsActive.Value;
         }
 
-        ApplyPaymentConfig(qr, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
+        ApplyKindConfig(qr, qrKind, request.RequiresPayment, request.PriceAmount, request.AccessDurationMinutes);
 
         qr.UpdatedAt = DateTime.UtcNow;
 
@@ -121,7 +136,7 @@ public class QrService : IQrService
         await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         var saved = await _uow.QrLocations.GetByIdAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<QrDto>(saved!);
+        return MapQr(saved!);
     }
 
     public async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
@@ -164,6 +179,52 @@ public class QrService : IQrService
         }
 
         return tourId.HasValue ? "TOUR" : "SERVICE";
+    }
+
+    private QrDto MapQr(QrLocation qr)
+    {
+        var dto = _mapper.Map<QrDto>(qr);
+        dto.QrKind = InferKind(qr.PoiId, qr.TourId);
+        dto.PublicUrl = dto.QrKind switch
+        {
+            QrKinds.Poi => $"{_publicWebBaseUrl}/dia-diem/{qr.PoiId}",
+            QrKinds.Tour => $"{_publicWebBaseUrl}/tours/{qr.TourId}",
+            _ => $"{_publicWebBaseUrl}/qr/{Uri.EscapeDataString(qr.Code)}"
+        };
+        return dto;
+    }
+
+    private static string InferKind(int? poiId, int? tourId) =>
+        poiId.HasValue ? QrKinds.Poi : tourId.HasValue ? QrKinds.Tour : QrKinds.AudioPackage;
+
+    private static (int? PoiId, int? TourId) NormalizeAndValidateKind(string? qrKind, int? poiId, int? tourId)
+    {
+        switch (qrKind)
+        {
+            case QrKinds.Poi when poiId.HasValue:
+                return (poiId, null);
+            case QrKinds.Tour when tourId.HasValue:
+                return (null, tourId);
+            case QrKinds.AudioPackage:
+                return (null, null);
+            case QrKinds.Poi:
+                throw new ValidationException(nameof(CreateQrRequest.PoiId), "Vui lòng chọn POI cho mã QR.");
+            case QrKinds.Tour:
+                throw new ValidationException(nameof(CreateQrRequest.TourId), "Vui lòng chọn tour cho mã QR.");
+            default:
+                throw new ValidationException(nameof(CreateQrRequest.QrKind), "Loại mã QR không hợp lệ.");
+        }
+    }
+
+    private static void ApplyKindConfig(QrLocation qr, string qrKind, bool? requiresPayment, decimal? price, int? duration)
+    {
+        if (qrKind != QrKinds.AudioPackage)
+        {
+            ApplyPaymentConfig(qr, false, 0m, 60);
+            return;
+        }
+
+        ApplyPaymentConfig(qr, requiresPayment, price, duration);
     }
 
     private static void ValidateCode(string code)

@@ -57,7 +57,6 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
     items: [
       { to: `${routes.media}?tab=images`, label: 'Thư viện ảnh', icon: 'A', roles: MEDIA_ROLES },
       { to: `${routes.media}?tab=narrations`, label: 'Bản thuyết minh', icon: 'N', roles: MEDIA_ROLES },
-      { to: `${routes.pois}?workspace=translations`, label: 'Bản dịch', icon: 'B', roles: CONTENT_ROLES },
     ],
   },
   {
@@ -69,11 +68,11 @@ const ADMIN_NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Gói nghe & QR',
+    title: 'QR',
     roles: CONTENT_ROLES,
     items: [
-      { to: `${routes.qr}?view=packages`, label: 'Gói thuyết minh', icon: 'G', roles: CONTENT_ROLES },
-      { to: `${routes.qr}?view=access`, label: 'QR truy cập', icon: 'Q', roles: CONTENT_ROLES },
+      { to: `${routes.qr}?view=access`, label: 'QR địa chỉ', icon: 'D', roles: CONTENT_ROLES },
+      { to: `${routes.qr}?view=payment`, label: 'QR thanh toán', icon: 'P', roles: CONTENT_ROLES },
     ],
   },
   {
@@ -106,7 +105,6 @@ const VENDOR_NAV_SECTIONS: NavSection[] = [
     items: [
       { to: `${routes.media}?tab=images`, label: 'Hình ảnh', icon: 'A', roles: VENDOR_ROLES },
       { to: `${routes.media}?tab=narrations`, label: 'Bản thuyết minh', icon: 'N', roles: VENDOR_ROLES },
-      { to: `${routes.registerPoi}?workspace=translations`, label: 'Bản dịch', icon: 'B', roles: VENDOR_ROLES },
     ],
   },
   {
@@ -139,10 +137,10 @@ export function MainLayout() {
       <aside className="flex w-full flex-shrink-0 flex-col bg-gray-900 text-gray-100 lg:w-72">
         <div className="flex h-16 items-center gap-3 border-b border-gray-700 px-5">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">
-            V
+            K
           </div>
           <div>
-            <p className="text-sm font-semibold leading-tight">VinhHy</p>
+            <p className="text-sm font-semibold leading-tight">KhanhHoi</p>
             <p className="text-xs text-gray-400">AudioTour CMS</p>
           </div>
         </div>

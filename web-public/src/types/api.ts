@@ -21,6 +21,8 @@ export interface PublicPoiDto {
   priority: number;
   imageUrl: string | null;
   imageUrls?: string[];
+  menuImageUrls?: string[];
+  highlightImageUrls?: string[];
   category: string | null;
   name: string;
   description: string;
@@ -83,6 +85,9 @@ export interface TourDetailDto extends TourDto {
 export interface QrDto {
   id: number;
   code: string;
+  name: string;
+  qrKind: 'Poi' | 'Tour' | 'AudioPackage';
+  publicUrl: string;
   poiId?: number | null;
   poiCode?: string | null;
   tourId?: number | null;

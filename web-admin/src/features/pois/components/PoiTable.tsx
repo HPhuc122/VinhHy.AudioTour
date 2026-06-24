@@ -5,9 +5,11 @@ import { extractApiError } from '@/api/apiError';
 import { SecureImage } from '@/components/ui/SecureImage';
 import { Button } from '../../../components/ui/Button';
 import usePois from '../hooks/usePois';
+import { POI_KEYS } from '../hooks/usePois';
 import { poisApi } from '../api/poisApi';
 import { useToast } from '../../../components/ui/Toast';
 import { buildPoiImageUrl } from '../../../utils/assetUrl';
+import { formatVietnamDateTime as formatDateTime } from '@/utils/dateTime';
 import PoiTranslationModal from './PoiTranslationModal';
 
 type LifecycleStatusValue = 0 | 1 | 2 | 3 | 4 | 5;
@@ -47,6 +49,16 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
 
   const pois = data?.items ?? [];
   const summary = useMemo(() => buildSummary(pois), [pois]);
+  const currentPoiListKey = POI_KEYS.list(
+    filters?.page ?? 1,
+    filters?.pageSize ?? 20,
+    filters?.search,
+    filters?.category,
+    filters?.isActive,
+    filters?.approvalStatus,
+    filters?.lifecycleStatus,
+    filters?.includeDeleted,
+  );
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => poisApi.delete(id),
@@ -109,11 +121,17 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     try {
       setUpdatingLifecycleId(poi.id);
       if (action === 'approve') {
-        await approveReviewMutation.mutateAsync(poi.id);
+        const updatedPoi = await approveReviewMutation.mutateAsync(poi.id);
+        removeFromCurrentListIfFilteredOut(updatedPoi);
       } else if (action === 'request-payment') {
-        await requestPaymentMutation.mutateAsync(poi.id);
+        const updatedPoi = await requestPaymentMutation.mutateAsync(poi.id);
+        removeFromCurrentListIfFilteredOut(updatedPoi);
       } else {
-        await rejectMutation.mutateAsync(poi.id);
+        const updatedPoi = await rejectMutation.mutateAsync(poi.id);
+        removeFromCurrentListIfFilteredOut(updatedPoi);
+      }
+      if (selectedPoi?.id === poi.id) {
+        closeDetails();
       }
       toast('Đã cập nhật vòng đời POI.', 'success');
     } catch (err: unknown) {
@@ -121,6 +139,29 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
     } finally {
       setUpdatingLifecycleId(null);
     }
+  };
+
+  const removeFromCurrentListIfFilteredOut = (updatedPoi: any) => {
+    const expectedLifecycleStatus = filters?.lifecycleStatus;
+    if (expectedLifecycleStatus === undefined || expectedLifecycleStatus === null || expectedLifecycleStatus === '') {
+      return;
+    }
+
+    if (String(updatedPoi.lifecycleStatus) === String(expectedLifecycleStatus)) {
+      return;
+    }
+
+    qc.setQueryData(currentPoiListKey, (current: any) => {
+      if (!current?.items) {
+        return current;
+      }
+
+      return {
+        ...current,
+        items: current.items.filter((item: any) => item.id !== updatedPoi.id),
+        totalCount: Math.max((current.totalCount ?? current.items.length) - 1, 0),
+      };
+    });
   };
 
   const handlePaymentAction = async (poi: any, action: 'paid' | 'waived') => {
@@ -253,10 +294,10 @@ export function PoiTable({ filters, onEdit, isVendorMode = false }: Props) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{poi.category || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600">{getCategoryLabel(poi.category)}</td>
                       {!isVendorMode ? (
                         <td className="px-4 py-3 text-gray-600">
-                          {poi.ownerName || poi.username || poi.vendorName || poi.userName || (poi.userId ? `User #${poi.userId}` : 'Hệ thống')}
+                          {getOwnerDisplayName(poi)}
                         </td>
                       ) : null}
                       <td className="px-4 py-3">
@@ -414,7 +455,7 @@ function PoiDetailDrawer({
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{poi.code || `POI #${poi.id}`}</p>
               <h2 className="mt-1 text-xl font-bold text-gray-900">{poi.name || 'Chưa cập nhật tên'}</h2>
-              <p className="mt-1 text-sm text-gray-500">{poi.category || 'Chưa phân loại'}</p>
+              <p className="mt-1 text-sm text-gray-500">{getCategoryLabel(poi.category)}</p>
             </div>
             <button
               type="button"
@@ -587,9 +628,9 @@ function OverviewTab({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <InfoItem label="Mã POI" value={poi.code || `#${poi.id}`} />
-          <InfoItem label="Danh mục" value={poi.category || '-'} />
+          <InfoItem label="Danh mục" value={getCategoryLabel(poi.category)} />
           {!isVendorMode ? (
-            <InfoItem label="Chủ sở hữu / Vendor" value={poi.ownerName || poi.username || poi.vendorName || poi.userName || (poi.userId ? `User #${poi.userId}` : 'Hệ thống')} />
+            <InfoItem label="Chủ sở hữu / Vendor" value={getOwnerDisplayName(poi)} />
           ) : null}
           <InfoItem label="Tọa độ" value={formatCoordinates(poi)} />
           <InfoItem label="Bán kính" value={poi.radiusMeters ? `${poi.radiusMeters} m` : '-'} />
@@ -656,7 +697,7 @@ function PaymentTab({
       <InfoItem label="Trạng thái thanh toán" value={getPaymentStatusLabel(paymentStatus)} />
       <InfoItem label="Có yêu cầu thanh toán" value={poi.paymentRequired ? 'Có' : 'Không'} />
       <InfoItem label="Ngày kích hoạt" value={formatDateTime(poi.activatedAt)} />
-      <InfoItem label="Người kích hoạt" value={poi.activatedByUserId ? `User #${poi.activatedByUserId}` : '-'} />
+      <InfoItem label="Người kích hoạt" value={poi.activatedByUsername || '-'} />
       <InfoItem label="Gợi ý bước tiếp theo" value={getPaymentNextAction(lifecycleStatus, paymentStatus)} />
     </div>
   );
@@ -973,16 +1014,27 @@ function getPaymentNextAction(lifecycleStatus: LifecycleStatusValue, paymentStat
   return 'Không có hành động thanh toán tiếp theo.';
 }
 
-function formatDateTime(value?: string | null): string {
-  if (!value) return '-';
+const CATEGORY_LABELS: Record<string, string> = {
+  landmark: 'Điểm tham quan',
+  restaurant: 'Nhà hàng',
+  museum: 'Bảo tàng',
+};
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
+function getCategoryLabel(value?: string | null): string {
+  if (!value) return 'Chưa phân loại';
+  return CATEGORY_LABELS[value] ?? value;
+}
 
-  return new Intl.DateTimeFormat('vi-VN', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
+function getOwnerDisplayName(poi: any): string {
+  return (
+    poi.ownerName ||
+    poi.ownerUsername ||
+    poi.ownerEmail ||
+    poi.username ||
+    poi.vendorName ||
+    poi.userName ||
+    'Hệ thống'
+  );
 }
 
 function formatCoordinates(poi: any): string {

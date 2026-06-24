@@ -1,0 +1,52 @@
+@startuml
+title Sequence Diagram - UC09 Kiem duyet va quan ly hinh anh
+
+actor "Admin / ContentAdmin" as Actor
+participant "Presentation Layer\nWebAdminUI - MediaLibraryPage tab Hinh anh" as UI
+participant "Business Logic Layer\nMediaController + CmsMediaController + MediaService" as Business
+participant "Data Access Layer\nMediaRepository + PoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo danh sach va preview anh
+UI -> Business: Gui yeu cau doc anh theo bo loc
+Business -> Business: Kiem tra quyen quan ly noi dung
+Business -> DataAccess: Doc media va POI lien quan
+DataAccess -> Database: Doc MediaFile va Poi
+Database --> DataAccess: Tra danh sach
+DataAccess --> Business: Tra ket qua
+Business --> UI: Hien thi anh va trang thai
+
+alt Duyet anh
+  Actor -> UI: Chon Duyet
+  UI -> Business: Gui yeu cau approve
+  Business -> DataAccess: Doc media can duyet
+  DataAccess -> Database: Doc MediaFile
+  Database --> DataAccess: Tra media
+  alt Media ton tai va hop le
+    Business -> DataAccess: Ghi Approved, reviewer va thoi diem
+    DataAccess -> Database: Cap nhat MediaFile
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra anh da duyet
+  else Khong tim thay hoac sai loai
+    Business --> UI: Tra thong bao loi
+  end
+else Tu choi anh
+  Actor -> UI: Nhap ly do tu choi
+  UI -> Business: Gui yeu cau reject
+  alt Ly do hop le
+    Business -> DataAccess: Ghi Rejected va ly do
+    DataAccess -> Database: Cap nhat MediaFile
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra anh bi tu choi
+  else Thieu ly do
+    Business --> UI: Tra thong bao loi
+  end
+else Xoa hoac khoi phuc anh
+  UI -> Business: Gui yeu cau xoa/khoi phuc
+  Business -> DataAccess: Doi co IsDeleted
+  DataAccess -> Database: Cap nhat MediaFile
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra ket qua
+end
+UI --> Actor: Cap nhat danh sach hoac hien thi loi
+@enduml

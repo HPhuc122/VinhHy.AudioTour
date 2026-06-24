@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using VinhHy.NarrationAPI.Application.Common;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.Tours.DTOs;
@@ -16,17 +17,20 @@ public class TourService : ITourService
     private readonly IMapper _mapper;
     private readonly SoftDeleteService _softDelete;
     private readonly IPublicPoiService _publicPoiService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public TourService(
         IUnitOfWork uow,
         IMapper mapper,
         SoftDeleteService softDelete,
-        IPublicPoiService publicPoiService)
+        IPublicPoiService publicPoiService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _uow = uow;
         _mapper = mapper;
         _softDelete = softDelete;
         _publicPoiService = publicPoiService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<TourDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -401,7 +405,7 @@ public class TourService : ITourService
         };
     }
 
-    private static PublicTourPoiDto MapPublicTourPoi(
+    private PublicTourPoiDto MapPublicTourPoi(
         TourPoi tourPoi,
         string? languageCode,
         IReadOnlyDictionary<int, string?> imageUrls)
@@ -410,7 +414,10 @@ public class TourService : ITourService
         var normalizedLanguage = string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
         var translation = poi.Translations.FirstOrDefault(t => t.LanguageCode == normalizedLanguage)
             ?? poi.Translations.FirstOrDefault(t => t.LanguageCode == "vi");
-        imageUrls.TryGetValue(poi.Id, out var imageUrl);
+        imageUrls.TryGetValue(poi.Id, out var fallbackImageUrl);
+        var imageUrl = !string.IsNullOrWhiteSpace(poi.ImageUrl)
+            ? BuildPublicAssetUrl(poi.ImageUrl)
+            : fallbackImageUrl;
 
         return new PublicTourPoiDto
         {
@@ -429,5 +436,17 @@ public class TourService : ITourService
             HasAudio = poi.AudioTracks.Any(a => a.DeletedAt == null && a.IsActive),
             OrderIndex = tourPoi.OrderIndex
         };
+    }
+
+    private string BuildPublicAssetUrl(string relativePath)
+    {
+        if (Uri.TryCreate(relativePath, UriKind.Absolute, out _))
+        {
+            return relativePath;
+        }
+
+        var request = _httpContextAccessor.HttpContext?.Request;
+        var path = relativePath.StartsWith('/') ? relativePath : $"/{relativePath}";
+        return request is null ? path : $"{request.Scheme}://{request.Host}{path}";
     }
 }

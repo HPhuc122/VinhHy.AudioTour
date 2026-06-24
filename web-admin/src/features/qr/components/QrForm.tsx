@@ -4,182 +4,127 @@ import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import type { QrFormValues } from '@/features/qr/api/qrApi';
+import { usePoisQuery } from '@/features/pois/hooks/usePoisQuery';
+import type { QrFormValues, QrKind } from '@/features/qr/api/qrApi';
+import { useToursQuery } from '@/features/tours/hooks/useToursQuery';
 
-interface QrFormProps {
+interface Props {
   mode: 'create' | 'edit';
   initialValues?: QrFormValues;
+  allowedKinds?: QrKind[];
   isSubmitting?: boolean;
   errorMessage?: string | null;
   onSubmit: (values: QrFormValues) => void;
   onCancel: () => void;
 }
 
-interface QrFormState {
+interface State {
+  name: string;
+  qrKind: QrKind;
+  targetId: string;
   isActive: boolean;
   requiresPayment: boolean;
   priceAmount: string;
   accessDurationMinutes: string;
 }
 
-const defaultValues: QrFormState = {
-  isActive: true,
-  requiresPayment: false,
-  priceAmount: '0',
-  accessDurationMinutes: '60',
+const defaults: State = {
+  name: '', qrKind: 'Poi', targetId: '', isActive: true, requiresPayment: false,
+  priceAmount: '0', accessDurationMinutes: '60',
 };
 
 export function QrForm({
   initialValues,
+  allowedKinds,
   isSubmitting = false,
   errorMessage,
   onSubmit,
   onCancel,
-}: QrFormProps) {
-  const [values, setValues] = useState<QrFormState>(() => toFormState(initialValues));
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+}: Props) {
+  const [values, setValues] = useState<State>(() => toState(initialValues));
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const pois = usePoisQuery({ pageSize: 500, includeDeleted: false });
+  const tours = useToursQuery({ pageSize: 500 });
+  const isPackage = values.qrKind === 'AudioPackage';
+  const allowedKindKey = allowedKinds?.join('|') ?? '';
+  const kindOptions = [
+    { value: 'Poi' as QrKind, label: 'Đường dẫn đến POI' },
+    { value: 'Tour' as QrKind, label: 'Đường dẫn đến Tour' },
+    { value: 'AudioPackage' as QrKind, label: 'Thanh toán gói Audio' },
+  ].filter((option) => !allowedKinds || allowedKinds.includes(option.value));
 
   useEffect(() => {
-    setValues(toFormState(initialValues));
-  }, [initialValues]);
+    setValues((current) => {
+      const next = toState(initialValues);
+      if (!allowedKinds?.length || allowedKinds.includes(next.qrKind)) {
+        return next;
+      }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+      return { ...next, qrKind: allowedKinds[0] ?? current.qrKind, targetId: current.targetId };
+    });
+  }, [allowedKindKey, initialValues]);
+
+  const targetOptions = values.qrKind === 'Poi'
+    ? (pois.data?.items ?? []).map((poi) => ({ value: String(poi.id), label: `${poi.name || poi.code} (${poi.code})` }))
+    : (tours.data?.items ?? []).map((tour) => ({ value: String(tour.id), label: `${tour.translations?.[0]?.name || tour.code} (${tour.code})` }));
+
+  const submit = (event: FormEvent) => {
     event.preventDefault();
-
+    if (isSubmitting) return;
     const nextErrors: Record<string, string> = {};
-    const priceAmount = Number(values.priceAmount);
-    const accessDurationMinutes = Number(values.accessDurationMinutes);
-
-    if (!Number.isFinite(priceAmount) || priceAmount < 0) {
-      nextErrors.priceAmount = 'Nhập giá hợp lệ.';
-    }
-
-    if (values.requiresPayment && (!Number.isFinite(priceAmount) || priceAmount <= 0)) {
-      nextErrors.priceAmount = 'Nhập giá lớn hơn 0 khi yêu cầu thanh toán.';
-    }
-
-    if (!Number.isInteger(accessDurationMinutes) || accessDurationMinutes <= 0) {
-      nextErrors.accessDurationMinutes = 'Thời lượng phải lớn hơn 0.';
-    }
-
-    setFieldErrors(nextErrors);
-
-    if (Object.keys(nextErrors).length > 0) {
-      return;
-    }
-
+    const targetId = Number(values.targetId);
+    const price = Number(values.priceAmount);
+    const duration = Number(values.accessDurationMinutes);
+    if (!values.name.trim()) nextErrors.name = 'Vui lòng nhập tên QR.';
+    if (values.name.trim().length > 200) nextErrors.name = 'Tên QR không được vượt quá 200 ký tự.';
+    if (!isPackage && (!Number.isInteger(targetId) || targetId <= 0)) nextErrors.targetId = 'Vui lòng chọn nội dung đích.';
+    if (isPackage && values.requiresPayment && (!Number.isFinite(price) || price <= 0)) nextErrors.priceAmount = 'Giá phải lớn hơn 0.';
+    if (isPackage && (!Number.isInteger(duration) || duration <= 0 || duration > 1440)) nextErrors.accessDurationMinutes = 'Thời lượng từ 1 đến 1440 phút.';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     onSubmit({
-      poiId: null,
-      tourId: null,
+      name: values.name.trim(),
+      qrKind: values.qrKind,
+      poiId: values.qrKind === 'Poi' ? targetId : null,
+      tourId: values.qrKind === 'Tour' ? targetId : null,
       isActive: values.isActive,
-      requiresPayment: values.requiresPayment,
-      priceAmount,
-      accessDurationMinutes,
+      requiresPayment: isPackage ? values.requiresPayment : false,
+      priceAmount: isPackage && values.requiresPayment ? price : 0,
+      accessDurationMinutes: isPackage ? duration : 60,
     });
   };
 
-  return (
-    <form className="space-y-5" onSubmit={handleSubmit} noValidate>
-      {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
-
-      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Mã QR dịch vụ AudioTour mở quyền truy cập toàn khu trong thời lượng cấu hình.
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <FormField label="Trạng thái" htmlFor="qr-status">
-          <Select
-            id="qr-status"
-            name="isActive"
-            options={[
-              { value: 'true', label: 'Hoạt động' },
-              { value: 'false', label: 'Tạm tắt' },
-            ]}
-            value={String(values.isActive)}
-            disabled={isSubmitting}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, isActive: event.target.value === 'true' }))
-            }
-          />
-        </FormField>
-
-        <FormField label="Thanh toán" htmlFor="qr-requires-payment">
-          <label className="flex min-h-[38px] items-center gap-3 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm">
-            <input
-              id="qr-requires-payment"
-              name="requiresPayment"
-              type="checkbox"
-              checked={values.requiresPayment}
-              disabled={isSubmitting}
-              onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  requiresPayment: event.target.checked,
-                }))
-              }
-            />
-            Yêu cầu thanh toán mô phỏng
-          </label>
-        </FormField>
-
-        <FormField label="Giá" htmlFor="qr-price-amount" error={fieldErrors.priceAmount}>
-          <Input
-            id="qr-price-amount"
-            name="priceAmount"
-            type="number"
-            min="0"
-            step="1000"
-            value={values.priceAmount}
-            disabled={isSubmitting}
-            error={fieldErrors.priceAmount}
-            onChange={(event) =>
-              setValues((current) => ({ ...current, priceAmount: event.target.value }))
-            }
-          />
-        </FormField>
-
-        <FormField
-          label="Thời lượng truy cập (phút)"
-          htmlFor="qr-access-duration"
-          error={fieldErrors.accessDurationMinutes}
-        >
-          <Input
-            id="qr-access-duration"
-            name="accessDurationMinutes"
-            type="number"
-            min="1"
-            step="1"
-            value={values.accessDurationMinutes}
-            disabled={isSubmitting}
-            error={fieldErrors.accessDurationMinutes}
-            onChange={(event) =>
-              setValues((current) => ({
-                ...current,
-                accessDurationMinutes: event.target.value,
-              }))
-            }
-          />
-        </FormField>
-      </div>
-
-      <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
-        <Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>
-          Hủy
-        </Button>
-        <Button type="submit" isLoading={isSubmitting}>
-          Lưu mã QR
-        </Button>
-      </div>
-    </form>
-  );
+  return <form className="space-y-5" onSubmit={submit} noValidate>
+    {errorMessage ? <Alert variant="error" message={errorMessage} /> : null}
+    <FormField label="Tên QR" htmlFor="qr-name" error={errors.name}>
+      <Input id="qr-name" value={values.name} maxLength={200} placeholder="Ví dụ: QR Tour phố ẩm thực Khánh Hội" disabled={isSubmitting} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}/>
+    </FormField>
+    <div className="grid gap-4 md:grid-cols-2">
+      <FormField label="Loại mã QR" htmlFor="qr-kind">
+        <Select id="qr-kind" value={values.qrKind} disabled={isSubmitting || kindOptions.length <= 1} options={kindOptions} onChange={(e) => setValues((v) => ({ ...v, qrKind: e.target.value as QrKind, targetId: '' }))}/>
+      </FormField>
+      <FormField label="Trạng thái" htmlFor="qr-status">
+        <Select id="qr-status" value={String(values.isActive)} disabled={isSubmitting} options={[{ value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Tạm tắt' }]} onChange={(e) => setValues((v) => ({ ...v, isActive: e.target.value === 'true' }))}/>
+      </FormField>
+      {!isPackage ? <FormField label={values.qrKind === 'Poi' ? 'POI đích' : 'Tour đích'} htmlFor="qr-target" error={errors.targetId}>
+        <Select id="qr-target" value={values.targetId} disabled={isSubmitting || pois.isLoading || tours.isLoading} placeholder="-- Chọn nội dung --" options={targetOptions} onChange={(e) => setValues((v) => ({ ...v, targetId: e.target.value }))}/>
+      </FormField> : null}
+    </div>
+    {!isPackage ? <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">QR sẽ mở trực tiếp trang public của {values.qrKind === 'Poi' ? 'POI' : 'Tour'}. Loại này không cấu hình giá và thời lượng.</div> : <div className="grid gap-4 md:grid-cols-2">
+      <FormField label="Thanh toán" htmlFor="qr-payment"><label className="flex min-h-[38px] items-center gap-3 rounded-md border border-gray-300 px-3 py-2 text-sm"><input id="qr-payment" type="checkbox" checked={values.requiresPayment} onChange={(e) => setValues((v) => ({ ...v, requiresPayment: e.target.checked }))}/>Yêu cầu thanh toán</label></FormField>
+      <FormField label="Giá (VND)" htmlFor="qr-price" error={errors.priceAmount}><Input id="qr-price" type="number" min="0" step="1000" value={values.priceAmount} disabled={!values.requiresPayment || isSubmitting} onChange={(e) => setValues((v) => ({ ...v, priceAmount: e.target.value }))}/></FormField>
+      <FormField label="Thời lượng truy cập (phút)" htmlFor="qr-duration" error={errors.accessDurationMinutes}><Input id="qr-duration" type="number" min="1" max="1440" value={values.accessDurationMinutes} disabled={isSubmitting} onChange={(e) => setValues((v) => ({ ...v, accessDurationMinutes: e.target.value }))}/></FormField>
+    </div>}
+    <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end"><Button type="button" variant="secondary" disabled={isSubmitting} onClick={onCancel}>Hủy</Button><Button type="submit" isLoading={isSubmitting}>Lưu mã QR</Button></div>
+  </form>;
 }
 
-function toFormState(values?: QrFormValues): QrFormState {
-  if (!values) {
-    return defaultValues;
-  }
-
+function toState(values?: QrFormValues): State {
+  if (!values) return defaults;
   return {
+    name: values.name,
+    qrKind: values.qrKind,
+    targetId: String(values.qrKind === 'Poi' ? values.poiId ?? '' : values.qrKind === 'Tour' ? values.tourId ?? '' : ''),
     isActive: values.isActive,
     requiresPayment: values.requiresPayment ?? false,
     priceAmount: String(values.priceAmount ?? 0),

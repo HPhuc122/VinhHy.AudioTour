@@ -10,7 +10,8 @@ export function useUploadMediaMutation() {
   const mediaApi = useMemo(() => createMediaApi(httpClient), [httpClient]);
 
   return useMutation({
-    mutationFn: ({ file, poiId }: { file: File; poiId?: number }) => mediaApi.uploadMedia({ file, poiId }),
+    mutationFn: ({ file, poiId, imageCategory }: { file: File; poiId?: number; imageCategory?: 'Menu' | 'Highlight' }) =>
+      mediaApi.uploadMedia({ file, poiId, imageCategory }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all });
     },

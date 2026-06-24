@@ -115,6 +115,7 @@ public class MediaService : IMediaService
 
         var extension = Path.GetExtension(request.OriginalFileName).ToLowerInvariant();
         var fileType = AllowedExtensions[extension];
+        var imageCategory = NormalizeImageCategory(request.ImageCategory, fileType);
         var approvalStatus = NormalizeApprovalStatus(request.ApprovalStatus) ?? ApprovalStatuses.Pending;
         if (request.RequiredPoiOwnerUserId.HasValue && !request.PoiId.HasValue)
         {
@@ -160,6 +161,7 @@ public class MediaService : IMediaService
             UploadedAt = now,
             UploadedByUserId = request.UploadedByUserId,
             PoiId = request.PoiId,
+            ImageCategory = imageCategory,
             ApprovalStatus = approvalStatus,
             SubmittedAt = now,
             ReviewedByUserId = approvalStatus == ApprovalStatuses.Approved ? request.ReviewedByUserId : null,
@@ -220,9 +222,9 @@ public class MediaService : IMediaService
             throw new ValidationException(nameof(id), "Only image media can use approval workflow.");
         }
 
-        if (mediaFile.ApprovalStatus != ApprovalStatuses.Pending)
+        if (mediaFile.ApprovalStatus is not (ApprovalStatuses.Pending or ApprovalStatuses.Approved))
         {
-            throw new ValidationException(nameof(id), "Only pending images can be rejected.");
+            throw new ValidationException(nameof(id), "Only pending or approved images can be rejected.");
         }
 
         mediaFile.ApprovalStatus = ApprovalStatuses.Rejected;
@@ -285,6 +287,27 @@ public class MediaService : IMediaService
             ApprovalStatuses.Approved => ApprovalStatuses.Approved,
             ApprovalStatuses.Rejected => ApprovalStatuses.Rejected,
             _ => throw new ValidationException(nameof(approvalStatus), "Approval status must be Pending, Approved, or Rejected.")
+        };
+    }
+
+    private static string? NormalizeImageCategory(string? imageCategory, string fileType)
+    {
+        if (fileType != "image")
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(imageCategory))
+        {
+            return MediaImageCategories.Highlight;
+        }
+
+        var normalized = imageCategory.Trim();
+        return normalized switch
+        {
+            MediaImageCategories.Menu => MediaImageCategories.Menu,
+            MediaImageCategories.Highlight => MediaImageCategories.Highlight,
+            _ => throw new ValidationException(nameof(imageCategory), "Image category must be Menu or Highlight.")
         };
     }
 

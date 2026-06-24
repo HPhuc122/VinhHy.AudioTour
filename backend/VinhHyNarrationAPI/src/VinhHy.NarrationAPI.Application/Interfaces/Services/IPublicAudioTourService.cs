@@ -14,5 +14,6 @@ public interface IPublicAudioTourService
         string? accessToken,
         int poiId,
         string languageCode = "vi",
+        string triggerType = "manual",
         CancellationToken cancellationToken = default);
 }

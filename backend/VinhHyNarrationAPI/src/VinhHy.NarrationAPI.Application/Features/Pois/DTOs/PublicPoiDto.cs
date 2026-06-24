@@ -26,6 +26,10 @@ public class PublicPoiDto
 
     public IReadOnlyList<string> ImageUrls { get; set; } = [];
 
+    public IReadOnlyList<string> MenuImageUrls { get; set; } = [];
+
+    public IReadOnlyList<string> HighlightImageUrls { get; set; } = [];
+
     public int CooldownSeconds { get; set; }
 
     public int MinDwellSeconds { get; set; }

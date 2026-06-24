@@ -41,7 +41,7 @@ Alternatively, run `Data/Scripts/InitialSchema.sql` against SQL Server if EF too
 
 ## Seed data
 
-After migration, call `MigrateAndSeedAsync()` from startup or run the API once with seeding enabled. Default admin:
+API startup only applies migrations and must not create application data. There is no startup seed hook. If seed data is needed for isolated tests or a throwaway demo database, run it intentionally outside the normal API startup flow. Default seeded admin:
 
 - Username: `admin`
 - Password: `ChangeMe123!`

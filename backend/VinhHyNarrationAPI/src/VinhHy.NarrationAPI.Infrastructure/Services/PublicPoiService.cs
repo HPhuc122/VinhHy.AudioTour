@@ -48,9 +48,12 @@ public class PublicPoiService : IPublicPoiService
         var imageUrls = await GetPrimaryApprovedImageUrlsAsync(
             publicPois.Select(poi => poi.Id).ToArray(),
             cancellationToken).ConfigureAwait(false);
+        var categorizedImageUrls = await GetCategorizedApprovedImageUrlsAsync(
+            publicPois.Select(poi => poi.Id).ToArray(),
+            cancellationToken).ConfigureAwait(false);
 
         var mapped = publicPois
-            .Select(poi => MapPoi(poi, languageCode, imageUrls))
+            .Select(poi => MapPoi(poi, languageCode, imageUrls, categorizedImageUrls))
             .ToArray();
 
         return PagedResult<PublicPoiDto>.Create(mapped, page, pageSize, total);
@@ -74,8 +77,9 @@ public class PublicPoiService : IPublicPoiService
         }
 
         var imageUrls = await GetPrimaryApprovedImageUrlsAsync([poi.Id], cancellationToken).ConfigureAwait(false);
+        var categorizedImageUrls = await GetCategorizedApprovedImageUrlsAsync([poi.Id], cancellationToken).ConfigureAwait(false);
         await RecordPublicVisitAsync(poi.Id, TriggerTypes.Manual, languageCode, cancellationToken).ConfigureAwait(false);
-        return MapPoi(poi, languageCode, imageUrls);
+        return MapPoi(poi, languageCode, imageUrls, categorizedImageUrls);
     }
 
     public async Task<IReadOnlyDictionary<int, string?>> GetPrimaryApprovedImageUrlsAsync(
@@ -101,10 +105,13 @@ public class PublicPoiService : IPublicPoiService
     private PublicPoiDto MapPoi(
         Poi poi,
         string? languageCode,
-        IReadOnlyDictionary<int, string?> primaryImageUrls)
+        IReadOnlyDictionary<int, string?> primaryImageUrls,
+        IReadOnlyDictionary<int, IReadOnlyList<MediaFile>> categorizedImageUrls)
     {
         var translation = SelectTranslation(poi, languageCode);
         primaryImageUrls.TryGetValue(poi.Id, out var approvedImageUrl);
+        categorizedImageUrls.TryGetValue(poi.Id, out var approvedImages);
+        approvedImages ??= [];
         var storedImages = DeserializeImageUrls(poi.ImageUrls)
             .Select(BuildPublicAssetUrl)
             .ToList();
@@ -116,6 +123,14 @@ public class PublicPoiService : IPublicPoiService
         }
         if (storedImages.Count == 0 && approvedImageUrl is not null) storedImages.Add(approvedImageUrl);
         var imageUrl = storedImages.FirstOrDefault();
+        var menuImageUrls = approvedImages
+            .Where(image => image.ImageCategory == MediaImageCategories.Menu)
+            .Select(image => BuildPublicImageUrl(image.Id))
+            .ToArray();
+        var highlightImageUrls = approvedImages
+            .Where(image => image.ImageCategory != MediaImageCategories.Menu)
+            .Select(image => BuildPublicImageUrl(image.Id))
+            .ToArray();
 
         return new PublicPoiDto
         {
@@ -131,9 +146,31 @@ public class PublicPoiService : IPublicPoiService
             Category = poi.Category,
             ImageUrl = imageUrl,
             ImageUrls = storedImages,
+            MenuImageUrls = menuImageUrls,
+            HighlightImageUrls = highlightImageUrls,
             CooldownSeconds = poi.CooldownSeconds,
             MinDwellSeconds = poi.MinDwellSeconds
         };
+    }
+
+    private async Task<IReadOnlyDictionary<int, IReadOnlyList<MediaFile>>> GetCategorizedApprovedImageUrlsAsync(
+        IReadOnlyCollection<int> poiIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (poiIds.Count == 0)
+        {
+            return new Dictionary<int, IReadOnlyList<MediaFile>>();
+        }
+
+        var images = await _uow.MediaFiles
+            .GetApprovedImagesByPoiIdsAsync(poiIds, cancellationToken)
+            .ConfigureAwait(false);
+
+        return images
+            .GroupBy(image => image.PoiId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<MediaFile>)group.OrderBy(image => image.UploadedAt).ToArray());
     }
 
     private static PoiTranslation? SelectTranslation(Poi poi, string? languageCode)

@@ -1,0 +1,45 @@
+@startuml
+title Sequence Diagram - UC06 Thanh toan mo phong de kich hoat sap
+
+actor "Vendor" as Actor
+participant "Presentation Layer\nWebAdminUI - VendorDashboard va PoiTable" as UI
+participant "Business Logic Layer\nPoisController + PoiService" as Business
+participant "Data Access Layer\nPoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Chon thanh toan MoMo mo phong
+UI -> Business: Gui yeu cau bat dau thanh toan
+Business -> Business: Kiem tra role Vendor va user id
+Business -> DataAccess: Doc POI cua Vendor
+DataAccess -> Database: Doc POI va trang thai
+Database --> DataAccess: Tra POI
+DataAccess --> Business: Tra du lieu
+alt POI dung owner va dang cho thanh toan
+  Business -> DataAccess: Tao PoiPaymentSession Pending 15 phut
+  DataAccess -> Database: Ghi payment session
+  Database --> DataAccess: Tra session id
+  DataAccess --> Business: Tra session
+  Business --> UI: Tra thong tin session
+  UI -> Business: Gui ket qua thanh toan mo phong
+  Business -> DataAccess: Doc session kem POI
+  DataAccess -> Database: Doc payment session
+  Database --> DataAccess: Tra session
+  DataAccess --> Business: Tra session va POI
+  alt Session con han, dung Vendor va mo phong thanh cong
+    Business -> DataAccess: Cap nhat session Paid va POI Active
+    DataAccess -> Database: Ghi session, payment status va thoi han POI
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra POI da kich hoat
+    UI --> Actor: Hien thi thanh toan thanh cong
+  else Session het han hoac mo phong that bai
+    Business -> DataAccess: Ghi Expired hoac Failed
+    DataAccess -> Database: Cap nhat session
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra trang thai that bai
+    UI --> Actor: Hien thi loi, POI chua active
+  end
+else Sai owner hoac sai trang thai
+  Business --> UI: Tra loi khong duoc thanh toan
+  UI --> Actor: Hien thi loi
+end
+@enduml

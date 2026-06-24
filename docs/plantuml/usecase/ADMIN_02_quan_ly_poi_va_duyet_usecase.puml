@@ -1,0 +1,45 @@
+@startuml
+title Use Case Diagram - Admin - Quan ly POI va duyet
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Admin" as Admin
+
+rectangle "KhanhHoi AudioTour Web Admin" {
+  usecase "UC04\nQuan ly POI\nva sap" as UC04
+  usecase "UC05\nDuyet vong doi\nPOI" as UC05
+  usecase "UC07\nQuan ly ban dich\nPOI" as UC07
+  usecase "UC01\nDang nhap" as UC01
+  usecase "Tao, cap nhat,\nxoa mem POI" as CrudPoi
+  usecase "Duyet, tu choi,\nyeu cau thanh toan" as ReviewPoi
+  usecase "Quan ly noi dung\nda ngon ngu" as PoiTranslate
+}
+
+Admin --> UC04
+Admin --> UC05
+Admin --> UC07
+
+UC04 ..> UC01 : <<include>>
+UC05 ..> UC01 : <<include>>
+UC07 ..> UC01 : <<include>>
+UC04 ..> CrudPoi : <<include>>
+UC05 ..> ReviewPoi : <<include>>
+UC07 ..> PoiTranslate : <<include>>
+UC05 ..> UC04 : <<extend>>
+UC07 ..> UC04 : <<extend>>
+
+@enduml

@@ -1,0 +1,38 @@
+@startuml
+title Sequence Diagram - UC20 Xem ban do va chi duong
+
+actor "Khach tham quan" as Actor
+participant "Presentation Layer\nWebPublicUI - MapPage" as UI
+participant "Business Logic Layer\nPublicPoisController + PublicToursController + PublicPoiService + TourService" as Business
+participant "Data Access Layer\nPoiRepository + TourRepository + TourPoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo ban do
+UI -> Business: Gui yeu cau POI public
+Business -> DataAccess: Doc POI hop le
+DataAccess -> Database: Doc du lieu POI
+Database --> DataAccess: Tra POI
+DataAccess --> Business: Tra danh sach
+Business --> UI: Tra marker POI
+opt URL co tour
+  UI -> Business: Gui yeu cau chi tiet tour
+  Business -> DataAccess: Doc tour va thu tu POI
+  DataAccess -> Database: Doc Tour va TourPoi
+  Database --> DataAccess: Tra du lieu
+  DataAccess --> Business: Tra tour
+  Business --> UI: Tra diem dung tour
+end
+UI -> UI: Hien thi marker va xin vi tri trinh duyet
+Actor -> UI: Chon POI hoac bat dau chi duong
+alt Co vi tri va cau hinh dich vu ngoai
+  UI -> UI: Goi OpenRouteService truc tiep tu frontend
+  UI -> UI: Nhan quang duong, thoi gian va ve tuyen
+  UI --> Actor: Hien thi chi duong
+else Tu choi vi tri, thieu cau hinh hoac loi mang
+  UI --> Actor: Hien thi marker va thong bao khong tao duoc tuyen
+end
+note over UI
+Phan chi duong khong di qua backend du an.
+Khong co MapController hay MapService.
+end note
+@enduml

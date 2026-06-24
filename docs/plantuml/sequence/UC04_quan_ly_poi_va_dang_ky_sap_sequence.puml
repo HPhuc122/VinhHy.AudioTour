@@ -1,0 +1,51 @@
+@startuml
+title Sequence Diagram - UC04 Quan ly POI va dang ky sap
+
+actor "Admin / ContentAdmin / Vendor" as Actor
+participant "Presentation Layer\nWebAdminUI - PoiPage va PoiFormModal" as UI
+participant "Business Logic Layer\nPoisController + PoiService + FileUploadService + SoftDeleteService" as Business
+participant "Data Access Layer\nPoiRepository + UserRepository + DeletedRecordRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo danh sach hoac form POI
+UI -> Business: Gui yeu cau doc danh sach
+Business -> Business: Kiem tra vai tro va loc owner neu la Vendor
+Business -> DataAccess: Doc POI theo bo loc
+DataAccess -> Database: Doc du lieu POI
+Database --> DataAccess: Tra danh sach
+DataAccess --> Business: Tra ket qua
+Business --> UI: Hien thi danh sach
+
+alt Tao hoac cap nhat POI
+  Actor -> UI: Nhap thong tin, toa do va chon anh
+  UI -> UI: Kiem tra du lieu form
+  UI -> Business: Gui yeu cau luu POI
+  Business -> Business: Kiem tra quyen, owner va du lieu
+  alt Hop le
+    Business -> DataAccess: Kiem tra POI/user va ghi thay doi
+    DataAccess -> Database: Tao hoac cap nhat POI
+    Database --> DataAccess: Xac nhan
+    DataAccess --> Business: Tra POI moi
+    Business --> UI: Tra ket qua thanh cong
+    UI --> Actor: Cap nhat danh sach va trang thai
+  else Khong hop le, khong ton tai hoac sai owner
+    Business --> UI: Tra thong bao loi
+    UI --> Actor: Hien thi loi
+  end
+else Admin xoa mem POI
+  UI -> Business: Gui yeu cau xoa
+  Business -> Business: Kiem tra quyen quan ly noi dung
+  Business -> DataAccess: Danh dau xoa va ghi tombstone
+  DataAccess -> Database: Cap nhat POI va DeletedRecord
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra ket qua
+  UI --> Actor: Cap nhat danh sach
+else Admin khoi phuc POI
+  UI -> Business: Gui yeu cau khoi phuc
+  Business -> DataAccess: Tim POI ke ca da xoa va bo DeletedAt
+  DataAccess -> Database: Ghi POI da khoi phuc
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra ket qua
+  UI --> Actor: Cap nhat danh sach
+end
+@enduml

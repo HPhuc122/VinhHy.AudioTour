@@ -1,0 +1,68 @@
+@startuml
+title Sequence Diagram - UC21 Quet QR va mo quyen truy cap
+
+actor "Khach tham quan" as Actor
+participant "Presentation Layer\nWebPublicUI - QrLandingPage va PaymentRequiredPanel" as UI
+participant "Business Logic Layer\nPublicAccessController + QrController + PublicAccessService + QrService" as Business
+participant "Data Access Layer\nQrRepository + GuestAccessPassRepository + AccessPaymentSessionRepository + PoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo link QR
+UI -> UI: Tim access token da luu
+opt Co token da luu
+  UI -> Business: Gui yeu cau validate token
+  Business -> DataAccess: Tim GuestAccessPass theo token hash
+  DataAccess -> Database: Doc pass va QrLocation
+  Database --> DataAccess: Tra pass
+  DataAccess --> Business: Tra ket qua
+  Business --> UI: Tra tinh trang va han dung
+end
+alt Chua co pass hop le
+  UI -> Business: Gui QR code de bat dau access
+  Business -> DataAccess: Doc QR active va target
+  DataAccess -> Database: Doc QrLocation va Poi/Tour
+  Database --> DataAccess: Tra QR
+  DataAccess --> Business: Tra du lieu
+  alt QR khong ton tai, inactive hoac target khong public
+    Business --> UI: Tra loi QR khong kha dung
+    UI --> Actor: Hien thi thong bao
+  else QR mien phi
+    Business -> Business: Tao token va pass Active
+    Business -> DataAccess: Ghi GuestAccessPass
+    DataAccess -> Database: Luu pass
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra token va han dung
+  else QR can thanh toan
+    Business -> DataAccess: Tao pass Pending va payment session
+    DataAccess -> Database: Luu GuestAccessPass va AccessPaymentSession
+    Database --> DataAccess: Tra session id
+    Business --> UI: Tra yeu cau thanh toan
+    Actor -> UI: Chon thanh toan mo phong
+    UI -> Business: Gui session va ket qua mo phong
+    Business -> DataAccess: Doc session va pass
+    DataAccess -> Database: Doc du lieu thanh toan
+    Database --> DataAccess: Tra session
+    alt Session con han va thanh cong
+      Business -> DataAccess: Ghi session Paid, pass Active va token hash
+      DataAccess -> Database: Cap nhat session va pass
+      Database --> DataAccess: Xac nhan
+      Business --> UI: Tra token va han dung
+    else Session het han hoac that bai
+      Business -> DataAccess: Ghi Expired hoac Failed
+      DataAccess -> Database: Cap nhat trang thai
+      Database --> DataAccess: Xac nhan
+      Business --> UI: Tra trang thai that bai
+    end
+  end
+else Pass da hop le
+  UI -> UI: Tiep tuc dung pass hien tai
+end
+opt Da co token hop le
+  UI -> Business: Gui yeu cau resolve QR
+  Business -> DataAccess: Doc QR va target hien tai
+  DataAccess -> Database: Doc QrLocation, Poi hoac Tour
+  Database --> DataAccess: Tra noi dung
+  Business --> UI: Tra POI, tour hoac pass toan khu
+  UI --> Actor: Luu token va hien thi diem den
+end
+@enduml

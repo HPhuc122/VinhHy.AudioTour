@@ -57,10 +57,4 @@ public class UsersController(IUserService userService) : ControllerBase
         return this.ApiOk(user, "User updated");
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
-    {
-        await userService.DeleteAsync(id, cancellationToken);
-        return this.ApiOk("User deleted");
-    }
 }

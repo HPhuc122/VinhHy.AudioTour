@@ -28,6 +28,9 @@ const emptyTranslation: Translation = {
   description: '',
 };
 
+const EMPTY_TRANSLATIONS: Translation[] = [];
+const EMPTY_LANGUAGES: LanguageDto[] = [];
+
 export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
   const [editing, setEditing] = useState<Translation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,17 +40,19 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const { data: translations = [], isLoading, isError } = useQuery({
+  const { data: translationsData, isLoading, isError } = useQuery({
     queryKey: ['poiTranslations', poi?.id],
     queryFn: () => poiTranslationsApi.getByPoiId(poi.id),
     enabled: isOpen && Boolean(poi?.id),
   });
+  const translations = translationsData ?? EMPTY_TRANSLATIONS;
 
-  const { data: languages = [] } = useQuery({
+  const { data: languagesData } = useQuery({
     queryKey: ['languages'],
     queryFn: languagesApi.getAll,
     enabled: isOpen,
   });
+  const languages = languagesData ?? EMPTY_LANGUAGES;
 
   const { data: providerStatus } = useQuery({
     queryKey: ['poiTranslations', 'provider'],
@@ -133,9 +138,15 @@ export default function PoiTranslationModal({ isOpen, onClose, poi }: Props) {
   }, [isOpen, poi?.id]);
 
   useEffect(() => {
-    setTargetLanguageCodes((current) =>
-      current.filter((code) => targetLanguages.some((language) => language.code === code)),
-    );
+    setTargetLanguageCodes((current) => {
+      const next = current.filter((code) => targetLanguages.some((language) => language.code === code));
+
+      if (next.length === current.length && next.every((code, index) => code === current[index])) {
+        return current;
+      }
+
+      return next;
+    });
   }, [targetLanguages]);
 
   if (!isOpen) return null;

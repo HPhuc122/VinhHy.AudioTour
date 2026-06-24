@@ -1,0 +1,46 @@
+@startuml
+title Use Case Diagram - Vendor - Quan ly sap va thanh toan
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Vendor" as Vendor
+
+rectangle "KhanhHoi AudioTour Web Vendor" {
+  usecase "UC04\nQuan ly POI va\ndang ky sap" as UC04
+  usecase "UC06\nThanh toan mo phong\nde kich hoat sap" as UC06
+  usecase "UC01\nDang nhap" as UC01
+  usecase "Dang ky hoac cap nhat\nthong tin sap" as StoreProfile
+  usecase "Theo doi trang thai\nduyet sap" as StoreStatus
+  usecase "Tao phien thanh toan\nmo phong" as PaymentSession
+  usecase "Kich hoat sap\nsau thanh toan" as ActivateStore
+  usecase "Kiem tra sap\nthuoc Vendor" as OwnerCheck
+}
+
+Vendor --> UC04
+Vendor --> UC06
+
+UC04 ..> UC01 : <<include>>
+UC06 ..> UC01 : <<include>>
+UC04 ..> StoreProfile : <<include>>
+UC04 ..> StoreStatus : <<include>>
+UC04 ..> OwnerCheck : <<include>>
+UC06 ..> PaymentSession : <<include>>
+UC06 ..> ActivateStore : <<include>>
+UC06 ..> OwnerCheck : <<include>>
+UC06 ..> UC04 : <<extend>>
+
+@enduml

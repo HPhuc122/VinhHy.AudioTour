@@ -21,6 +21,7 @@ import {
   type MediaFileDto,
 } from '@/features/media/api/mediaApi';
 import { mediaQueryKeys } from '@/features/media/hooks/useMediaQuery';
+import { formatVietnamDateTime } from '@/utils/dateTime';
 import { useUploadMediaMutation } from '@/features/media/hooks/useUploadMediaMutation';
 import {
   createNarrationsApi,
@@ -36,6 +37,7 @@ const contentPageSize = 500;
 
 type WorkspaceTab = 'overview' | 'images' | 'narrations' | 'audio' | 'translations';
 type RejectTarget = { type: 'image'; item: MediaFileDto } | { type: 'narration'; item: NarrationDraftDto };
+type PoiImageCategory = 'Menu' | 'Highlight';
 
 type Translation = {
   id?: number;
@@ -103,6 +105,7 @@ export function MediaLibraryPage() {
   const [targetLanguageCodes, setTargetLanguageCodes] = useState<string[]>([]);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingImageCategoryRef = useRef<PoiImageCategory>('Highlight');
 
   const requestedPoiId = Number(searchParams.get('poiId'));
   const poiFilter = useMemo(
@@ -145,6 +148,18 @@ export function MediaLibraryPage() {
     enabled: Boolean(selectedPoiId),
   });
 
+  const pendingImagesQuery = useQuery({
+    queryKey: ['content-workspace', 'pending-images'],
+    queryFn: () => mediaApi.searchMedia({ page: 1, pageSize: 50, fileType: 'image', approvalStatus: 'Pending' }),
+    enabled: canReviewContent,
+  });
+
+  const pendingNarrationsQuery = useQuery({
+    queryKey: ['content-workspace', 'pending-narrations'],
+    queryFn: () => narrationsApi.searchNarrations({ page: 1, pageSize: 50, status: 'Pending' }),
+    enabled: canReviewContent,
+  });
+
   const translationsQuery = useQuery({
     queryKey: ['content-workspace', 'translations-by-poi', selectedPoiId],
     queryFn: () => poiTranslationsApi.getByPoiId(selectedPoiId!),
@@ -163,6 +178,8 @@ export function MediaLibraryPage() {
 
   const images = imagesQuery.data?.items ?? [];
   const narrations = narrationsQuery.data?.items ?? [];
+  const pendingImages = pendingImagesQuery.data?.items ?? [];
+  const pendingNarrations = pendingNarrationsQuery.data?.items ?? [];
   const translations = (translationsQuery.data ?? []) as Translation[];
   const languages = languagesQuery.data ?? [];
   const translationProviderStatus = translationProviderQuery.data;
@@ -229,6 +246,8 @@ export function MediaLibraryPage() {
       queryClient.invalidateQueries({ queryKey: ['content-workspace', 'media-by-poi', selectedPoiId] }),
       queryClient.invalidateQueries({ queryKey: ['content-workspace', 'narrations-by-poi', selectedPoiId] }),
       queryClient.invalidateQueries({ queryKey: ['content-workspace', 'translations-by-poi', selectedPoiId] }),
+      queryClient.invalidateQueries({ queryKey: ['content-workspace', 'pending-images'] }),
+      queryClient.invalidateQueries({ queryKey: ['content-workspace', 'pending-narrations'] }),
       queryClient.invalidateQueries({ queryKey: ['cms-audio-preview', 'poi', selectedPoiId] }),
       queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all }),
       queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all }),
@@ -369,11 +388,13 @@ export function MediaLibraryPage() {
       return;
     }
 
+    const imageCategory = pendingImageCategoryRef.current;
     for (const file of files) {
-      await uploadMutation.mutateAsync({ file, poiId: currentPoi.id });
+      await uploadMutation.mutateAsync({ file, poiId: currentPoi.id, imageCategory });
     }
 
-    setNotice(isVendor ? `Đã gửi ${files.length} ảnh chờ duyệt.` : `Đã tải lên ${files.length} ảnh.`);
+    const categoryLabel = getImageCategoryLabel(imageCategory);
+    setNotice(isVendor ? `Đã gửi ${files.length} ảnh ${categoryLabel} chờ duyệt.` : `Đã tải lên ${files.length} ảnh ${categoryLabel}.`);
     await invalidateSelectedPoiContent();
   };
 
@@ -461,6 +482,8 @@ export function MediaLibraryPage() {
     imagesQuery.error,
     narrationsQuery.error,
     translationsQuery.error,
+    pendingImagesQuery.error,
+    pendingNarrationsQuery.error,
     languagesQuery.error,
     translationProviderQuery.error,
   ]);
@@ -491,7 +514,22 @@ export function MediaLibraryPage() {
       />
 
       {!currentPoi ? (
-        <EmptyWorkspace isVendor={isVendor} />
+        canReviewContent ? (
+          <ReviewQueuePanel
+            pois={pois}
+            pendingImages={pendingImages}
+            pendingNarrations={pendingNarrations}
+            isLoading={pendingImagesQuery.isLoading || pendingNarrationsQuery.isLoading}
+            onSelect={(poi, tab) => {
+              setSelectedPoi(poi);
+              setNotice(null);
+              setActiveTab(tab);
+              updateWorkspaceQuery({ poiId: poi.id, tab });
+            }}
+          />
+        ) : (
+          <EmptyWorkspace isVendor={isVendor} />
+        )
       ) : (
         <>
           <PoiContentHeader poi={currentPoi} summary={contentSummary} />
@@ -525,6 +563,10 @@ export function MediaLibraryPage() {
               canReview={canReviewContent}
               imageInputRef={imageInputRef}
               uploadLoading={uploadMutation.isPending}
+              onChooseUploadCategory={(category) => {
+                pendingImageCategoryRef.current = category;
+                imageInputRef.current?.click();
+              }}
               busyId={getBusyMutationId(
                 approveImageMutation.isPending ? approveImageMutation.variables : undefined,
                 rejectImageMutation.isPending ? rejectImageMutation.variables : undefined,
@@ -733,6 +775,96 @@ function EmptyWorkspace({ isVendor }: { isVendor: boolean }) {
   );
 }
 
+function ReviewQueuePanel({
+  pois,
+  pendingImages,
+  pendingNarrations,
+  isLoading,
+  onSelect,
+}: {
+  pois: PoiDto[];
+  pendingImages: MediaFileDto[];
+  pendingNarrations: NarrationDraftDto[];
+  isLoading: boolean;
+  onSelect: (poi: PoiDto, tab: WorkspaceTab) => void;
+}) {
+  const rows = buildReviewQueueRows(pois, pendingImages, pendingNarrations);
+  const totalImages = pendingImages.length;
+  const totalNarrations = pendingNarrations.length;
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Danh sách cần duyệt</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Theo dõi nhanh POI/sạp có ảnh hoặc bản thuyết minh đang chờ admin xử lý.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <StatusPill tone="amber">{totalImages} ảnh chờ duyệt</StatusPill>
+          <StatusPill tone="blue">{totalNarrations} thuyết minh chờ duyệt</StatusPill>
+        </div>
+      </div>
+
+      {isLoading ? <LoadingCard message="Đang tải danh sách cần duyệt..." /> : null}
+
+      {!isLoading && rows.length === 0 ? (
+        <div className="mt-4 rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500">
+          Hiện chưa có nội dung nào đang chờ duyệt.
+        </div>
+      ) : null}
+
+      {!isLoading && rows.length > 0 ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-100 text-sm">
+            <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+              <tr>
+                <th className="px-4 py-3">POI / sạp</th>
+                <th className="px-4 py-3">Ảnh</th>
+                <th className="px-4 py-3">Thuyết minh</th>
+                <th className="px-4 py-3">Cập nhật gần nhất</th>
+                <th className="px-4 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((row) => (
+                <tr key={row.poi.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-900">{row.poi.name || row.poi.displayName || row.poi.code}</p>
+                    <p className="text-xs text-gray-500">{row.poi.code}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusPill tone={row.imageCount > 0 ? 'amber' : 'gray'}>{row.imageCount}</StatusPill>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusPill tone={row.narrationCount > 0 ? 'blue' : 'gray'}>{row.narrationCount}</StatusPill>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{formatDate(row.latestAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {row.imageCount > 0 ? (
+                        <Button size="sm" variant="secondary" onClick={() => onSelect(row.poi, 'images')}>
+                          Duyệt ảnh
+                        </Button>
+                      ) : null}
+                      {row.narrationCount > 0 ? (
+                        <Button size="sm" onClick={() => onSelect(row.poi, 'narrations')}>
+                          Duyệt thuyết minh
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 function PoiContentHeader({ poi, summary }: { poi: PoiDto; summary: ContentSummary }) {
   const publicStatus = getPublicVisibilityStatus(poi);
 
@@ -868,6 +1000,7 @@ function ImagesTab({
   canReview,
   imageInputRef,
   uploadLoading,
+  onChooseUploadCategory,
   busyId,
   onUpload,
   onPreview,
@@ -882,13 +1015,14 @@ function ImagesTab({
   canReview: boolean;
   imageInputRef: React.RefObject<HTMLInputElement | null>;
   uploadLoading: boolean;
+  onChooseUploadCategory: (category: PoiImageCategory) => void;
   busyId: number | null;
   onUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onPreview: (media: MediaFileDto) => void;
   onApprove: (media: MediaFileDto) => void;
   onReject: (media: MediaFileDto) => void;
 }) {
-  const grouped = groupMediaByStatus(images);
+  const grouped = groupMediaByCategory(images);
 
   return (
     <div className="space-y-4">
@@ -901,7 +1035,7 @@ function ImagesTab({
             </p>
           </div>
           {canUpload ? (
-            <div>
+            <div className="flex flex-wrap gap-2">
               <input
                 ref={imageInputRef}
                 type="file"
@@ -910,8 +1044,11 @@ function ImagesTab({
                 className="hidden"
                 onChange={onUpload}
               />
-              <Button onClick={() => imageInputRef.current?.click()} isLoading={uploadLoading}>
-                Tải ảnh lên
+              <Button onClick={() => onChooseUploadCategory('Menu')} isLoading={uploadLoading}>
+                Tải ảnh Menu
+              </Button>
+              <Button variant="secondary" onClick={() => onChooseUploadCategory('Highlight')} isLoading={uploadLoading}>
+                Tải ảnh Highlights
               </Button>
             </div>
           ) : (
@@ -929,31 +1066,19 @@ function ImagesTab({
       {!isLoading && images.length === 0 ? <EmptyCard message="Chưa có ảnh nào cho POI/sạp này." /> : null}
 
       {!isLoading ? (
-        <div className="grid gap-4 xl:grid-cols-3">
-          <ImageStatusGroup
-            title="Chờ duyệt"
-            mediaItems={grouped.Pending}
-            tone="amber"
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ImageCategoryGroup
+            title="Menu"
+            mediaItems={grouped.Menu}
             canReview={canReview}
             busyId={busyId}
             onPreview={onPreview}
             onApprove={onApprove}
             onReject={onReject}
           />
-          <ImageStatusGroup
-            title="Đã duyệt"
-            mediaItems={grouped.Approved}
-            tone="green"
-            canReview={canReview}
-            busyId={busyId}
-            onPreview={onPreview}
-            onApprove={onApprove}
-            onReject={onReject}
-          />
-          <ImageStatusGroup
-            title="Bị từ chối"
-            mediaItems={grouped.Rejected}
-            tone="red"
+          <ImageCategoryGroup
+            title="Highlights"
+            mediaItems={grouped.Highlight}
             canReview={canReview}
             busyId={busyId}
             onPreview={onPreview}
@@ -1555,10 +1680,9 @@ function NarrationList({
   );
 }
 
-function ImageStatusGroup({
+function ImageCategoryGroup({
   title,
   mediaItems,
-  tone,
   canReview,
   busyId,
   onPreview,
@@ -1567,7 +1691,6 @@ function ImageStatusGroup({
 }: {
   title: string;
   mediaItems: MediaFileDto[];
-  tone: 'amber' | 'green' | 'red';
   canReview: boolean;
   busyId: number | null;
   onPreview: (media: MediaFileDto) => void;
@@ -1578,7 +1701,7 @@ function ImageStatusGroup({
     <Card className="p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <StatusPill tone={tone}>{mediaItems.length}</StatusPill>
+        <StatusPill tone="blue">{mediaItems.length}</StatusPill>
       </div>
       <div className="grid gap-3">
         {mediaItems.length === 0 ? (
@@ -1597,7 +1720,12 @@ function ImageStatusGroup({
               </button>
               <div className="space-y-2 p-3">
                 <p className="truncate text-sm font-medium text-gray-900">{media.originalFileName}</p>
-                <p className="text-xs text-gray-500">{formatDate(media.uploadedAt)}</p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <span>{formatDate(media.uploadedAt)}</span>
+                  <StatusPill tone={getApprovalStatusTone(media.approvalStatus)}>
+                    {getApprovalStatusLabel(media.approvalStatus)}
+                  </StatusPill>
+                </div>
                 {media.rejectionReason ? (
                   <p className="text-xs text-red-600">Lý do: {media.rejectionReason}</p>
                 ) : null}
@@ -2055,12 +2183,73 @@ function buildContentSummary(
   };
 }
 
-function groupMediaByStatus(images: MediaFileDto[]): Record<ApprovalStatus, MediaFileDto[]> {
-  return {
-    Pending: images.filter((media) => media.approvalStatus === 'Pending'),
-    Approved: images.filter((media) => media.approvalStatus === 'Approved'),
-    Rejected: images.filter((media) => media.approvalStatus === 'Rejected'),
+function buildReviewQueueRows(
+  pois: PoiDto[],
+  pendingImages: MediaFileDto[],
+  pendingNarrations: NarrationDraftDto[],
+) {
+  const rows = new Map<number, {
+    poi: PoiDto;
+    imageCount: number;
+    narrationCount: number;
+    latestAt?: string | null;
+  }>();
+
+  const poiById = new Map(pois.map((poi) => [poi.id, poi]));
+  const ensureRow = (
+    poiId: number | null | undefined,
+    fallback: { code?: string | null; name?: string | null },
+  ) => {
+    if (!poiId) return null;
+
+    const existing = rows.get(poiId);
+    if (existing) return existing;
+
+    const poi = poiById.get(poiId) ?? ({
+      id: poiId,
+      code: fallback.code ?? `POI #${poiId}`,
+      name: fallback.name ?? fallback.code ?? `POI #${poiId}`,
+      displayName: fallback.name ?? fallback.code ?? `POI #${poiId}`,
+    } as PoiDto);
+    const row = { poi, imageCount: 0, narrationCount: 0, latestAt: undefined as string | undefined };
+    rows.set(poiId, row);
+    return row;
   };
+
+  pendingImages.forEach((image) => {
+    const row = ensureRow(image.poiId, { code: image.poiCode, name: image.poiName });
+    if (!row) return;
+    row.imageCount += 1;
+    row.latestAt = pickLatestDate(row.latestAt, image.submittedAt ?? image.uploadedAt);
+  });
+
+  pendingNarrations.forEach((draft) => {
+    const row = ensureRow(draft.poiId, { code: draft.poiCode, name: draft.poiName });
+    if (!row) return;
+    row.narrationCount += 1;
+    row.latestAt = pickLatestDate(row.latestAt, draft.submittedAt ?? draft.updatedAt ?? draft.createdAt);
+  });
+
+  return Array.from(rows.values())
+    .filter((row) => row.imageCount > 0 || row.narrationCount > 0)
+    .sort((left, right) => new Date(right.latestAt ?? 0).getTime() - new Date(left.latestAt ?? 0).getTime());
+}
+
+function pickLatestDate(current?: string | null, candidate?: string | null): string | undefined {
+  if (!candidate) return current ?? undefined;
+  if (!current) return candidate;
+  return new Date(candidate).getTime() > new Date(current).getTime() ? candidate : current;
+}
+
+function groupMediaByCategory(images: MediaFileDto[]): Record<PoiImageCategory, MediaFileDto[]> {
+  return {
+    Menu: images.filter((media) => media.imageCategory === 'Menu'),
+    Highlight: images.filter((media) => media.imageCategory !== 'Menu'),
+  };
+}
+
+function getImageCategoryLabel(category: PoiImageCategory): string {
+  return category === 'Menu' ? 'Menu' : 'Highlights';
 }
 
 function buildLanguageRows(narrations: NarrationDraftDto[], translations: Translation[]) {
@@ -2161,6 +2350,16 @@ function statusLabel(status: string): string {
   }
 }
 
+function getApprovalStatusLabel(status: ApprovalStatus): string {
+  return statusLabel(status);
+}
+
+function getApprovalStatusTone(status: ApprovalStatus): 'amber' | 'green' | 'red' {
+  if (status === 'Approved') return 'green';
+  if (status === 'Rejected') return 'red';
+  return 'amber';
+}
+
 function normalizeWorkspaceTab(value: string | null): WorkspaceTab {
   if (value === 'images' || value === 'narrations' || value === 'audio' || value === 'translations') {
     return value;
@@ -2213,17 +2412,7 @@ function formatTranslationLanguage(code: string, languages: LanguageDto[]): stri
 }
 
 function formatDate(value?: string | null): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+  return formatVietnamDateTime(value);
 }
 
 function formatAudioDuration(durationSeconds?: number | null): string {

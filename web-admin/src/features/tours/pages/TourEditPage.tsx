@@ -7,7 +7,6 @@ import { routes } from '@/config/routes';
 import { TourForm } from '@/features/tours/components/TourForm';
 import { TourPoisSection } from '@/features/tours/components/TourPoisSection';
 import { TourRouteOrderSection } from '@/features/tours/components/TourRouteOrderSection';
-import { TourTranslationsSection } from '@/features/tours/components/TourTranslationsSection';
 import { useTourQuery } from '@/features/tours/hooks/useTourQuery';
 import { useUpdateTourMutation } from '@/features/tours/hooks/useUpdateTourMutation';
 
@@ -76,7 +75,6 @@ export function TourEditPage() {
             />
           </section>
 
-          <TourTranslationsSection tour={tourQuery.data} />
           <TourPoisSection tour={tourQuery.data} />
           <TourRouteOrderSection tour={tourQuery.data} />
         </>

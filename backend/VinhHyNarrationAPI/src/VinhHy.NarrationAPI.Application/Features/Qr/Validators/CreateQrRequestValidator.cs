@@ -9,6 +9,11 @@ public class CreateQrRequestValidator : AbstractValidator<CreateQrRequest>
 
     public CreateQrRequestValidator()
     {
+        RuleFor(x => x.Name)
+            .MaximumLength(200)
+            .When(x => x.Name is not null)
+            .WithMessage("Tên QR không được vượt quá 200 ký tự.");
+
         RuleFor(x => x)
             .Must(x => !(x.PoiId.HasValue && x.TourId.HasValue))
             .WithMessage("Mã QR chỉ được gắn với một POI hoặc một tour, không được chọn cả hai.");

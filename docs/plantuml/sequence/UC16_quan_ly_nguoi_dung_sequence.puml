@@ -1,0 +1,42 @@
+@startuml
+title Sequence Diagram - UC16 Quan ly nguoi dung
+
+actor "Admin / SuperAdmin" as Actor
+participant "Presentation Layer\nWebAdminUI - UsersPage va UserFormModal" as UI
+participant "Business Logic Layer\nUsersController + UserService" as Business
+participant "Data Access Layer\nUserRepository + RoleRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo danh sach nguoi dung
+UI -> Business: Gui yeu cau doc phan trang
+Business -> Business: Kiem tra quyen AdminOnly
+Business -> DataAccess: Doc user kem role
+DataAccess -> Database: Doc User va Role
+Database --> DataAccess: Tra danh sach
+DataAccess --> Business: Tra du lieu
+Business --> UI: Hien thi danh sach
+
+alt Tao hoac cap nhat user
+  Actor -> UI: Nhap tai khoan, role va trang thai
+  UI -> Business: Gui yeu cau luu
+  Business -> DataAccess: Kiem tra username, email va role
+  DataAccess -> Database: Doc User va Role lien quan
+  Database --> DataAccess: Tra ket qua
+  alt Du lieu hop le
+    Business -> Business: Bam mat khau neu co
+    Business -> DataAccess: Ghi User
+    DataAccess -> Database: Tao hoac cap nhat user
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra user da luu
+  else Trung username/email hoac role khong ton tai
+    Business --> UI: Tra thong bao loi
+  end
+else Xoa user
+  UI -> Business: Gui yeu cau xoa
+  Business -> DataAccess: Tim va xoa User
+  DataAccess -> Database: Xoa user neu rang buoc cho phep
+  Database --> DataAccess: Xac nhan hoac loi tham chieu
+  Business --> UI: Tra ket qua
+end
+UI --> Actor: Cap nhat danh sach hoac hien thi loi
+@enduml

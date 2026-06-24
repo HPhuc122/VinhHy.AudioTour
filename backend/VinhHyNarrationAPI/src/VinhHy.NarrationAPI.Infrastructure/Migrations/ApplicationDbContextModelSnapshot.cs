@@ -525,6 +525,10 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("ImageCategory")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -592,6 +596,8 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_MediaFiles_FileSize", "[FileSize] > 0");
 
                             t.HasCheckConstraint("CK_MediaFiles_FileType", "[FileType] IN ('image', 'audio')");
+
+                            t.HasCheckConstraint("CK_MediaFiles_ImageCategory", "[ImageCategory] IS NULL OR [ImageCategory] IN ('Menu', 'Highlight')");
                         });
                 });
 
@@ -1117,6 +1123,10 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int?>("PoiId")
                         .HasColumnType("int");

@@ -60,6 +60,7 @@ public class PublicAudioTourService : IPublicAudioTourService
         string? accessToken,
         int poiId,
         string languageCode = "vi",
+        string triggerType = TriggerTypes.Manual,
         CancellationToken cancellationToken = default)
     {
         await _publicAccessService.ValidateAccessForPoiAsync(accessToken, poiId, cancellationToken)
@@ -77,7 +78,7 @@ public class PublicAudioTourService : IPublicAudioTourService
         var audioTracks = await _uow.AudioTracks.GetByPoiIdAsync(poiId, cancellationToken)
             .ConfigureAwait(false);
 
-        await RecordPublicVisitAsync(poiId, TriggerTypes.Manual, languageCode, cancellationToken)
+        await RecordPublicVisitAsync(poiId, NormalizeTriggerType(triggerType), languageCode, cancellationToken)
             .ConfigureAwait(false);
 
         return MapPoi(poi, languageCode, orderIndex: 0, audioTracks);
@@ -149,6 +150,21 @@ public class PublicAudioTourService : IPublicAudioTourService
 
     private static string NormalizeLanguageCode(string? languageCode) =>
         string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
+
+    private static string NormalizeTriggerType(string? triggerType)
+    {
+        var normalized = string.IsNullOrWhiteSpace(triggerType)
+            ? TriggerTypes.Manual
+            : triggerType.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            TriggerTypes.Gps => TriggerTypes.Gps,
+            TriggerTypes.Qr => TriggerTypes.Qr,
+            TriggerTypes.Manual => TriggerTypes.Manual,
+            _ => TriggerTypes.Manual
+        };
+    }
 
     private async Task RecordPublicVisitAsync(
         int poiId,

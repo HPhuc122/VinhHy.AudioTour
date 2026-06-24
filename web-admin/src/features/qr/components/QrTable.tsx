@@ -4,16 +4,13 @@ import { Button } from '@/components/ui/Button';
 import { routes } from '@/config/routes';
 import type { QrDto } from '@/features/qr/api/qrApi';
 import { drawQrCode } from '@/utils/qrCodeCanvas';
+import { formatVietnamDate } from '@/utils/dateTime';
 
 interface QrTableProps {
   qrs: QrDto[];
   deletingQrId?: number | null;
   onDelete: (qr: QrDto) => void;
 }
-
-const PUBLIC_WEB_BASE_URL = (
-  import.meta.env.VITE_PUBLIC_WEB_BASE_URL ?? 'http://localhost:5174'
-).replace(/\/$/, '');
 
 export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
   if (qrs.length === 0) {
@@ -42,7 +39,7 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
             {qrs.map((qr) => {
-              const publicUrl = buildQrUrl(qr.code);
+              const publicUrl = qr.publicUrl;
 
               return (
                 <tr key={qr.id} className="hover:bg-gray-50">
@@ -50,7 +47,8 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                     <QrCanvas value={publicUrl} code={qr.code} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-900">
-                    <div>{qr.code}</div>
+                    <div>{qr.name}</div>
+                    <div className="text-xs font-normal text-gray-500">{qr.code}</div>
                     <button
                       type="button"
                       className="mt-1 max-w-[220px] truncate text-xs text-blue-700 underline"
@@ -64,10 +62,10 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                     <QrType qr={qr} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {qr.requiresPayment ? formatCurrency(qr.priceAmount) : 'Miễn phí'}
+                    {qr.qrKind === 'AudioPackage' ? (qr.requiresPayment ? formatCurrency(qr.priceAmount) : 'Miễn phí') : '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {qr.accessDurationMinutes} phút
+                    {qr.qrKind === 'AudioPackage' ? `${qr.accessDurationMinutes} phút` : '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
@@ -81,7 +79,7 @@ export function QrTable({ qrs, deletingQrId = null, onDelete }: QrTableProps) {
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {formatDate(qr.createdAt)}
+                    {formatVietnamDate(qr.createdAt)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex justify-end gap-2">
@@ -152,35 +150,9 @@ function QrCanvas({ value, code }: { value: string; code: string }) {
 }
 
 function QrType({ qr }: { qr: QrDto }) {
-  if (qr.poiId == null && qr.tourId == null) {
-    return <span>Mã QR dịch vụ</span>;
-  }
-
-  return (
-    <span className="inline-flex flex-col">
-      <span>Loại cũ</span>
-      <span className="text-xs text-gray-500">
-        {qr.poiId != null ? `POI ${qr.poiCode ?? qr.poiId}` : `Tour ${qr.tourCode ?? qr.tourId}`}
-      </span>
-    </span>
-  );
-}
-
-function buildQrUrl(code: string): string {
-  return `${PUBLIC_WEB_BASE_URL}/qr/${encodeURIComponent(code)}`;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(date);
+  if (qr.qrKind === 'Poi') return <span>Đường dẫn POI<br/><small>{qr.poiCode ?? qr.poiId}</small></span>;
+  if (qr.qrKind === 'Tour') return <span>Đường dẫn Tour<br/><small>{qr.tourCode ?? qr.tourId}</small></span>;
+  return <span>Thanh toán gói Audio</span>;
 }
 
 function formatCurrency(value: number): string {

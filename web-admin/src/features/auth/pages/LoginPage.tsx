@@ -23,9 +23,9 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-xl bg-white p-8 shadow-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-xl font-bold text-white">
-            V
+            K
           </div>
-          <h1 className="text-xl font-bold text-gray-900">VinhHy AudioTour</h1>
+          <h1 className="text-xl font-bold text-gray-900">KhanhHoi AudioTour</h1>
           <p className="mt-1 text-sm text-gray-500">CMS Admin</p>
         </div>
 
@@ -47,7 +47,7 @@ export function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          © {new Date().getFullYear()} VinhHy AudioTour
+          © {new Date().getFullYear()} KhanhHoi AudioTour
         </p>
       </div>
     </div>

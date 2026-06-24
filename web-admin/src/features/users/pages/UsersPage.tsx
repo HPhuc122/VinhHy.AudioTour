@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import {
   useCreateUser,
-  useDeleteUser,
   useUpdateUser,
   useUsers,
 } from '../hooks/useUsers';
 import { UserFormModal } from '../components/UserFormModal';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
-import { Modal } from '../../../components/ui/Modal';
 import { useToast } from '../../../components/ui/Toast';
 import { extractApiError } from '../../../api/apiError';
 import { displayRoleName } from '../../auth/roleAccess';
@@ -18,12 +16,10 @@ export function UsersPage() {
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserDto | undefined>();
-  const [deleteTarget, setDeleteTarget] = useState<UserDto | undefined>();
 
   const { data, isLoading, isError } = useUsers(page);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser(editTarget?.id ?? 0);
-  const deleteUser = useDeleteUser();
   const toast = useToast();
 
   const handleCreate = async (formData: any) => {
@@ -39,8 +35,6 @@ export function UsersPage() {
   const handleUpdate = async (formData: any) => {
     if (!editTarget) return;
     const payload: any = {};
-    if (formData.email) payload.email = formData.email;
-    if (formData.password) payload.password = formData.password;
     if (formData.roleId) payload.roleId = Number(formData.roleId);
     if (formData.preferredLanguage) payload.preferredLanguage = formData.preferredLanguage;
     if (formData.isActive !== undefined) payload.isActive = formData.isActive;
@@ -48,17 +42,6 @@ export function UsersPage() {
       await updateUser.mutateAsync(payload);
       toast('Cập nhật thành công', 'success');
       setEditTarget(undefined);
-    } catch (err) {
-      toast(extractApiError(err), 'error');
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteUser.mutateAsync(deleteTarget.id);
-      toast('Đã xóa người dùng', 'success');
-      setDeleteTarget(undefined);
     } catch (err) {
       toast(extractApiError(err), 'error');
     }
@@ -128,9 +111,6 @@ export function UsersPage() {
                         <Button size="sm" variant="secondary" onClick={() => setEditTarget(user)}>
                           Sửa
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => setDeleteTarget(user)}>
-                          Xóa
-                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -185,27 +165,6 @@ export function UsersPage() {
         editUser={editTarget}
       />
 
-      <Modal
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(undefined)}
-        title="Xác nhận xóa người dùng"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDeleteTarget(undefined)}>
-              Hủy
-            </Button>
-            <Button variant="danger" onClick={handleDelete} loading={deleteUser.isPending}>
-              Xóa
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-gray-600">
-          Bạn có chắc muốn xóa người dùng{' '}
-          <span className="font-semibold text-gray-900">{deleteTarget?.username}</span>?
-          Hành động này không thể hoàn tác.
-        </p>
-      </Modal>
     </div>
   );
 }

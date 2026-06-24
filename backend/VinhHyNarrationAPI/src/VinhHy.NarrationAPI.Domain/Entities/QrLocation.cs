@@ -6,6 +6,8 @@ public class QrLocation : BaseEntity, ISoftDeletable
 {
     public string Code { get; set; } = null!;
 
+    public string? Name { get; set; }
+
     public int? PoiId { get; set; }
 
     public int? TourId { get; set; }

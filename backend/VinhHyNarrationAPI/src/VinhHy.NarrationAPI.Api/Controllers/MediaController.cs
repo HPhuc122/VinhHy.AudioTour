@@ -78,6 +78,7 @@ public class MediaController(IMediaService mediaService) : ControllerBase
     public async Task<IActionResult> Upload(
         [FromForm] IFormFile? file,
         [FromForm] int? poiId,
+        [FromForm] string? imageCategory,
         CancellationToken cancellationToken)
     {
         if (file is null)
@@ -94,6 +95,7 @@ public class MediaController(IMediaService mediaService) : ControllerBase
                 FileSize = file.Length,
                 UploadedByUserId = GetCurrentUserId(),
                 PoiId = poiId,
+                ImageCategory = imageCategory,
                 RequiredPoiOwnerUserId = IsVendor() ? GetRequiredCurrentUserId() : null,
                 ImageOnly = IsVendor(),
                 ApprovalStatus = IsVendor() ? ApprovalStatuses.Pending : ApprovalStatuses.Approved,

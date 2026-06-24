@@ -46,6 +46,10 @@ public class MappingProfile : Profile
 
         CreateMap<Poi, PoiDto>()
             .ForMember(d => d.ImageUrls, opt => opt.MapFrom(s => DeserializeImageUrls(s.ImageUrls)))
+            .ForMember(d => d.OwnerUsername, opt => opt.MapFrom(s => s.User != null ? s.User.Username : null))
+            .ForMember(d => d.OwnerEmail, opt => opt.MapFrom(s => s.User != null ? s.User.Email : null))
+            .ForMember(d => d.OwnerName, opt => opt.MapFrom(s => s.User != null ? s.User.Username : null))
+            .ForMember(d => d.ActivatedByUsername, opt => opt.MapFrom(s => s.ActivatedByUser != null ? s.ActivatedByUser.Username : null))
             .ForMember(
                 d => d.DisplayName,
                 opt => opt.MapFrom(s =>
@@ -148,6 +152,9 @@ public class MappingProfile : Profile
                         .FirstOrDefault() ?? s.Poi.Code));
 
         CreateMap<QrLocation, QrDto>()
+            .ForMember(d => d.Name, opt => opt.MapFrom(s => string.IsNullOrWhiteSpace(s.Name) ? s.Code : s.Name))
+            .ForMember(d => d.QrKind, opt => opt.Ignore())
+            .ForMember(d => d.PublicUrl, opt => opt.Ignore())
             .ForMember(d => d.PoiCode, opt => opt.MapFrom(s => s.Poi != null ? s.Poi.Code : null))
             .ForMember(d => d.TourCode, opt => opt.MapFrom(s => s.Tour != null ? s.Tour.Code : null));
         CreateMap<CreateQrRequest, QrLocation>()

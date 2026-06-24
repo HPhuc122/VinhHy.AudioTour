@@ -26,6 +26,8 @@ public class MediaFileDto
 
     public int? PoiId { get; set; }
 
+    public string? ImageCategory { get; set; }
+
     public string? PoiCode { get; set; }
 
     public string? PoiName { get; set; }

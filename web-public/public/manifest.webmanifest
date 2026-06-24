@@ -1,7 +1,7 @@
 {
-  "name": "VinhHy AudioTour",
-  "short_name": "VinhHy Tour",
-  "description": "Multilingual audio tour and offline map for Vinh Hy.",
+  "name": "KhanhHoi AudioTour",
+  "short_name": "KhanhHoi Tour",
+  "description": "Multilingual audio tour and offline map for Khanh Hoi.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

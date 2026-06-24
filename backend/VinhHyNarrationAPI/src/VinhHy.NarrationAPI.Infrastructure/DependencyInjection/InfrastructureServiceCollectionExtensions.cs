@@ -8,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 using VinhHy.NarrationAPI.Application.Interfaces;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Infrastructure.Data;
-using VinhHy.NarrationAPI.Infrastructure.Data.Seed;
 using VinhHy.NarrationAPI.Infrastructure.Options;
 using VinhHy.NarrationAPI.Infrastructure.Repositories;
 using VinhHy.NarrationAPI.Infrastructure.Services;
@@ -55,10 +54,8 @@ public static class InfrastructureServiceCollectionExtensions
         return services;
     }
 
-    public static async Task MigrateAndSeedAsync(
+    public static async Task MigrateDatabaseAsync(
         this IServiceProvider services,
-        IConfiguration? configuration = null,
-        IHostEnvironment? environment = null,
         CancellationToken cancellationToken = default)
     {
         using var scope = services.CreateScope();
@@ -72,8 +69,6 @@ public static class InfrastructureServiceCollectionExtensions
         {
             await db.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        await DataSeeder.SeedAsync(db, configuration, environment, cancellationToken).ConfigureAwait(false);
     }
 
     private static void RegisterRepositories(IServiceCollection services)

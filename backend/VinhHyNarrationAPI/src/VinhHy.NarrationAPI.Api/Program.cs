@@ -101,7 +101,7 @@ try
     {
         if (app.Environment.IsDevelopment())
         {
-            await app.Services.MigrateAndSeedAsync(app.Configuration, app.Environment);
+            await app.Services.MigrateDatabaseAsync();
         }
     }
 

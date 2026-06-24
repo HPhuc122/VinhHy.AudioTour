@@ -2,13 +2,13 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { routes } from '@/config/routes';
 import type { TourDto } from '@/features/tours/api/tourApi';
+import { formatVietnamDate } from '@/utils/dateTime';
 
 interface TourTableProps {
   tours: TourDto[];
   deletingTourId?: number | null;
   onDelete: (tour: TourDto) => void;
 }
-
 export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableProps) {
   if (tours.length === 0) {
     return (
@@ -60,7 +60,7 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                  {formatDate(tour.updatedAt)}
+                  {formatVietnamDate(tour.updatedAt)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex justify-end gap-2">
@@ -87,17 +87,4 @@ export function TourTable({ tours, deletingTourId = null, onDelete }: TourTableP
       </div>
     </div>
   );
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(date);
 }

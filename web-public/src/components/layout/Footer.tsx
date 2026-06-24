@@ -9,8 +9,8 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 sm:grid-cols-3">
         <div>
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">V</div>
-            <span className="font-semibold text-white">VinhHy AudioTour</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">K</div>
+            <span className="font-semibold text-white">KhanhHoi AudioTour</span>
           </div>
           <p className="text-xs leading-relaxed">{t('footerTagline')}</p>
         </div>
@@ -25,10 +25,10 @@ export function Footer() {
         </div>
         <div>
           <p className="mb-3 font-semibold text-white">{t('contact')}</p>
-          <ul className="space-y-2 text-xs"><li>{t('address')}</li><li>info@vinhhytour.vn</li><li>0123 456 789</li></ul>
+          <ul className="space-y-2 text-xs"><li>{t('address')}</li><li>info@khanhhoitour.vn</li><li>0123 456 789</li></ul>
         </div>
       </div>
-      <div className="border-t border-gray-800 py-4 text-center text-xs">© {new Date().getFullYear()} VinhHy AudioTour. {t('rights')}</div>
+      <div className="border-t border-gray-800 py-4 text-center text-xs">© {new Date().getFullYear()} KhanhHoi AudioTour. {t('rights')}</div>
     </footer>
   );
 }

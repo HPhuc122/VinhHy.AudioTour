@@ -1,0 +1,42 @@
+@startuml
+title Use Case Diagram - Vendor - Tai khoan va dashboard
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Vendor" as Vendor
+
+rectangle "KhanhHoi AudioTour Web Vendor" {
+  usecase "UC02\nDang ky tai khoan\nchu sap" as UC02
+  usecase "UC01\nDang nhap va\nduy tri phien" as UC01
+  usecase "UC03\nXem dashboard\nVendor" as UC03
+  usecase "Xem bao cao\nthong ke cua sap" as StoreStats
+  usecase "Xem bieu do\nkhach ghe sap" as VisitChart
+  usecase "Xem co cau\nsap va noi dung" as ContentChart
+  usecase "Gioi han du lieu\ntheo sap cua minh" as VendorScope
+}
+
+Vendor --> UC02
+Vendor --> UC01
+Vendor --> UC03
+
+UC03 ..> UC01 : <<include>>
+UC03 ..> StoreStats : <<include>>
+UC03 ..> VisitChart : <<include>>
+UC03 ..> ContentChart : <<include>>
+UC03 ..> VendorScope : <<include>>
+
+@enduml

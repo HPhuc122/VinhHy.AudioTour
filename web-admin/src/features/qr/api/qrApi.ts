@@ -7,6 +7,9 @@ const QR_BASE = '/api/v1/qr';
 export interface QrDto {
   id: number;
   code: string;
+  name: string;
+  qrKind: QrKind;
+  publicUrl: string;
   poiId?: number | null;
   poiCode?: string | null;
   tourId?: number | null;
@@ -20,7 +23,11 @@ export interface QrDto {
   deletedAt?: string | null;
 }
 
+export type QrKind = 'Poi' | 'Tour' | 'AudioPackage';
+
 export interface CreateQrRequest {
+  name: string;
+  qrKind: QrKind;
   poiId?: number | null;
   tourId?: number | null;
   isActive: boolean;
@@ -30,6 +37,8 @@ export interface CreateQrRequest {
 }
 
 export interface UpdateQrRequest {
+  name?: string;
+  qrKind?: QrKind;
   poiId?: number | null;
   tourId?: number | null;
   isActive?: boolean;

@@ -96,10 +96,10 @@ export function VendorRegisterPage() {
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-xl font-bold text-white">
-            V
+            K
           </div>
           <h1 className="text-xl font-bold text-gray-900">Đăng ký chủ sạp</h1>
-          <p className="mt-1 text-sm text-gray-500">VinhHy AudioTour CMS</p>
+          <p className="mt-1 text-sm text-gray-500">KhanhHoi AudioTour CMS</p>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>

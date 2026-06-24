@@ -1,0 +1,36 @@
+@startuml
+title Sequence Diagram - UC08 Gui hinh anh noi dung POI
+
+actor "Vendor" as Actor
+participant "Presentation Layer\nWebAdminUI - MediaLibraryPage tab Hinh anh" as UI
+participant "Business Logic Layer\nMediaController + MediaService" as Business
+participant "Data Access Layer\nMediaRepository + PoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Chon POI va file anh
+UI -> UI: Kiem tra da chon file
+UI -> Business: Gui file va poiId
+Business -> Business: Kiem tra role Vendor va che do chi cho phep anh
+Business -> DataAccess: Doc POI va owner
+DataAccess -> Database: Doc du lieu POI
+Database --> DataAccess: Tra POI
+DataAccess --> Business: Tra ket qua
+alt POI ton tai va thuoc Vendor
+  Business -> Business: Kiem tra loai file, kich thuoc va phan mo rong
+  alt File hop le
+    Business -> Business: Luu file vao vung upload
+    Business -> DataAccess: Tao MediaFile trang thai Pending
+    DataAccess -> Database: Ghi metadata anh va nguoi gui
+    Database --> DataAccess: Xac nhan
+    DataAccess --> Business: Tra media moi
+    Business --> UI: Tra anh cho duyet
+    UI --> Actor: Cap nhat danh sach va thong bao thanh cong
+  else File khong hop le
+    Business --> UI: Tra loi dinh dang hoac kich thuoc
+    UI --> Actor: Hien thi loi upload
+  end
+else POI khong ton tai hoac sai owner
+  Business --> UI: Tra loi khong co quyen
+  UI --> Actor: Hien thi loi
+end
+@enduml

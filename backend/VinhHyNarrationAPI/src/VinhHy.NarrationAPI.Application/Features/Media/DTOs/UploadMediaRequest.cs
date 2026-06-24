@@ -14,6 +14,8 @@ public class UploadMediaRequest
 
     public int? PoiId { get; set; }
 
+    public string? ImageCategory { get; set; }
+
     public int? RequiredPoiOwnerUserId { get; set; }
 
     public bool ImageOnly { get; set; }

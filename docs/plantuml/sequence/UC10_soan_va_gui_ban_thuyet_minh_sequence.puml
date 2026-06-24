@@ -1,0 +1,30 @@
+@startuml
+title Sequence Diagram - UC10 Soan va gui ban thuyet minh
+
+actor "Vendor" as Actor
+participant "Presentation Layer\nWebAdminUI - MediaLibraryPage tab Ban thuyet minh" as UI
+participant "Business Logic Layer\nNarrationsController + NarrationDraftService" as Business
+participant "Data Access Layer\nApplicationDbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Chon POI va nhap noi dung thuyet minh
+UI -> UI: Kiem tra tieu de, ngon ngu va noi dung
+UI -> Business: Gui yeu cau tao narration draft
+Business -> Business: Kiem tra role Vendor va user id
+Business -> DataAccess: Doc POI, owner, Language va draft hien co
+DataAccess -> Database: Doc du lieu lien quan
+Database --> DataAccess: Tra ket qua
+DataAccess --> Business: Tra POI va tinh trang trung lap
+alt POI thuoc Vendor va du lieu hop le
+  Business -> Business: Tao draft trang thai Pending
+  Business -> DataAccess: Ghi NarrationDraft
+  DataAccess -> Database: Luu draft va nguoi gui
+  Database --> DataAccess: Xac nhan
+  DataAccess --> Business: Tra draft moi
+  Business --> UI: Tra ket qua thanh cong
+  UI --> Actor: Cap nhat danh sach cho duyet
+else Khong tim thay, sai owner, sai ngon ngu hoac bi trung
+  Business --> UI: Tra thong bao loi
+  UI --> Actor: Hien thi loi va giu form
+end
+@enduml

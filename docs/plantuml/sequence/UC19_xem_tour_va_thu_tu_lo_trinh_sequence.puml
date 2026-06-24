@@ -1,0 +1,31 @@
+@startuml
+title Sequence Diagram - UC19 Xem tour va thu tu lo trinh
+
+actor "Khach tham quan" as Actor
+participant "Presentation Layer\nWebPublicUI - ToursPage, TourDetailPage va TourRoutePage" as UI
+participant "Business Logic Layer\nPublicToursController + TourService + PublicPoiService" as Business
+participant "Data Access Layer\nTourRepository + TourTranslationRepository + TourPoiRepository + PoiRepository + MediaRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo danh sach hoac chi tiet tour
+UI -> Business: Gui yeu cau tour theo ngon ngu
+Business -> DataAccess: Doc tour active va quan he diem dung
+DataAccess -> Database: Doc Tour, TourTranslation va TourPoi
+Database --> DataAccess: Tra du lieu tour
+DataAccess --> Business: Tra tour ung vien
+Business -> DataAccess: Doc POI va anh Approved cua diem dung
+DataAccess -> Database: Doc Poi, PoiTranslation va MediaFile
+Database --> DataAccess: Tra du lieu diem dung
+DataAccess --> Business: Tra POI
+Business -> Business: Loc POI cong khai va sap xep OrderIndex
+alt Tour ton tai va active
+  Business --> UI: Tra tour va cac diem dung
+  UI --> Actor: Hien thi chi tiet va thu tu lo trinh
+else Tour khong ton tai, inactive hoac da xoa
+  Business --> UI: Tra loi khong tim thay
+  UI --> Actor: Hien thi thong bao
+end
+opt Khach chon nghe audio
+  UI --> Actor: Chuyen sang luong UC23 neu co access pass
+end
+@enduml

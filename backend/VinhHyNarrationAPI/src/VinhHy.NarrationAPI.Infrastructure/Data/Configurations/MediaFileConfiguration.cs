@@ -17,6 +17,7 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<MediaFile>
         builder.Property(e => e.FileType).HasMaxLength(20).IsRequired();
         builder.Property(e => e.ContentType).HasMaxLength(100).IsRequired();
         builder.Property(e => e.RelativePath).HasMaxLength(500).IsRequired();
+        builder.Property(e => e.ImageCategory).HasMaxLength(30);
         builder.Property(e => e.ApprovalStatus).HasMaxLength(20).HasDefaultValue("Pending").IsRequired();
         builder.Property(e => e.RejectionReason).HasMaxLength(1000);
         builder.Property(e => e.UploadedAt).HasDefaultValueSql("SYSUTCDATETIME()");
@@ -51,6 +52,7 @@ public class MediaFileConfiguration : IEntityTypeConfiguration<MediaFile>
             t.HasCheckConstraint("CK_MediaFiles_FileSize", "[FileSize] > 0");
             t.HasCheckConstraint("CK_MediaFiles_FileType", "[FileType] IN ('image', 'audio')");
             t.HasCheckConstraint("CK_MediaFiles_ApprovalStatus", "[ApprovalStatus] IN ('Pending', 'Approved', 'Rejected')");
+            t.HasCheckConstraint("CK_MediaFiles_ImageCategory", "[ImageCategory] IS NULL OR [ImageCategory] IN ('Menu', 'Highlight')");
         });
     }
 }

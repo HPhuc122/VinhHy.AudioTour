@@ -23,6 +23,8 @@ public class MediaFile : BaseEntity
 
     public int? PoiId { get; set; }
 
+    public string? ImageCategory { get; set; }
+
     public string ApprovalStatus { get; set; } = ApprovalStatuses.Pending;
 
     public DateTime? SubmittedAt { get; set; }

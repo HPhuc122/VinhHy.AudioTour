@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { poisApi } from '../../api/poisApi';
-import { publicAudioTourApi } from '../../api/publicAudioTourApi';
+import { publicAudioTourApi, type AudioTourTriggerType, type PublicAudioTourPoiDto } from '../../api/publicAudioTourApi';
 import { toursApi } from '../../api/toursApi';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
@@ -30,6 +30,13 @@ interface UserLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
+}
+
+interface GeofenceCandidate {
+  poi: PublicPoiDto;
+  distanceMeters: number;
+  radiusMeters: number;
+  insideRatio: number;
 }
 
 interface RouteSummary {
@@ -69,6 +76,9 @@ const ORS_DIRECTIONS_URL = 'https://api.openrouteservice.org/v2/directions/drivi
 const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY?.trim()
   || 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjcwN2MyZTA0Y2JjODQ0OTg4NWM4OTk3MjIwOTE4NTlmIiwiaCI6Im11cm11cjY0In0=';
 
+const DEFAULT_GEOFENCE_RADIUS_METERS = 30;
+const DEFAULT_GEOFENCE_COOLDOWN_SECONDS = 300;
+
 export function MapPage({ lang }: Props) {
   const { t } = useI18n();
   const [searchParams] = useSearchParams();
@@ -77,15 +87,24 @@ export function MapPage({ lang }: Props) {
   const contentLayersRef = useRef<any[]>([]);
   const userLocationLayersRef = useRef<any[]>([]);
   const routeLayerRef = useRef<any>(null);
+  const fittedRouteTargetRef = useRef<string | null>(null);
   const locationWatchIdRef = useRef<number | null>(null);
   const shouldFollowUserRef = useRef(false);
   const appliedUrlFocusRef = useRef<string | null>(null);
+  const geofenceEnteredAtRef = useRef<Map<number, number>>(new Map());
+  const geofenceLastPlayedAtRef = useRef<Map<number, number>>(new Map());
+  const dismissedGeofencePoiIdsRef = useRef<Set<number>>(new Set());
   const [selectedPoi, setSelectedPoi] = useState<PublicPoiDto | null>(null);
+  const [selectedPoiTrigger, setSelectedPoiTrigger] = useState<AudioTourTriggerType>('manual');
   const [navigationPoi, setNavigationPoi] = useState<PublicPoiDto | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [clientExpired, setClientExpired] = useState(false);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [autoAudioEnabled, setAutoAudioEnabled] = useState(true);
+  const [autoAudioMessage, setAutoAudioMessage] = useState<string | null>(null);
+  const [autoPlayRequestKey, setAutoPlayRequestKey] = useState(0);
+  const [geofenceTick, setGeofenceTick] = useState(0);
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
@@ -96,11 +115,15 @@ export function MapPage({ lang }: Props) {
   const focusLat = searchParams.get('lat');
   const focusLng = searchParams.get('lng');
   const urlFocusSignature = `${focusPoiId}|${focusLat ?? ''}|${focusLng ?? ''}`;
-  const hasUrlFocusTarget = Boolean(focusLat && focusLng) || (Number.isInteger(focusPoiId) && focusPoiId > 0);
   // Rounding to about 11 metres prevents a noisy GPS watch from repeatedly
   // consuming the Directions API quota while the user is standing still.
   const routeStartLatitude = userLocation ? Number(userLocation.latitude.toFixed(4)) : null;
   const routeStartLongitude = userLocation ? Number(userLocation.longitude.toFixed(4)) : null;
+  const routeTargetSignature = tourId
+    ? `tour:${tourId}`
+    : navigationPoi
+      ? `poi:${navigationPoi.id}`
+      : null;
 
   const { data: poisData, isLoading } = useQuery({
     queryKey: ['pois-map', lang],
@@ -114,9 +137,9 @@ export function MapPage({ lang }: Props) {
   });
 
   const accessRecord = selectedPoi ? getAccessRecordForPoi(selectedPoi.id) : null;
-  const audioTourQuery = useQuery({
-    queryKey: ['public-map-audio-tour', selectedPoi?.id, lang, accessRecord?.accessToken],
-    queryFn: () => publicAudioTourApi.getPoi(selectedPoi!.id, accessRecord!.accessToken, lang),
+  const audioTourQuery = useQuery<PublicAudioTourPoiDto>({
+    queryKey: ['public-map-audio-tour', selectedPoi?.id, lang, accessRecord?.accessToken, selectedPoiTrigger],
+    queryFn: () => publicAudioTourApi.getPoi(selectedPoi!.id, accessRecord!.accessToken, lang, selectedPoiTrigger),
     enabled: !!selectedPoi && !!accessRecord?.accessToken && !clientExpired,
     retry: false,
   });
@@ -224,6 +247,8 @@ export function MapPage({ lang }: Props) {
           .on('click', () => {
             shouldFollowUserRef.current = false;
             setClientExpired(false);
+            setSelectedPoiTrigger('manual');
+            setAutoPlayRequestKey((current) => current + 1);
             setSelectedPoi(poi);
           });
 
@@ -269,6 +294,7 @@ export function MapPage({ lang }: Props) {
       ? tourDetail?.pois ?? []
       : navigationPoi ? [navigationPoi] : [];
     if (routePois.length === 0 || routeStartLatitude === null || routeStartLongitude === null) {
+      fittedRouteTargetRef.current = null;
       setRouteLoading(false);
       return () => controller.abort();
     }
@@ -308,7 +334,10 @@ export function MapPage({ lang }: Props) {
           distanceMeters: result.distanceMeters,
           durationSeconds: result.durationSeconds,
         });
-        map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+        if (routeTargetSignature && fittedRouteTargetRef.current !== routeTargetSignature) {
+          map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+          fittedRouteTargetRef.current = routeTargetSignature;
+        }
         scheduleMapResize(map);
       } catch (error) {
         if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return;
@@ -322,7 +351,7 @@ export function MapPage({ lang }: Props) {
       cancelled = true;
       controller.abort();
     };
-  }, [mapReady, navigationPoi, routeStartLatitude, routeStartLongitude, t, tourDetail, tourId]);
+  }, [mapReady, navigationPoi, routeStartLatitude, routeStartLongitude, routeTargetSignature, t, tourDetail, tourId]);
 
   useEffect(() => {
     if (tourId) setNavigationPoi(null);
@@ -390,6 +419,95 @@ export function MapPage({ lang }: Props) {
   }, [listedPois, navigationPoiId, selectedPoiId]);
 
   useEffect(() => {
+    if (!autoAudioEnabled || !userLocation || !listedPois.length) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setGeofenceTick((current) => current + 1);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [autoAudioEnabled, listedPois.length, userLocation]);
+
+  useEffect(() => {
+    if (!autoAudioEnabled) {
+      geofenceEnteredAtRef.current.clear();
+      dismissedGeofencePoiIdsRef.current.clear();
+      setAutoAudioMessage(null);
+      return;
+    }
+
+    if (!userLocation || !listedPois.length) {
+      geofenceEnteredAtRef.current.clear();
+      return;
+    }
+
+    const now = Date.now();
+    const candidates = getGeofenceCandidates(listedPois, userLocation);
+    const candidateIds = new Set(candidates.map((candidate) => candidate.poi.id));
+
+    for (const poiId of geofenceEnteredAtRef.current.keys()) {
+      if (!candidateIds.has(poiId)) {
+        geofenceEnteredAtRef.current.delete(poiId);
+        dismissedGeofencePoiIdsRef.current.delete(poiId);
+      }
+    }
+
+    const visibleCandidates = candidates.filter(
+      (candidate) => !dismissedGeofencePoiIdsRef.current.has(candidate.poi.id),
+    );
+
+    for (const candidate of visibleCandidates) {
+      if (!geofenceEnteredAtRef.current.has(candidate.poi.id)) {
+        geofenceEnteredAtRef.current.set(candidate.poi.id, now);
+      }
+    }
+
+    const readyCandidate = visibleCandidates.find((candidate) => {
+      const enteredAt = geofenceEnteredAtRef.current.get(candidate.poi.id) ?? now;
+      const dwellMilliseconds = getGeofenceMinDwellSeconds(candidate.poi) * 1000;
+      return now - enteredAt >= dwellMilliseconds;
+    });
+
+    if (!readyCandidate) {
+      return;
+    }
+
+    const lastPlayedAt = geofenceLastPlayedAtRef.current.get(readyCandidate.poi.id);
+    const cooldownMilliseconds = getGeofenceCooldownSeconds(readyCandidate.poi) * 1000;
+    if (lastPlayedAt && now - lastPlayedAt < cooldownMilliseconds) {
+      return;
+    }
+
+    const nearbyAccessRecord = getAccessRecordForPoi(readyCandidate.poi.id);
+    if (!nearbyAccessRecord?.accessToken) {
+      if (selectedPoiId !== readyCandidate.poi.id || selectedPoiTrigger !== 'gps') {
+        setClientExpired(false);
+        setSelectedPoiTrigger('gps');
+        setSelectedPoi(readyCandidate.poi);
+      }
+      setAutoAudioMessage(`${t('geofenceAccessRequired')}: ${readyCandidate.poi.name}`);
+      return;
+    }
+
+    geofenceLastPlayedAtRef.current.set(readyCandidate.poi.id, now);
+    setClientExpired(false);
+    setSelectedPoiTrigger('gps');
+    setAutoPlayRequestKey((current) => current + 1);
+    setSelectedPoi(readyCandidate.poi);
+    setAutoAudioMessage(`${t('geofenceDetected')}: ${readyCandidate.poi.name}`);
+  }, [
+    autoAudioEnabled,
+    geofenceTick,
+    listedPois,
+    selectedPoiId,
+    selectedPoiTrigger,
+    t,
+    userLocation,
+  ]);
+
+  useEffect(() => {
     if (!mapReady || !leafletMapRef.current || appliedUrlFocusRef.current === urlFocusSignature) return;
 
     if (Number.isInteger(focusPoiId) && focusPoiId > 0) {
@@ -397,6 +515,8 @@ export function MapPage({ lang }: Props) {
       const poi = listedPois.find((item) => item.id === focusPoiId);
       if (poi) {
         shouldFollowUserRef.current = false;
+        setSelectedPoiTrigger('manual');
+        setAutoPlayRequestKey((current) => current + 1);
         setSelectedPoi(poi);
         leafletMapRef.current.setView([poi.latitude, poi.longitude], MAP_FOCUS_ZOOM);
         appliedUrlFocusRef.current = urlFocusSignature;
@@ -418,7 +538,6 @@ export function MapPage({ lang }: Props) {
     if (!mapReady || !navigator.geolocation) return;
 
     let cancelled = false;
-    shouldFollowUserRef.current = !hasUrlFocusTarget;
 
     if (locationWatchIdRef.current !== null) return;
 
@@ -449,7 +568,7 @@ export function MapPage({ lang }: Props) {
         locationWatchIdRef.current = null;
       }
     };
-  }, [hasUrlFocusTarget, mapReady, t]);
+  }, [mapReady, t]);
 
   useEffect(() => {
     return () => {
@@ -494,6 +613,20 @@ export function MapPage({ lang }: Props) {
     );
   };
 
+  const toggleAutoAudio = () => {
+    const willEnable = !autoAudioEnabled;
+    setAutoAudioEnabled(willEnable);
+
+    if (willEnable) {
+      geofenceLastPlayedAtRef.current.clear();
+      setGeofenceTick((current) => current + 1);
+      setAutoAudioMessage(t('geofenceListening'));
+      requestLocation();
+    } else {
+      setAutoAudioMessage(null);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)] flex-col lg:flex-row">
       <div className="flex h-56 w-full shrink-0 flex-col overflow-hidden border-b border-gray-800 bg-gray-900 lg:h-auto lg:w-72 lg:border-b-0 lg:border-r">
@@ -509,7 +642,19 @@ export function MapPage({ lang }: Props) {
           >
             {t('locateMe')}
           </button>
+          <button
+            type="button"
+            onClick={toggleAutoAudio}
+            className={`mt-2 w-full rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+              autoAudioEnabled
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'border border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700'
+            }`}
+          >
+            {autoAudioEnabled ? t('geofenceAutoOn') : t('geofenceAutoOff')}
+          </button>
           {locationMessage ? <p className="mt-2 text-xs leading-5 text-amber-300">{locationMessage}</p> : null}
+          {autoAudioMessage ? <p className="mt-2 text-xs leading-5 text-emerald-200">{autoAudioMessage}</p> : null}
           {(tourDetail?.pois.length || navigationPoi) ? (
             <div className="mt-3 rounded-lg border border-gray-700 bg-gray-800 p-3 text-xs">
               {navigationPoi && !tourId ? (
@@ -553,6 +698,8 @@ export function MapPage({ lang }: Props) {
                 onClick={() => {
                   shouldFollowUserRef.current = false;
                   setClientExpired(false);
+                  setSelectedPoiTrigger('manual');
+                  setAutoPlayRequestKey((current) => current + 1);
                   setSelectedPoi(poi);
                   leafletMapRef.current?.setView([poi.latitude, poi.longitude], MAP_DEFAULT_ZOOM);
                 }}
@@ -592,16 +739,31 @@ export function MapPage({ lang }: Props) {
             audioTourQuery={audioTourQuery}
             clientExpired={clientExpired}
             isNavigating={navigationPoi?.id === selectedPoi.id}
+            selectionTrigger={selectedPoiTrigger}
+            autoPlayRequestKey={autoPlayRequestKey}
             onNavigate={!tourId ? () => {
               shouldFollowUserRef.current = false;
               setNavigationPoi({ ...selectedPoi });
               if (!userLocation) requestLocation();
             } : undefined}
-            onClose={() => setSelectedPoi(null)}
+            onClose={() => {
+              if (selectedPoiTrigger === 'gps') {
+                dismissedGeofencePoiIdsRef.current.add(selectedPoi.id);
+                geofenceLastPlayedAtRef.current.delete(selectedPoi.id);
+              }
+              setSelectedPoi(null);
+            }}
+            onAutoPlayBlocked={() => {
+              setAutoAudioMessage(t('geofenceAutoplayBlocked'));
+            }}
+            onAutoPlayStarted={() => {
+              setAutoAudioMessage(`${t('geofencePlaying')}: ${selectedPoi.name}`);
+            }}
             onExpired={() => {
               if (accessRecord) {
                 guestAccessStore.remove(accessRecord.qrCode);
               }
+              geofenceLastPlayedAtRef.current.delete(selectedPoi.id);
               setClientExpired(true);
             }}
           />
@@ -757,22 +919,31 @@ function PublicPoiInfoPanel({
   audioTourQuery,
   clientExpired,
   isNavigating,
+  selectionTrigger,
+  autoPlayRequestKey,
   onNavigate,
   onClose,
+  onAutoPlayBlocked,
+  onAutoPlayStarted,
   onExpired,
 }: {
   poi: PublicPoiDto;
   distanceMeters: number | null;
   accessRecord: GuestAccessRecord | null;
-  audioTourQuery: ReturnType<typeof useQuery>;
+  audioTourQuery: UseQueryResult<PublicAudioTourPoiDto, Error>;
   clientExpired: boolean;
   isNavigating: boolean;
+  selectionTrigger: AudioTourTriggerType;
+  autoPlayRequestKey: number;
   onNavigate?: () => void;
   onClose: () => void;
+  onAutoPlayBlocked: () => void;
+  onAutoPlayStarted: () => void;
   onExpired: () => void;
 }) {
   const { t } = useI18n();
   const hasAccess = Boolean(accessRecord?.accessToken) && !clientExpired;
+  const availableAudioTracks = audioTourQuery.data?.audioTracks.filter((track) => track.isAvailable) ?? [];
 
   return (
     <div className="absolute bottom-3 left-3 right-3 z-[1000] max-h-[70vh] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 shadow-2xl sm:bottom-4 sm:left-auto sm:right-4 sm:max-h-[82vh] sm:w-96">
@@ -833,6 +1004,11 @@ function PublicPoiInfoPanel({
 
       <div className="mt-4">
         <h4 className="mb-2 text-sm font-semibold text-white">{t('selectedLanguageAudio')}</h4>
+        {selectionTrigger === 'gps' && hasAccess ? (
+          <div className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs leading-5 text-emerald-100">
+            {t('geofencePlayPrompt')}
+          </div>
+        ) : null}
         {clientExpired ? (
           <AccessExpiredPanel />
         ) : !accessRecord?.accessToken ? (
@@ -856,16 +1032,19 @@ function PublicPoiInfoPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            {(audioTourQuery.data as any).audioTracks?.some((track: any) => track.isAvailable) ? (
-              (audioTourQuery.data as any).audioTracks
-                .filter((track: any) => track.isAvailable)
-                .map((track: any) => (
+            {availableAudioTracks.length > 0 ? (
+              availableAudioTracks
+                .map((track, index) => (
                   <ProtectedAudioPlayer
                     key={track.audioTrackId ?? track.id}
                     track={track}
                     poiName={poi.name}
                     accessToken={accessRecord.accessToken}
+                    autoPlay={index === 0 && hasAccess}
+                    autoPlayKey={`${poi.id}:${track.audioTrackId ?? track.id}:${selectionTrigger}:${autoPlayRequestKey}:${accessRecord.accessToken}`}
                     onUnauthorized={onExpired}
+                    onAutoPlayBlocked={onAutoPlayBlocked}
+                    onAutoPlayStarted={onAutoPlayStarted}
                   />
                 ))
             ) : (
@@ -925,6 +1104,56 @@ function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: numbe
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function getGeofenceCandidates(pois: PublicPoiDto[], userLocation: UserLocation): GeofenceCandidate[] {
+  return pois
+    .map((poi) => {
+      const distanceMeters = getDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        poi.latitude,
+        poi.longitude,
+      );
+      const radiusMeters = getGeofenceRadiusMeters(poi);
+      const accuracyToleranceMeters = Math.min(Math.max(userLocation.accuracy ?? 0, 0) * 0.25, 20);
+
+      return {
+        poi,
+        distanceMeters,
+        radiusMeters,
+        insideRatio: distanceMeters / radiusMeters,
+        isInside: distanceMeters <= radiusMeters + accuracyToleranceMeters,
+      };
+    })
+    .filter((candidate) => candidate.isInside)
+    .sort((left, right) => {
+      const priorityDifference = (right.poi.priority ?? 0) - (left.poi.priority ?? 0);
+      if (priorityDifference !== 0) return priorityDifference;
+
+      return left.insideRatio - right.insideRatio;
+    });
+}
+
+function getGeofenceRadiusMeters(poi: PublicPoiDto): number {
+  const radiusMeters = Number(poi.radiusMeters);
+  return Number.isFinite(radiusMeters) && radiusMeters > 0
+    ? radiusMeters
+    : DEFAULT_GEOFENCE_RADIUS_METERS;
+}
+
+function getGeofenceCooldownSeconds(poi: PublicPoiDto): number {
+  const cooldownSeconds = Number(poi.cooldownSeconds);
+  return Number.isFinite(cooldownSeconds) && cooldownSeconds >= 0
+    ? cooldownSeconds
+    : DEFAULT_GEOFENCE_COOLDOWN_SECONDS;
+}
+
+function getGeofenceMinDwellSeconds(poi: PublicPoiDto): number {
+  const minDwellSeconds = Number(poi.minDwellSeconds);
+  return Number.isFinite(minDwellSeconds) && minDwellSeconds >= 0
+    ? minDwellSeconds
+    : 0;
 }
 
 function formatDistance(distanceMeters: number): string {

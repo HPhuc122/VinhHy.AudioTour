@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,6 +12,7 @@ import { Input } from '../../../components/ui/Input';
 import { Select } from '../../../components/ui/Select';
 import { Button } from '../../../components/ui/Button';
 import { FormField } from '../../../components/ui/FormField';
+import { buildPoiImageUrl } from '../../../utils/assetUrl';
 import MapPickerOverlay from './MapPickerOverlay';
 
 const createSchema = z.object({
@@ -48,6 +49,12 @@ const editSchema = createSchema.partial();
 
 type CreateForm = z.infer<typeof createSchema>;
 type EditForm = z.infer<typeof editSchema>;
+interface ImagePreview {
+  id: string;
+  url: string;
+  file?: File;
+  isExisting?: boolean;
+}
 
 interface Props {
   open: boolean;
@@ -88,7 +95,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<ImagePreview[]>([]);
   const [vendorStep, setVendorStep] = useState(0);
 
   const { data: usersData } = useQuery({
@@ -98,11 +105,13 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
   });
 
   const ownerOptions = [
-    { value: 0, label: '-- Thuộc hệ thống (Admin) --' },
-    ...(usersData?.items ?? []).map((user) => ({
-      value: user.id,
-      label: user.username || user.email,
-    })),
+    { value: 0, label: '-- Chọn vendor/chủ sạp --' },
+    ...(usersData?.items ?? [])
+      .filter((user) => user.isActive && user.roleName === 'Vendor')
+      .map((user) => ({
+        value: user.id,
+        label: `${user.username || user.email} (${user.email})`,
+      })),
   ];
 
   const createMutation = useMutation({
@@ -162,7 +171,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
           }
         : defaultValues,
     );
-    setPreviews([]);
+    setPreviews(isEdit ? buildExistingPoiPreviews(editPoi) : []);
     setVendorStep(0);
   }, [open, editPoi]);
 
@@ -170,6 +179,14 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
     try {
       const formData = new FormData();
       const values = data as any;
+      if (!isVendorMode && !isEdit && Number(values.userId) <= 0) {
+        form.setError('userId' as any, {
+          type: 'manual',
+          message: 'Vui lòng chọn vendor/chủ sạp đã ký hợp đồng.',
+        });
+        return;
+      }
+
       formData.append('Name', values.name ?? '');
       if (!isVendorMode && Number(values.userId) > 0) {
         formData.append('UserId', String(values.userId));
@@ -210,10 +227,7 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
       );
       formData.append('IsActive', isVendorMode ? 'false' : values.isActive ? 'true' : 'false');
 
-      const imageFiles = Array.isArray(values.imageFiles) ? values.imageFiles : [];
-      if (imageFiles.length > 0) {
-        imageFiles.forEach((file: File) => formData.append('Images', file));
-      } else if (values.imageFile) {
+      if (values.imageFile) {
         formData.append('Image', values.imageFile);
       }
 
@@ -351,9 +365,11 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
 
         {!isVendorMode ? (
           <Select
-            label="Chủ sở hữu (Tùy chọn)"
+            label={isEdit ? 'Vendor / chủ sở hữu' : 'Vendor / chủ sạp đã ký hợp đồng'}
             options={ownerOptions}
+            error={(form.formState.errors as any).userId?.message}
             {...form.register('userId')}
+            required={!isEdit}
           />
         ) : null}
 
@@ -386,29 +402,28 @@ export function PoiFormModal({ open, onClose, loading, editPoi, isVendorMode = f
         </FormField>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Ảnh địa điểm</label>
+          <label className="text-sm font-medium text-gray-700">Ảnh thumbnail</label>
           <input
             type="file"
             accept="image/*"
-            multiple
             className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-lime-400 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-lime-900 hover:file:bg-lime-500"
             onChange={(event) => {
-              const files = Array.from(event.target.files ?? []);
-              if (files.length > 0) {
-                form.setValue('imageFiles', files);
-                form.setValue('imageFile', files[0]);
-                setPreviews(files.map((file) => URL.createObjectURL(file)));
+              const file = event.target.files?.[0];
+              if (file) {
+                form.setValue('imageFile', file);
+                form.setValue('imageFiles', [file]);
+                setPreviews([createImagePreview(file)]);
               }
             }}
           />
           {previews.length > 0 ? (
             <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {previews.map((previewUrl, index) => (
-                <img
-                  key={previewUrl}
-                  src={previewUrl}
-                  alt={`Xem trước ${index + 1}`}
-                  className="h-24 w-full rounded-md border object-cover"
+              {previews.map((preview, index) => (
+                <ImagePreviewTile
+                  key={preview.id}
+                  preview={preview}
+                  index={index}
+                  onRemove={preview.isExisting ? undefined : () => removeAdminImagePreview(index, form, setPreviews)}
                 />
               ))}
             </div>
@@ -520,8 +535,8 @@ function VendorPoiRegistrationWizard({
   step: number;
   form: UseFormReturn<CreateForm | EditForm>;
   editPoi?: any;
-  previews: string[];
-  setPreviews: (previews: string[]) => void;
+  previews: ImagePreview[];
+  setPreviews: Dispatch<SetStateAction<ImagePreview[]>>;
   onOpenMap: () => void;
 }) {
   const values = form.watch() as any;
@@ -639,18 +654,17 @@ function VendorPoiRegistrationWizard({
           </div>
 
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">Hình ảnh đăng ký</label>
+            <label className="text-sm font-medium text-gray-700">Ảnh thumbnail</label>
             <input
               type="file"
               accept="image/*"
-              multiple
               className="block w-full cursor-pointer text-sm text-gray-500 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
               onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                if (files.length > 0) {
-                  form.setValue('imageFiles', files as any);
-                  form.setValue('imageFile', files[0] as any);
-                  setPreviews(files.map((file) => URL.createObjectURL(file)));
+                const file = event.target.files?.[0];
+                if (file) {
+                  form.setValue('imageFile', file as any);
+                  form.setValue('imageFiles', [file] as any);
+                  setPreviews([createImagePreview(file)]);
                 }
               }}
             />
@@ -658,12 +672,13 @@ function VendorPoiRegistrationWizard({
 
           {previews.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {previews.map((previewUrl, index) => (
-                <img
-                  key={previewUrl}
-                  src={previewUrl}
-                  alt={`Xem trước ${index + 1}`}
-                  className="h-28 w-full rounded-lg border object-cover"
+              {previews.map((preview, index) => (
+                <ImagePreviewTile
+                  key={preview.id}
+                  preview={preview}
+                  index={index}
+                  onRemove={preview.isExisting ? undefined : () => removeVendorImagePreview(form, setPreviews)}
+                  className="h-28 rounded-lg"
                 />
               ))}
             </div>
@@ -685,7 +700,7 @@ function VendorPoiRegistrationWizard({
             <RegistrationSummaryItem label="Tên sạp/địa điểm" value={values.name || 'Chưa nhập'} />
             <RegistrationSummaryItem label="Danh mục" value={getCategoryLabel(values.category)} />
             <RegistrationSummaryItem label="Tọa độ" value={formatCoordinates(values.latitude, values.longitude)} />
-            <RegistrationSummaryItem label="Ảnh đăng ký" value={`${previews.length} ảnh mới`} />
+            <RegistrationSummaryItem label="Ảnh đăng ký" value={`${countNewImagePreviews(previews)} ảnh mới`} />
           </div>
 
           <div className="rounded-lg border border-gray-100 p-4">
@@ -741,6 +756,95 @@ function VendorWizardHeader({ step }: { step: number }) {
       })}
     </div>
   );
+}
+
+function createImagePreview(file: File): ImagePreview {
+  return {
+    id: `image-${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+    url: URL.createObjectURL(file),
+    file,
+  };
+}
+
+function buildExistingPoiPreviews(editPoi: any): ImagePreview[] {
+  if (!editPoi?.id) {
+    return [];
+  }
+
+  const imageUrl = editPoi.imageUrl ?? (Array.isArray(editPoi.imageUrls) ? editPoi.imageUrls[0] : null);
+  const url = buildPoiImageUrl(editPoi.id, imageUrl);
+  return url
+    ? [{
+        id: `existing-${editPoi.id}-${imageUrl}`,
+        url,
+        isExisting: true,
+      }]
+    : [];
+}
+
+function countNewImagePreviews(previews: ImagePreview[]): number {
+  return previews.filter((preview) => !preview.isExisting).length;
+}
+
+function ImagePreviewTile({
+  preview,
+  index,
+  onRemove,
+  className = 'h-24 rounded-md',
+}: {
+  preview: ImagePreview;
+  index: number;
+  onRemove?: () => void;
+  className?: string;
+}) {
+  return (
+    <div className="relative">
+      <img
+        src={preview.url}
+        alt={`Xem trước ${index + 1}`}
+        className={`w-full border object-cover ${className}`}
+      />
+      {onRemove ? (
+        <button
+          type="button"
+          className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-xs font-semibold text-white hover:bg-red-600"
+          aria-label="Xóa ảnh đã chọn"
+          onClick={onRemove}
+        >
+          X
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function removeAdminImagePreview(
+  index: number,
+  form: UseFormReturn<CreateForm | EditForm>,
+  setPreviews: Dispatch<SetStateAction<ImagePreview[]>>,
+) {
+  setPreviews((current) => {
+    const next = current.filter((_, itemIndex) => itemIndex !== index);
+    current[index]?.file && URL.revokeObjectURL(current[index].url);
+    const files = next.flatMap((item) => item.file ? [item.file] : []);
+    form.setValue('imageFiles', files as any);
+    form.setValue('imageFile', (files[0] ?? undefined) as any);
+    return next;
+  });
+}
+
+function removeVendorImagePreview(
+  form: UseFormReturn<CreateForm | EditForm>,
+  setPreviews: Dispatch<SetStateAction<ImagePreview[]>>,
+) {
+  setPreviews((current) => {
+    current.forEach((item) => {
+      if (item.file) URL.revokeObjectURL(item.url);
+    });
+    form.setValue('imageFile', undefined as any);
+    form.setValue('imageFiles', [] as any);
+    return [];
+  });
 }
 
 function RegistrationSummaryItem({ label, value }: { label: string; value?: string | number | null }) {

@@ -19,8 +19,6 @@ const createSchema = z.object({
 });
 
 const editSchema = z.object({
-  email: z.string().email('Email không hợp lệ').optional().or(z.literal('')),
-  password: z.string().min(6, 'Tối thiểu 6 ký tự').optional().or(z.literal('')),
   roleId: z.coerce.number().min(1).optional(),
   preferredLanguage: z.string().optional(),
   isActive: z.boolean().optional(),
@@ -54,8 +52,6 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
     resolver: zodResolver(isEdit ? editSchema : createSchema) as any,
     defaultValues: isEdit
       ? {
-          email: editUser?.email ?? '',
-          password: '',
           roleId: editUser?.roleId,
           preferredLanguage: editUser?.preferredLanguage ?? 'vi',
           isActive: editUser?.isActive ?? true,
@@ -68,8 +64,6 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
       form.reset(
         isEdit
           ? {
-              email: editUser?.email ?? '',
-              password: '',
               roleId: editUser?.roleId,
               preferredLanguage: editUser?.preferredLanguage ?? 'vi',
               isActive: editUser?.isActive ?? true,
@@ -107,27 +101,31 @@ export function UserFormModal({ open, onClose, onSubmit, loading, editUser }: Pr
         {!isEdit && (
           <Input
             label="Tên đăng nhập"
-            placeholder="vd: admin_vinhhy"
+            placeholder="vd: admin_khanhhoi"
             error={(form.formState.errors as any).username?.message}
             {...form.register('username')}
           />
         )}
 
-        <Input
-          label={isEdit ? 'Email mới (bỏ trống để giữ nguyên)' : 'Email'}
-          type="email"
-          placeholder="email@example.com"
-          error={(form.formState.errors as any).email?.message}
-          {...form.register('email')}
-        />
+        {!isEdit && (
+          <Input
+            label="Email"
+            type="email"
+            placeholder="email@example.com"
+            error={(form.formState.errors as any).email?.message}
+            {...form.register('email')}
+          />
+        )}
 
-        <Input
-          label={isEdit ? 'Mật khẩu mới (bỏ trống để giữ nguyên)' : 'Mật khẩu'}
-          type="password"
-          placeholder="••••••••"
-          error={(form.formState.errors as any).password?.message}
-          {...form.register('password')}
-        />
+        {!isEdit && (
+          <Input
+            label="Mật khẩu"
+            type="password"
+            placeholder="••••••••"
+            error={(form.formState.errors as any).password?.message}
+            {...form.register('password')}
+          />
+        )}
 
         <Select
           label="Vai trò"

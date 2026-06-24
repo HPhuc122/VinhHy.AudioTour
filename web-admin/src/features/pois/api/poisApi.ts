@@ -14,12 +14,16 @@ export interface PoiDto {
   approvalStatus: number | string;
   lifecycleStatus: number | string;
   userId?: number | null;
+  ownerUsername?: string | null;
+  ownerEmail?: string | null;
+  ownerName?: string | null;
   displayName?: string | null;
   isActive: boolean;
   paymentRequired: boolean;
   paymentStatus: number | string;
   activatedAt?: string | null;
   activatedByUserId?: number | null;
+  activatedByUsername?: string | null;
   validFrom?: string | null;
   validUntil?: string | null;
   category?: string | null;

@@ -29,12 +29,14 @@ public class PublicAudioTourController(IPublicAudioTourService audioTourService)
     public async Task<IActionResult> GetPoi(
         int poiId,
         [FromQuery] string languageCode = "vi",
+        [FromQuery] string triggerType = "manual",
         CancellationToken cancellationToken = default)
     {
         var result = await audioTourService.GetPoiAsync(
             GetGuestAccessToken(),
             poiId,
             languageCode,
+            triggerType,
             cancellationToken);
 
         return this.ApiOk(result);

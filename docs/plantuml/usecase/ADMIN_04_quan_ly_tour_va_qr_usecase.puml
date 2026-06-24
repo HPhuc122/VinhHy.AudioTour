@@ -1,0 +1,44 @@
+@startuml
+title Use Case Diagram - Admin - Quan ly tour va QR
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Admin" as Admin
+
+rectangle "KhanhHoi AudioTour Web Admin" {
+  usecase "UC13\nQuan ly tour,\nban dich va diem dung" as UC13
+  usecase "UC14\nQuan ly ma QR\ngan POI/Tour" as UC14
+  usecase "UC01\nDang nhap" as UC01
+  usecase "Tao, cap nhat,\nxoa tour" as CrudTour
+  usecase "Sap xep thu tu\ndiem dung" as TourStops
+  usecase "Quan ly ban dich\ntour" as TourTranslation
+  usecase "Tao, cap nhat,\nvo hieu hoa QR" as CrudQr
+  usecase "Gan QR voi\nPOI hoac Tour" as AttachQr
+}
+
+Admin --> UC13
+Admin --> UC14
+
+UC13 ..> UC01 : <<include>>
+UC14 ..> UC01 : <<include>>
+UC13 ..> CrudTour : <<include>>
+UC13 ..> TourStops : <<include>>
+TourTranslation ..> UC13 : <<extend>>
+UC14 ..> CrudQr : <<include>>
+UC14 ..> AttachQr : <<include>>
+
+@enduml

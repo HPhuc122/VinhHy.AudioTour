@@ -18,6 +18,12 @@ public class PoiDto
 
     public int? UserId { get; set; }
 
+    public string? OwnerUsername { get; set; }
+
+    public string? OwnerEmail { get; set; }
+
+    public string? OwnerName { get; set; }
+
     public string? DisplayName { get; set; }
 
     public decimal Latitude { get; set; }
@@ -43,6 +49,8 @@ public class PoiDto
     public DateTime? ValidUntil { get; set; }
 
     public int? ActivatedByUserId { get; set; }
+
+    public string? ActivatedByUsername { get; set; }
 
     public string? ImageUrl { get; set; }
 

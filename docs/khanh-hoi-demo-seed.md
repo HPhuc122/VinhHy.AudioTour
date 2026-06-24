@@ -9,24 +9,18 @@ This project now uses the Khanh Hoi, District 4 demo scenario.
 - Longitude: `106.70250`
 - Default zoom: `17`
 
-## Enable Seed Data
+## Optional Demo Seed
 
-Development config enables the demo seed:
+Development config keeps demo seed disabled by default:
 
 ```json
 "SeedData": {
-  "Enabled": true,
+  "Enabled": false,
   "Scenario": "KhanhHoiDemo"
 }
 ```
 
-The seed runs from API startup in `Development` through `MigrateAndSeedAsync`. It is idempotent and checks stable codes/emails before inserting.
-
-To run:
-
-```powershell
-dotnet run --project backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api
-```
+API startup only migrates the database schema. It must not create demo users, POIs, tours, QR codes, or packages. If demo data is ever needed for a throwaway environment, run the seeder intentionally outside the normal startup flow.
 
 ## Seeded Content
 
@@ -82,7 +76,7 @@ The seeder does not create fake MP3/audio tracks. Add MP3 narration through the 
 
 ## Re-run Safety
 
-The seed is safe to re-run:
+If manually enabled for a throwaway environment, the seed is safe to re-run:
 
 - Users are matched by email.
 - POIs, tours, and QR records are matched by code.
@@ -90,7 +84,7 @@ The seed is safe to re-run:
 - Demo files are only created if missing.
 - No existing non-demo user data is deleted.
 
-To disable the scenario, set:
+Normal development should keep the scenario disabled:
 
 ```json
 "SeedData": {
@@ -98,4 +92,3 @@ To disable the scenario, set:
   "Scenario": "KhanhHoiDemo"
 }
 ```
-

@@ -1,0 +1,34 @@
+@startuml
+title Sequence Diagram - UC15 Quan ly ngon ngu
+
+actor "Admin / SuperAdmin" as Actor
+participant "Presentation Layer\nWebAdminUI - LanguagePage va LanguageModal" as UI
+participant "Business Logic Layer\nLanguagesController + LanguageService" as Business
+participant "Data Access Layer\nLanguageRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Mo trang ngon ngu
+UI -> Business: Gui yeu cau doc tat ca ngon ngu
+Business -> DataAccess: Doc danh sach ke ca bi tat
+DataAccess -> Database: Doc Language
+Database --> DataAccess: Tra danh sach
+DataAccess --> Business: Tra du lieu
+Business --> UI: Hien thi danh sach
+
+Actor -> UI: Chon tao, sua hoac xoa
+UI -> Business: Gui yeu cau thay doi
+Business -> Business: Kiem tra quyen AdminOnly
+Business -> DataAccess: Doc ngon ngu hien co
+DataAccess -> Database: Kiem tra code va tham chieu
+Database --> DataAccess: Tra ket qua
+alt Code duoc ho tro, khong trung va du lieu hop le
+  Business -> DataAccess: Ghi thay doi Language
+  DataAccess -> Database: Tao, cap nhat hoac xoa
+  Database --> DataAccess: Xac nhan
+  Business --> UI: Tra ket qua
+  UI --> Actor: Cap nhat danh sach
+else Khong co quyen, code sai, bi trung hoac khong ton tai
+  Business --> UI: Tra thong bao loi
+  UI --> Actor: Hien thi loi
+end
+@enduml

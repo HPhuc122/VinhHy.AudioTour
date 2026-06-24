@@ -1439,6 +1439,7 @@ function FollowUserLocation({
     if (!shouldFollowRef.current) return;
 
     map.setView([location.latitude, location.longitude], map.getZoom() || MAP_DEFAULT_ZOOM);
+    shouldFollowRef.current = false;
     map.invalidateSize();
   }, [location.latitude, location.longitude, map, shouldFollowRef]);
 
@@ -1570,6 +1571,11 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
 
 function FitPoiBounds({ points, disabled }: { points: PoiMapPoint[]; disabled?: boolean }) {
   const map = useMap();
+  const fittedSignatureRef = useRef<string | null>(null);
+  const pointsSignature = points
+    .map((point) => `${point.id}:${point.latitude.toFixed(6)}:${point.longitude.toFixed(6)}`)
+    .sort()
+    .join('|');
 
   useEffect(() => {
     window.setTimeout(() => map.invalidateSize(), 0);
@@ -1578,20 +1584,27 @@ function FitPoiBounds({ points, disabled }: { points: PoiMapPoint[]; disabled?: 
       return;
     }
 
+    if (fittedSignatureRef.current === pointsSignature) {
+      return;
+    }
+
     if (points.length === 0) {
       map.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+      fittedSignatureRef.current = pointsSignature;
       return;
     }
 
     if (points.length === 1) {
       const point = points[0]!;
       map.setView([point.latitude, point.longitude], MAP_DEFAULT_ZOOM);
+      fittedSignatureRef.current = pointsSignature;
       return;
     }
 
     const bounds = L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: MAP_DEFAULT_ZOOM });
-  }, [disabled, map, points]);
+    fittedSignatureRef.current = pointsSignature;
+  }, [disabled, map, points, pointsSignature]);
 
   return null;
 }

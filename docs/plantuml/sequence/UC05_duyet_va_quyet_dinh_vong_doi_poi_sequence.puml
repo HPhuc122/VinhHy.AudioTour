@@ -1,0 +1,40 @@
+@startuml
+title Sequence Diagram - UC05 Duyet va quyet dinh vong doi POI
+
+actor "Admin / ContentAdmin" as Actor
+participant "Presentation Layer\nWebAdminUI - PoiTable" as UI
+participant "Business Logic Layer\nPoisController + PoiService" as Business
+participant "Data Access Layer\nPoiRepository + DbContext" as DataAccess
+database "Database" as Database
+
+Actor -> UI: Chon POI va hanh dong vong doi
+UI -> Business: Gui yeu cau duyet, tu choi hoac thanh toan
+Business -> Business: Kiem tra vai tro quan ly noi dung
+Business -> DataAccess: Doc POI hien tai
+DataAccess -> Database: Doc trang thai POI
+Database --> DataAccess: Tra POI
+DataAccess --> Business: Tra du lieu
+alt POI khong ton tai
+  Business --> UI: Tra loi khong tim thay
+  UI --> Actor: Hien thi thong bao
+else Trang thai khong cho phep chuyen
+  Business --> UI: Tra loi trang thai khong hop le
+  UI --> Actor: Giu trang thai cu va hien thi loi
+else Hanh dong hop le
+  alt Duyet PendingReview
+    Business -> Business: Chuyen sang Approved va chua active
+  else Yeu cau thanh toan tu Approved
+    Business -> Business: Chuyen sang PendingPayment
+  else Tu choi PendingReview hoac Approved
+    Business -> Business: Chuyen sang Rejected
+  else Danh dau Paid hoac Waived
+    Business -> Business: Chuyen sang Active va dat thoi han
+  end
+  Business -> DataAccess: Ghi trang thai moi
+  DataAccess -> Database: Cap nhat POI
+  Database --> DataAccess: Xac nhan
+  DataAccess --> Business: Tra POI da cap nhat
+  Business --> UI: Tra ket qua
+  UI --> Actor: Cap nhat danh sach va trang thai cong khai
+end
+@enduml

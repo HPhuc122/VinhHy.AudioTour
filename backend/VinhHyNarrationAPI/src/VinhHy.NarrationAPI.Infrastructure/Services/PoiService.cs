@@ -125,7 +125,7 @@ public class PoiService : IPoiService
         var isVendor = IsCurrentUserVendor();
         var poi = _mapper.Map<Poi>(request);
         poi.Code = await GenerateUniqueCodeAsync("POI", cancellationToken).ConfigureAwait(false);
-        poi.UserId = ResolveOwnerUserIdForCreate(request.UserId);
+        poi.UserId = await ResolveOwnerUserIdForCreateAsync(request.UserId, cancellationToken).ConfigureAwait(false);
         if (isVendor)
         {
             poi.ApprovalStatus = ApprovalStatus.Pending;
@@ -708,11 +708,25 @@ public class PoiService : IPoiService
             Poi = _mapper.Map<PoiDto>(poi)
         };
 
-    private int? ResolveOwnerUserIdForCreate(int? requestedUserId)
+    private async Task<int?> ResolveOwnerUserIdForCreateAsync(int? requestedUserId, CancellationToken cancellationToken)
     {
-        return IsCurrentUserVendor()
-            ? GetCurrentUserId() ?? throw new UnauthorizedException("Current user id is required to create a POI.")
-            : NormalizeOwnerUserId(requestedUserId);
+        if (IsCurrentUserVendor())
+        {
+            return GetCurrentUserId() ?? throw new UnauthorizedException("Current user id is required to create a POI.");
+        }
+
+        var ownerUserId = NormalizeOwnerUserId(requestedUserId)
+            ?? throw new ValidationException(nameof(CreatePoiRequest.UserId), "Admin-created POIs must be assigned to a vendor owner.");
+
+        var owner = await _uow.Users.GetByIdAsync(ownerUserId, cancellationToken).ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(User), ownerUserId);
+
+        if (!owner.IsActive || owner.Role.Name != RoleNames.Vendor)
+        {
+            throw new ValidationException(nameof(CreatePoiRequest.UserId), "POI owner must be an active vendor user.");
+        }
+
+        return owner.Id;
     }
 
     private void ApplyOwnerUserIdForUpdate(Poi poi, int? requestedUserId)
