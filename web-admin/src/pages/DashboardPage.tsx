@@ -136,6 +136,13 @@ function AdminDashboard({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ActiveVisitorsCard value={stats?.activeVisitors} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng lượt phát âm thanh" value={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Lượt phát từ QR" value={stats?.totalQrScans} isLoading={dashboardQuery.isLoading} />
+        <DashboardCard label="Tổng lượt truy cập website" value={stats?.totalSiteVisits} isLoading={dashboardQuery.isLoading} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DashboardCard label="Tổng tour" value={stats?.totalTours} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Tour đang hoạt động" value={stats?.activeTours} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Tổng ảnh" value={stats?.totalImages} isLoading={dashboardQuery.isLoading} />
@@ -951,6 +958,24 @@ function DashboardCard({ label, value, isLoading }: DashboardCardProps) {
       <p className={`mt-1 inline-block rounded px-2 py-0.5 text-2xl font-bold ${getStatColor(label)}`}>
         {isLoading ? '...' : formatStat(value)}
       </p>
+    </Card>
+  );
+}
+
+function ActiveVisitorsCard({ value, isLoading }: { value?: number; isLoading: boolean }) {
+  return (
+    <Card className="p-5 border-emerald-200 bg-emerald-50">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        </span>
+        <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Khách đang online</p>
+      </div>
+      <p className="mt-1 inline-block rounded px-2 py-0.5 text-2xl font-bold bg-emerald-100 text-emerald-800">
+        {isLoading ? '...' : formatStat(value ?? 0)}
+      </p>
+      <p className="mt-1 text-xs text-emerald-600">Cập nhật mỗi 10 giây · tự giảm sau 45s không hoạt động</p>
     </Card>
   );
 }

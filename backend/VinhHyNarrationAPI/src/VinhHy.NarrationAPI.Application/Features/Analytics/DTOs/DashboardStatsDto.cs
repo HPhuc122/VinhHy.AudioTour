@@ -45,4 +45,10 @@ public class DashboardStatsDto
     public int TotalSiteVisits { get; set; }
 
     public int? TotalVendorPoiVisits { get; set; }
+
+    /// <summary>
+    /// Number of browser sessions currently active on the public web (in-memory presence, not a DB count).
+    /// Resets to 0 on API restart. Reflects "right now" visitor count.
+    /// </summary>
+    public int ActiveVisitors { get; set; }
 }

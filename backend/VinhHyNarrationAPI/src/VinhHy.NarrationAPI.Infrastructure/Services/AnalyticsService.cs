@@ -16,15 +16,18 @@ public class AnalyticsService : IAnalyticsService
     private readonly IUnitOfWork _uow;
     private readonly ApplicationDbContext _db;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly PresenceStore _presence;
 
     public AnalyticsService(
         IUnitOfWork uow,
         ApplicationDbContext db,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        PresenceStore presence)
     {
         _uow = uow;
         _db = db;
         _httpContextAccessor = httpContextAccessor;
+        _presence = presence;
     }
 
     public async Task<IReadOnlyList<AnalyticsDailyDto>> GetDailyAsync(
@@ -157,7 +160,8 @@ public class AnalyticsService : IAnalyticsService
             TotalSiteVisits = await siteNarrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
             TotalVendorPoiVisits = ownerUserId.HasValue
                 ? await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
-                : null
+                : null,
+            ActiveVisitors = _presence.CountActive()
         };
     }
 
