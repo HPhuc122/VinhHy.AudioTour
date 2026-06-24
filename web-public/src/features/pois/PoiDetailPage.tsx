@@ -13,7 +13,7 @@ import { AccessExpiredPanel } from '../access/AccessExpiredPanel';
 import { AccessRequiredPanel } from '../access/AccessRequiredPanel';
 import { guestAccessStore, type GuestAccessRecord } from '../access/guestAccessStore';
 import { getAudioTourErrorKind, getAudioTourErrorMessage } from '../../utils/audioTourErrors';
-import { usePresenceHeartbeat } from '../../hooks/usePresenceHeartbeat';
+import { useSetPresencePoi } from '../../hooks/usePresenceHeartbeat';
 
 export function PoiDetailPage({ lang }: { lang: Lang }) {
   const { id } = useParams<{ id: string }>();
@@ -24,9 +24,9 @@ export function PoiDetailPage({ lang }: { lang: Lang }) {
   const [autoPlayBlocked, setAutoPlayBlocked] = useState(false);
   const { data: poi, isLoading, isError } = useQuery({ queryKey: ['poi', id, lang], queryFn: () => poisApi.getById(poiId, lang), enabled: !!id });
 
-  // Track that this session is viewing a specific POI (for per-POI visitor count in analytics).
-  // MainLayout already sends a generic heartbeat; this one overrides with the POI code.
-  usePresenceHeartbeat(poi?.code ?? id);
+  // Tag this session with the POI code so the vendor dashboard shows "Khách đang ở sạp".
+  // MainLayout owns the heartbeat loop; this just updates the poiId in context.
+  useSetPresencePoi(poi?.code ?? id);
 
   const audioTourQuery = useQuery({
     queryKey: ['public-audio-tour', 'poi', poiId, lang, accessRecord?.accessToken],

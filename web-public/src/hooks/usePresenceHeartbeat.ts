@@ -1,8 +1,28 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, createContext, useContext, useState, useCallback } from 'react';
 
-const HEARTBEAT_INTERVAL_MS = 20_000; // ping every 20s
-const LEAVE_URL = '/api/v1/public/presence/leave';
+// ─── Presence Context ──────────────────────────────────────────────────────────
+// Pages that want to tag their session with a POI call setPresencePoiId(code).
+// MainLayout owns the single heartbeat loop and reads from here.
+
+interface PresenceContextValue {
+  poiId: string | null;
+  setPresencePoiId: (id: string | null) => void;
+}
+
+export const PresenceContext = createContext<PresenceContextValue>({
+  poiId: null,
+  setPresencePoiId: () => undefined,
+});
+
+export function usePresenceContext() {
+  return useContext(PresenceContext);
+}
+
+// ─── Internal HTTP helpers ─────────────────────────────────────────────────────
+
+const HEARTBEAT_INTERVAL_MS = 20_000;
 const HEARTBEAT_URL = '/api/v1/public/presence/heartbeat';
+const LEAVE_URL = '/api/v1/public/presence/leave';
 
 function getDeviceId(): string {
   const key = 'vinhhy_guest_device_id';
@@ -14,7 +34,7 @@ function getDeviceId(): string {
   return id;
 }
 
-async function sendHeartbeat(poiId?: string | null) {
+async function sendHeartbeat(poiId: string | null) {
   try {
     await fetch(HEARTBEAT_URL, {
       method: 'POST',
@@ -22,62 +42,77 @@ async function sendHeartbeat(poiId?: string | null) {
         'Content-Type': 'application/json',
         'X-Guest-Device-Id': getDeviceId(),
       },
-      body: JSON.stringify({ poiId: poiId ?? null }),
+      body: JSON.stringify({ poiId }),
     });
   } catch {
-    // silently ignore — network errors don't affect UX
+    // silent — network errors don't affect UX
   }
 }
 
 function sendLeaveBeacon() {
-  // sendBeacon works even during page unload; falls back to fetch if unavailable.
   const deviceId = getDeviceId();
-  const ok = navigator.sendBeacon
-    ? navigator.sendBeacon(LEAVE_URL, new Blob([], { type: 'application/json' }))
-    : false;
-
-  if (!ok) {
-    // Best-effort fallback (may be cut short on unload)
-    fetch(LEAVE_URL, {
-      method: 'POST',
-      headers: { 'X-Guest-Device-Id': deviceId },
-      keepalive: true,
-    }).catch(() => undefined);
-  }
+  // sendBeacon can't set custom headers; use keepalive fetch instead
+  fetch(LEAVE_URL, {
+    method: 'POST',
+    headers: { 'X-Guest-Device-Id': deviceId },
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
+// ─── Main hook (used ONCE in MainLayout) ──────────────────────────────────────
+
 /**
- * usePresenceHeartbeat
- *
- * Call this in any page component that should count toward the "online visitors" metric.
- * Pass the current POI id if the user is viewing a specific POI, otherwise omit.
- *
- * - Sends an immediate heartbeat on mount.
- * - Repeats every 20 seconds.
- * - Sends a leave beacon on unmount (route change) or window unload.
+ * usePresenceHeartbeat — call ONCE at the layout level.
+ * Reads poiId from PresenceContext so individual pages can tag the session
+ * without creating a second heartbeat loop.
  */
-export function usePresenceHeartbeat(poiId?: string | null) {
+export function usePresenceHeartbeat() {
+  const { poiId } = usePresenceContext();
   const poiIdRef = useRef(poiId);
   poiIdRef.current = poiId;
 
   useEffect(() => {
-    // immediate ping on mount
     void sendHeartbeat(poiIdRef.current);
 
     const interval = setInterval(() => {
       void sendHeartbeat(poiIdRef.current);
     }, HEARTBEAT_INTERVAL_MS);
 
-    // clean up on route change (component unmount = user navigated away from this page)
     return () => {
       clearInterval(interval);
       sendLeaveBeacon();
     };
-  }, []); // intentionally empty — poiId changes handled via ref
+  }, []);
 
-  // Also fire leave on hard close / refresh
   useEffect(() => {
     window.addEventListener('beforeunload', sendLeaveBeacon);
     return () => window.removeEventListener('beforeunload', sendLeaveBeacon);
   }, []);
+}
+
+// ─── Page-level hook (used in PoiDetailPage) ─────────────────────────────────
+
+/**
+ * useSetPresencePoi — call in a POI detail page to tag the current session.
+ * Clears the tag when the component unmounts (user leaves the POI page).
+ */
+export function useSetPresencePoi(poiCode: string | null | undefined) {
+  const { setPresencePoiId } = usePresenceContext();
+
+  useEffect(() => {
+    if (poiCode) {
+      setPresencePoiId(poiCode);
+    }
+    return () => {
+      setPresencePoiId(null);
+    };
+  }, [poiCode, setPresencePoiId]);
+}
+
+// ─── Context provider state (used in App.tsx) ────────────────────────────────
+
+export function usePresenceProviderState(): PresenceContextValue {
+  const [poiId, setPoiId] = useState<string | null>(null);
+  const setPresencePoiId = useCallback((id: string | null) => setPoiId(id), []);
+  return { poiId, setPresencePoiId };
 }

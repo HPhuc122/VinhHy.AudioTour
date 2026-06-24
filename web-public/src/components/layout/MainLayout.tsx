@@ -10,7 +10,8 @@ interface Props {
 }
 
 export function MainLayout({ lang, setLang }: Props) {
-  // Tracks this browser session as "active" for the admin dashboard visitor count.
+  // Single heartbeat loop for the entire public site.
+  // poiId is read from PresenceContext — PoiDetailPage sets it via useSetPresencePoi.
   usePresenceHeartbeat();
 
   return (

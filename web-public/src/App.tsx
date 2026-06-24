@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppRouter } from './routes/AppRouter';
 import { useLanguage } from './hooks/useLanguage';
 import { I18nProvider } from './i18n/I18nContext';
+import { PresenceContext, usePresenceProviderState } from './hooks/usePresenceHeartbeat';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -12,12 +13,15 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const { lang, setLang } = useLanguage();
+  const presenceValue = usePresenceProviderState();
 
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <I18nProvider lang={lang}>
-          <AppRouter lang={lang} setLang={setLang} />
+          <PresenceContext.Provider value={presenceValue}>
+            <AppRouter lang={lang} setLang={setLang} />
+          </PresenceContext.Provider>
         </I18nProvider>
       </QueryClientProvider>
     </BrowserRouter>
