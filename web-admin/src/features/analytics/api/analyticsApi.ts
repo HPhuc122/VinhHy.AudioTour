@@ -25,7 +25,11 @@ export interface DashboardStatsDto {
   totalTourViews?: number | null;
   totalQrScans: number;
   totalAudioPlays: number;
+  /** NarrationLog entries today (ICT) — updates in real-time. */
+  todayAudioPlays: number;
   totalSiteVisits: number;
+  /** Unique browser sessions since API last started — real-time web traffic indicator. */
+  todaySiteVisits: number;
   totalVendorPoiVisits?: number | null;
   /** Number of browsers currently open on the public web (in-memory presence). */
   activeVisitors: number;
