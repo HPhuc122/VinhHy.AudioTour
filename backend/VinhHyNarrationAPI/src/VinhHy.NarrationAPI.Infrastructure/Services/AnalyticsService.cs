@@ -156,8 +156,9 @@ public class AnalyticsService : IAnalyticsService
 
     private static IReadOnlyList<AnalyticsGroupedDto> GetDayOfMonthBuckets(AnalyticsQueryFilter filter)
     {
-        var from = filter.From ?? new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
-        var to = filter.To ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var ictNow = DateTime.UtcNow.Add(IctOffset);
+        var from = filter.From ?? new DateOnly(ictNow.Year, ictNow.Month, 1);
+        var to = filter.To ?? DateOnly.FromDateTime(ictNow);
         var days = from.Year == to.Year && from.Month == to.Month
             ? DateTime.DaysInMonth(from.Year, from.Month)
             : 31;
@@ -202,8 +203,16 @@ public class AnalyticsService : IAnalyticsService
         AnalyticsQueryFilter filter,
         CancellationToken cancellationToken)
     {
-        var from = filter.From?.ToDateTime(TimeOnly.MinValue) ?? DateTime.UtcNow.AddDays(-30);
-        var to = filter.To?.ToDateTime(TimeOnly.MaxValue) ?? DateTime.UtcNow;
+        // Frontend sends dates in ICT (UTC+7). Convert the day boundaries to UTC
+        // so the WHERE clause spans the correct wall-clock range in the database.
+        // e.g. ICT 2026-06-25 00:00 → UTC 2026-06-24 17:00
+        var ictNow = DateTime.UtcNow.Add(IctOffset);
+        var from = filter.From.HasValue
+            ? filter.From.Value.ToDateTime(TimeOnly.MinValue).Subtract(IctOffset)   // ICT midnight → UTC
+            : ictNow.AddDays(-30).Date.Subtract(IctOffset);
+        var to = filter.To.HasValue
+            ? filter.To.Value.ToDateTime(TimeOnly.MaxValue).Subtract(IctOffset)     // ICT 23:59:59 → UTC
+            : ictNow.Date.Add(TimeSpan.FromHours(23).Add(TimeSpan.FromMinutes(59)).Add(TimeSpan.FromSeconds(59))).Subtract(IctOffset);
         var ownerUserId = GetVendorOwnerUserId();
         var poiCode = string.IsNullOrWhiteSpace(filter.PoiCode) ? null : filter.PoiCode.Trim();
 
@@ -241,30 +250,38 @@ public class AnalyticsService : IAnalyticsService
         return query;
     }
 
+    /// <summary>Indochina Time offset (UTC+7). Fixed offset — Vietnam does not use DST.</summary>
+    private static readonly TimeSpan IctOffset = TimeSpan.FromHours(7);
+
     private static (string Key, string Label, int SortOrder) GetGroupKey(DateTime playedAt, AnalyticsGroupBy groupBy)
     {
+        // PlayedAt is stored as UTC. Convert to ICT (UTC+7) before extracting
+        // hour / day-of-week etc., otherwise a play at 01:00 UTC (= 08:00 ICT)
+        // would be bucketed as hour 1 instead of hour 8.
+        var localTime = playedAt.Add(IctOffset);
+
         return groupBy switch
         {
             AnalyticsGroupBy.Hour => (
-                playedAt.Hour.ToString("00"),
-                (playedAt.Hour + 1).ToString(),
-                playedAt.Hour),
+                localTime.Hour.ToString("00"),
+                (localTime.Hour + 1).ToString(),
+                localTime.Hour),
             AnalyticsGroupBy.DayOfWeek => (
-                ((int)playedAt.DayOfWeek).ToString(),
-                GetDayOfWeekLabel(playedAt.DayOfWeek),
-                GetDayOfWeekSortOrder(playedAt.DayOfWeek)),
+                ((int)localTime.DayOfWeek).ToString(),
+                GetDayOfWeekLabel(localTime.DayOfWeek),
+                GetDayOfWeekSortOrder(localTime.DayOfWeek)),
             AnalyticsGroupBy.WeekOfMonth => (
-                $"W{GetWeekOfMonth(playedAt)}",
-                $"Tuần {GetWeekOfMonth(playedAt)}",
-                GetWeekOfMonth(playedAt)),
+                $"W{GetWeekOfMonth(localTime)}",
+                $"Tuần {GetWeekOfMonth(localTime)}",
+                GetWeekOfMonth(localTime)),
             AnalyticsGroupBy.MonthOfYear => (
-                playedAt.Month.ToString("00"),
-                $"Tháng {playedAt.Month}",
-                playedAt.Month),
+                localTime.Month.ToString("00"),
+                $"Tháng {localTime.Month}",
+                localTime.Month),
             _ => (
-                playedAt.Day.ToString("00"),
-                $"Ngày {playedAt.Day}",
-                playedAt.Day)
+                localTime.Day.ToString("00"),
+                $"Ngày {localTime.Day}",
+                localTime.Day)
         };
     }
 
