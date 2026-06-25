@@ -8,14 +8,15 @@ import { AccessCountdown } from '../access/AccessCountdown';
 import { guestAccessStore } from '../access/guestAccessStore';
 import { PaymentRequiredPanel } from '../access/PaymentRequiredPanel';
 import { ROUTES } from '../../routes/routeConstants';
-import type { Lang } from '../../hooks/useLanguage';
+import { detectBrowserLang, type Lang } from '../../hooks/useLanguage';
 import { useI18n } from '../../i18n/I18nContext';
 
 interface Props {
   lang: Lang;
+  setLangFromBrowser: (l: Lang) => void;
 }
 
-export function QrLandingPage({ lang }: Props) {
+export function QrLandingPage({ lang, setLangFromBrowser }: Props) {
   const { t } = useI18n();
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -23,6 +24,13 @@ export function QrLandingPage({ lang }: Props) {
   const [storedAccess, setStoredAccess] = useState(() =>
     code ? guestAccessStore.get(code) : null,
   );
+
+  // Apply browser language as soon as the QR page loads, but only if the
+  // user has not manually selected a language before.
+  useEffect(() => {
+    setLangFromBrowser(detectBrowserLang());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     setClientExpired(false);

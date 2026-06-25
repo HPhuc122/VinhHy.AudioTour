@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, setLangFromBrowser } = useLanguage();
   const presenceValue = usePresenceProviderState();
 
   return (
@@ -20,7 +20,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <I18nProvider lang={lang}>
           <PresenceContext.Provider value={presenceValue}>
-            <AppRouter lang={lang} setLang={setLang} />
+            <AppRouter lang={lang} setLang={setLang} setLangFromBrowser={setLangFromBrowser} />
           </PresenceContext.Provider>
         </I18nProvider>
       </QueryClientProvider>
