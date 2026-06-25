@@ -1,0 +1,48 @@
+@startuml
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Visitor" as Visitor
+
+rectangle "KhanhHoi AudioTour Web Public" {
+  usecase "Quet QR va mo\nquyen truy cap" as UC21
+  usecase "Doc noi dung\ngan voi QR" as ReadQr
+  usecase "Kiem tra\naccess pass" as CheckPass
+  usecase "Chon va mua goi\nthuyet minh mo phong" as UC22
+  usecase "Tao phien\nthanh toan" as PaymentSession
+  usecase "Cap access pass" as IssuePass
+  usecase "Nghe thuyet minh\nva audio bao ve" as UC23
+  usecase "Ghi log nghe\nthuyet minh" as LogPlay
+  usecase "Bao loi het han\nhoac khong co quyen" as AccessError
+}
+
+Visitor --> UC21
+Visitor --> UC22
+Visitor --> UC23
+
+UC21 ..> ReadQr : <<include>>
+UC21 ..> CheckPass : <<include>>
+UC22 ..> PaymentSession : <<include>>
+UC22 ..> IssuePass : <<include>>
+UC23 ..> CheckPass : <<include>>
+UC23 ..> LogPlay : <<include>>
+UC22 ..> UC21 : <<extend>>
+UC23 ..> UC21 : <<include>>
+AccessError ..> UC21 : <<extend>>
+AccessError ..> UC23 : <<extend>>
+
+@enduml
