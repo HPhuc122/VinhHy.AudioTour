@@ -16,9 +16,10 @@ import type { Lang } from '../hooks/useLanguage';
 interface Props {
   lang: Lang;
   setLang: (l: Lang) => void;
+  setLangFromBrowser: (l: Lang) => void;
 }
 
-export function AppRouter({ lang, setLang }: Props) {
+export function AppRouter({ lang, setLang, setLangFromBrowser }: Props) {
   return (
     <Routes>
       <Route element={<MainLayout lang={lang} setLang={setLang} />}>
@@ -31,7 +32,7 @@ export function AppRouter({ lang, setLang }: Props) {
         <Route path={ROUTES.TOUR_ROUTE} element={<TourRoutePage lang={lang} />} />
         <Route path={ROUTES.MAP} element={<MapPage lang={lang} />} />
         <Route path={ROUTES.SEARCH} element={<SearchPage lang={lang} />} />
-        <Route path={ROUTES.QR} element={<QrLandingPage lang={lang} />} />
+        <Route path={ROUTES.QR} element={<QrLandingPage lang={lang} setLangFromBrowser={setLangFromBrowser} />} />
       </Route>
     </Routes>
   );
