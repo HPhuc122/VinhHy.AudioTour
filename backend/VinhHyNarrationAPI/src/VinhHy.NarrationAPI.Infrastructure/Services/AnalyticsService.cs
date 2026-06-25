@@ -312,6 +312,13 @@ public class AnalyticsService : IAnalyticsService
         var narrationQuery = _db.NarrationLogs.AsNoTracking();
         var qrQuery = _db.QrLocations.AsNoTracking();
 
+        // "Today" boundaries in ICT (UTC+7), converted to UTC for DB queries.
+        // e.g. ICT 2026-06-25 00:00 = UTC 2026-06-24 17:00
+        var ictNow = DateTime.UtcNow.Add(IctOffset);
+        var todayIct = ictNow.Date;
+        var todayUtcStart = todayIct.Subtract(IctOffset);
+        var tomorrowUtcStart = todayIct.AddDays(1).Subtract(IctOffset);
+
         if (ownerUserId.HasValue)
         {
             poiQuery = poiQuery.Where(p => p.UserId == ownerUserId.Value);
@@ -350,7 +357,11 @@ public class AnalyticsService : IAnalyticsService
             TotalTourViews = null,
             TotalQrScans = await narrationQuery.CountAsync(n => n.TriggerType == TriggerTypes.Qr, cancellationToken).ConfigureAwait(false),
             TotalAudioPlays = await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
+            TodayAudioPlays = await narrationQuery
+                .CountAsync(n => n.PlayedAt >= todayUtcStart && n.PlayedAt < tomorrowUtcStart, cancellationToken)
+                .ConfigureAwait(false),
             TotalSiteVisits = await siteNarrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
+            TodaySiteVisits = (int)Math.Min(_presence.TotalUniqueVisitors, int.MaxValue),
             TotalVendorPoiVisits = ownerUserId.HasValue
                 ? await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
                 : null,

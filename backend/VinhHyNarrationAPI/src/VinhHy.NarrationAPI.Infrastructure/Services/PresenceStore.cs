@@ -9,6 +9,13 @@ public sealed class PresenceStore
     private readonly record struct Entry(string? PoiId, DateTimeOffset LastSeen);
 
     private readonly Dictionary<string, Entry> _sessions = new(StringComparer.Ordinal);
+    /// <summary>
+    /// Set of all session IDs ever seen since the process started.
+    /// Used to count total unique visitors (resets on API restart — that's acceptable
+    /// since this supplements, not replaces, the DB-backed NarrationLog counts).
+    /// </summary>
+    private readonly HashSet<string> _allTimeSessions = new(StringComparer.Ordinal);
+    private long _totalPageViews;          // incremented on every NEW session heartbeat
     private readonly Lock _lock = new();
 
     /// <summary>Timeout after which a session is considered gone (no heartbeat).</summary>
@@ -23,6 +30,11 @@ public sealed class PresenceStore
     {
         lock (_lock)
         {
+            if (_allTimeSessions.Add(sessionId))
+            {
+                // New unique session since last restart — count as a page view
+                Interlocked.Increment(ref _totalPageViews);
+            }
             _sessions[sessionId] = new Entry(poiId, DateTimeOffset.UtcNow);
         }
     }
@@ -33,6 +45,8 @@ public sealed class PresenceStore
         lock (_lock)
         {
             _sessions.Remove(sessionId);
+            // Note: we keep the session in _allTimeSessions so TotalUniqueVisitors
+            // doesn't drop when users leave.
         }
     }
 
@@ -56,7 +70,13 @@ public sealed class PresenceStore
         }
     }
 
-    /// <summary>Purge stale sessions (call periodically to avoid unbounded growth).</summary>
+    /// <summary>
+    /// Total unique browser sessions recorded since the API last started.
+    /// Resets on restart — use as a "since boot" supplement to DB counts.
+    /// </summary>
+    public long TotalUniqueVisitors => Interlocked.Read(ref _totalPageViews);
+
+    /// <summary>Purge stale sessions (call periodically to avoid unbounded memory growth).</summary>
     public void Purge()
     {
         var cutoff = DateTimeOffset.UtcNow - Timeout;

@@ -42,7 +42,16 @@ public class DashboardStatsDto
 
     public int TotalAudioPlays { get; set; }
 
+    /// <summary>NarrationLog entries recorded today (ICT). Updates in real-time as plays happen.</summary>
+    public int TodayAudioPlays { get; set; }
+
     public int TotalSiteVisits { get; set; }
+
+    /// <summary>
+    /// Unique browser sessions recorded today since the API started.
+    /// Reflects real-time web traffic without waiting for NarrationLog entries.
+    /// </summary>
+    public int TodaySiteVisits { get; set; }
 
     public int? TotalVendorPoiVisits { get; set; }
 

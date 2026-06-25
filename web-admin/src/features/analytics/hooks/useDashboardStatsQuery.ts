@@ -19,6 +19,7 @@ export function useDashboardStatsQuery(options?: { enabled?: boolean }) {
     queryKey: analyticsQueryKeys.dashboard(),
     queryFn: () => analyticsApi.getDashboard(),
     enabled: options?.enabled ?? true,
+    staleTime: 0,           // always consider stale — rely on refetchInterval for freshness
     refetchInterval: options?.enabled === false ? false : 10000,
   });
 }

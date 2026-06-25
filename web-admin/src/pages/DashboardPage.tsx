@@ -143,9 +143,9 @@ function AdminDashboard({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ActiveVisitorsCard value={stats?.activeVisitors} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tổng lượt phát âm thanh" value={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+        <TodayCard label="Lượt phát âm thanh hôm nay" today={stats?.todayAudioPlays} total={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+        <TodayCard label="Lượt truy cập website hôm nay" today={stats?.todaySiteVisits} total={stats?.totalSiteVisits} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Lượt phát từ QR" value={stats?.totalQrScans} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tổng lượt truy cập website" value={stats?.totalSiteVisits} isLoading={dashboardQuery.isLoading} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -912,7 +912,7 @@ function AnalyticsOnlyDashboard({ dashboardQuery }: { dashboardQuery: DashboardQ
         <DashboardCard label="Tour đang hoạt động" value={stats?.activeTours} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Tổng mã QR" value={stats?.totalQrCodes} isLoading={dashboardQuery.isLoading} />
         <DashboardCard label="Lượt phát từ QR" value={stats?.totalQrScans} isLoading={dashboardQuery.isLoading} />
-        <DashboardCard label="Tổng lượt phát âm thanh" value={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
+        <TodayCard label="Lượt phát âm thanh hôm nay" today={stats?.todayAudioPlays} total={stats?.totalAudioPlays} isLoading={dashboardQuery.isLoading} />
       </div>
     </section>
   );
@@ -974,6 +974,30 @@ function ActiveVisitorsCard({ value, isLoading }: { value?: number; isLoading: b
         {isLoading ? '...' : formatStat(value ?? 0)}
       </p>
       <p className="mt-1 text-xs text-emerald-600">Cập nhật mỗi 10 giây · tự giảm sau 45s không hoạt động</p>
+    </Card>
+  );
+}
+
+function TodayCard({
+  label,
+  today,
+  total,
+  isLoading,
+}: {
+  label: string;
+  today?: number;
+  total?: number;
+  isLoading: boolean;
+}) {
+  return (
+    <Card className="p-5 border-blue-200 bg-blue-50">
+      <p className="text-xs font-medium uppercase tracking-wide text-blue-700">{label}</p>
+      <p className="mt-1 inline-block rounded px-2 py-0.5 text-2xl font-bold bg-blue-100 text-blue-800">
+        {isLoading ? '...' : formatStat(today ?? 0)}
+      </p>
+      <p className="mt-1 text-xs text-blue-500">
+        Tổng cộng: <span className="font-semibold">{isLoading ? '...' : formatStat(total ?? 0)}</span>
+      </p>
     </Card>
   );
 }
