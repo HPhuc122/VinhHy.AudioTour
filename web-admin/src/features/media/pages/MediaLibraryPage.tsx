@@ -1052,6 +1052,7 @@ function ImagesTab({
   onPreview,
   onApprove,
   onReject,
+  onDelete,
 }: {
   poi: PoiDto;
   images: MediaFileDto[];
@@ -1154,6 +1155,7 @@ function NarrationsTab({
   onSubmit,
   onApprove,
   onReject,
+  onDelete,
   onView,
   onTranslate,
 }: {
@@ -1221,6 +1223,7 @@ function AudioTab({
   isVendor,
   busyId,
   onUploadAudio,
+  onDeleteAudio,
 }: {
   poi: PoiDto;
   drafts: NarrationDraftDto[];
@@ -1767,6 +1770,7 @@ function ImageCategoryGroup({
   onPreview,
   onApprove,
   onReject,
+  onDelete,
 }: {
   title: string;
   mediaItems: MediaFileDto[];
