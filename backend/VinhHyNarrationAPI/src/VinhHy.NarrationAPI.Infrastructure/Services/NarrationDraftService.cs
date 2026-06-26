@@ -7,6 +7,7 @@ using VinhHy.NarrationAPI.Application.Features.Narrations.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces.Services;
 using VinhHy.NarrationAPI.Domain.Constants;
 using VinhHy.NarrationAPI.Domain.Entities;
+using Microsoft.Extensions.Logging;
 using VinhHy.NarrationAPI.Infrastructure.Data;
 
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
@@ -24,6 +25,7 @@ public class NarrationDraftService : INarrationDraftService
     private readonly IHostEnvironment _environment;
     private readonly ITranslationProvider _translationProvider;
     private readonly IAutoTranslateTtsQueue _ttsQueue;
+    private readonly SoftDeleteService _softDelete;
     private readonly long _maxAudioFileSizeBytes;
 
     public NarrationDraftService(
@@ -31,12 +33,14 @@ public class NarrationDraftService : INarrationDraftService
         IHostEnvironment environment,
         IConfiguration configuration,
         ITranslationProvider translationProvider,
-        IAutoTranslateTtsQueue ttsQueue)
+        IAutoTranslateTtsQueue ttsQueue,
+        SoftDeleteService softDelete)
     {
         _db = db;
         _environment = environment;
         _translationProvider = translationProvider;
         _ttsQueue = ttsQueue;
+        _softDelete = softDelete;
         _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
             ?? DefaultMaxAudioFileSizeBytes;
     }
@@ -423,6 +427,81 @@ public class NarrationDraftService : INarrationDraftService
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DELETE
+    // Admin: mọi trạng thái, mọi draft
+    // Vendor: chỉ được xóa draft của chính mình khi Status = Pending
+    // ─────────────────────────────────────────────────────────────────────────
+    public async Task DeleteAsync(
+        int id,
+        int requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default)
+    {
+        // Load draft KHÔNG qua global query filter của AudioTrack
+        // vì Include trên nav-property bị lọc bởi HasQueryFilter(e => e.DeletedAt == null)
+        var draft = await _db.NarrationDrafts
+            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException(nameof(NarrationDraft), id);
+
+        if (!isAdmin)
+        {
+            // Vendor chỉ xóa draft của chính mình
+            if (draft.SubmittedByUserId != requestingUserId)
+                throw new UnauthorizedException("You are not allowed to delete this narration draft.");
+
+            // Vendor chỉ xóa được khi chưa qua tay admin (Status = Pending)
+            if (draft.Status != NarrationDraftStatuses.Pending)
+                throw new ValidationException(nameof(id),
+                    "Vendor chỉ có thể xóa bản thuyết minh khi chưa được admin duyệt.");
+        }
+
+        // Soft-delete AudioTrack liên kết (nếu có) — giống AudioService.DeleteAsync
+        // Dùng IgnoreQueryFilters để lấy được cả track đã bị soft-delete trước đó
+        if (draft.GeneratedAudioTrackId.HasValue)
+        {
+            var audioTrack = await _db.AudioTracks
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(a => a.Id == draft.GeneratedAudioTrackId.Value, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (audioTrack is { DeletedAt: null })
+            {
+                await _softDelete
+                    .SoftDeleteAsync(audioTrack, SyncEntityTypes.AudioTrack,
+                        deletedBy: requestingUserId, cancellationToken)
+                    .ConfigureAwait(false);
+                _db.AudioTracks.Update(audioTrack);
+
+                // Xóa file vật lý MP3 khỏi disk
+                if (!string.IsNullOrWhiteSpace(audioTrack.FileUrl))
+                {
+                    var absolutePath = Path.Combine(
+                        _environment.ContentRootPath,
+                        audioTrack.FileUrl.Replace('/', Path.DirectorySeparatorChar));
+                    TryDeleteFile(absolutePath);
+                }
+            }
+        }
+
+        // Hard-delete NarrationDraft
+        // (entity không có DeletedAt — thiết kế giống MediaFile.IsDeleted, xóa luôn khỏi DB)
+        _db.NarrationDrafts.Remove(draft);
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void TryDeleteFile(string absolutePath)
+    {
+        try
+        {
+            if (File.Exists(absolutePath))
+                File.Delete(absolutePath);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private static void TryDeleteInvalidAudioFile(string absolutePath)

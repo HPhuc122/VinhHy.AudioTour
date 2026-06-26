@@ -43,4 +43,14 @@ public interface INarrationDraftService
         UploadNarrationAudioRequest request,
         int uploadedByUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin: xóa draft + AudioTrack liên quan trong mọi trạng thái.
+    /// Vendor: chỉ xóa được khi Status = Pending và phải là người đã nộp.
+    /// </summary>
+    Task DeleteAsync(
+        int id,
+        int requestingUserId,
+        bool isAdmin,
+        CancellationToken cancellationToken = default);
 }

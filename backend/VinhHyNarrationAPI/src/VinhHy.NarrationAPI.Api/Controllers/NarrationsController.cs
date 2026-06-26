@@ -130,6 +130,18 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
         return this.ApiOk(draft, "Narration audio uploaded");
     }
 
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        await narrationDraftService.DeleteAsync(
+            id,
+            requestingUserId: GetRequiredCurrentUserId(),
+            isAdmin: !IsVendor(),
+            cancellationToken);
+
+        return this.ApiOk("Narration draft deleted");
+    }
+
     private bool IsVendor() => User.IsInRole(RoleNames.Vendor);
 
     private int GetRequiredCurrentUserId()
