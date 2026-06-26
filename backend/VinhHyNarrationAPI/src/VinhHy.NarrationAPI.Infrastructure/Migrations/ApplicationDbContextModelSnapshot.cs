@@ -698,7 +698,7 @@ namespace VinhHy.NarrationAPI.Infrastructure.Migrations
 
                     b.ToTable("NarrationDrafts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_NarrationDrafts_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'AudioGenerated')");
+                            t.HasCheckConstraint("CK_NarrationDrafts_Status", "[Status] IN ('Pending', 'Approved', 'Rejected', 'AudioGenerated', 'Translating')");
                         });
                 });
 

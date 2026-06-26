@@ -158,12 +158,21 @@ function AdminDashboard({
       <AnalyticsChartsSection
         title="Thống kê truy cập"
         description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
+<<<<<<< HEAD
+        daily={dailyAnalyticsQuery.data}
+        summary={summaryAnalyticsQuery.data}
+        currentSiteVisits={stats?.activeVisitors}
+        currentSiteVisitsLabel="Khách đang online"
+        isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
+        error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
+=======
         currentSiteVisits={stats?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         poiOptions={analyticsPoiOptions}
         canSelectPoi
         isLoading={false}
         error={null}
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection
@@ -433,15 +442,26 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
       <AnalyticsChartsSection
         title="Thống kê khách ghé sạp"
         description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
+<<<<<<< HEAD
+        daily={vendorDailyAnalyticsQuery.data}
+        summary={vendorSummaryAnalyticsQuery.data}
+=======
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
         currentSiteVisits={vendorDashboardStatsQuery.data?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         currentPoiVisits={vendorDashboardStatsQuery.data?.activeVisitorsByPoi}
         currentPoiVisitsLabel="Khách đang ở sạp"
+<<<<<<< HEAD
+        isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
+        error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
+        emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}
+=======
         fixedPoiId={primaryPoiId}
         isEnabled={Boolean(primaryPoiId)}
         isLoading={false}
         error={null}
         emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong khoảng thời gian này.' : 'Chưa có sạp để thống kê.'}
+>>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection

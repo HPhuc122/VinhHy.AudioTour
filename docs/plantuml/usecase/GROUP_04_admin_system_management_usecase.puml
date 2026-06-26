@@ -1,0 +1,43 @@
+@startuml
+
+left to right direction
+skinparam shadowing false
+skinparam monochrome true
+skinparam defaultFontName Arial
+skinparam usecase {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+}
+skinparam ArrowColor black
+
+actor "Admin" as Admin
+
+rectangle "KhanhHoi AudioTour Web Admin" {
+  usecase "Dang nhap" as UC01
+  usecase "Quan ly ngon ngu" as UC15
+  usecase "Quan ly nguoi dung" as UC16
+  usecase "Quan ly vai tro" as UC17
+  usecase "Gan vai tro\ncho nguoi dung" as AssignRole
+  usecase "Kiem tra quyen\nAdmin" as CheckAdmin
+}
+
+Admin --> UC15
+Admin --> UC16
+Admin --> UC17
+
+UC15 ..> UC01 : <<include>>
+UC16 ..> UC01 : <<include>>
+UC17 ..> UC01 : <<include>>
+UC15 ..> CheckAdmin : <<include>>
+UC16 ..> CheckAdmin : <<include>>
+UC17 ..> CheckAdmin : <<include>>
+UC16 ..> AssignRole : <<include>>
+AssignRole ..> UC17 : <<extend>>
+
+@enduml

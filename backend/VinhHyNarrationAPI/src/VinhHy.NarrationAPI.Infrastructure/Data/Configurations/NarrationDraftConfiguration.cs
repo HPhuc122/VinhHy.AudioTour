@@ -54,7 +54,7 @@ public class NarrationDraftConfiguration : IEntityTypeConfiguration<NarrationDra
         {
             t.HasCheckConstraint(
                 "CK_NarrationDrafts_Status",
-                "[Status] IN ('Pending', 'Approved', 'Rejected', 'AudioGenerated')");
+                "[Status] IN ('Pending', 'Approved', 'Rejected', 'AudioGenerated', 'Translating')");
         });
     }
 }
