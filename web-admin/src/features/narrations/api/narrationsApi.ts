@@ -5,7 +5,7 @@ import type { ApprovalStatusFilter } from '@/features/media/api/mediaApi';
 
 const NARRATIONS_BASE = '/api/v1/narrations';
 
-export type NarrationStatus = 'Pending' | 'Approved' | 'Rejected' | 'AudioGenerated';
+export type NarrationStatus = 'Pending' | 'Approved' | 'Rejected' | 'AudioGenerated' | 'Translating';
 export type NarrationStatusFilter = ApprovalStatusFilter | 'AudioGenerated';
 
 export interface NarrationDraftDto {
@@ -146,6 +146,11 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
       return unwrapApiResponse(response.data);
     },
 
+    async deleteNarration(id: number): Promise<void> {
+      const response = await httpClient.delete<ApiResponse<null>>(`${NARRATIONS_BASE}/${id}`);
+      unwrapApiResponse(response.data, true);
+    },
+
     async uploadAudio(id: number, request: UploadNarrationAudioRequest): Promise<NarrationDraftDto> {
       const formData = new FormData();
       formData.append('file', request.file);
@@ -167,8 +172,8 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
   };
 }
 
-function unwrapApiResponse<T>(body: ApiResponse<T>): T {
-  if (!body.success || body.data === null || typeof body.data === 'undefined') {
+function unwrapApiResponse<T>(body: ApiResponse<T>, allowNull?: boolean): T {
+  if (!body.success || (!allowNull && (body.data === null || typeof body.data === 'undefined'))) {
     throw toApiClientError(new Error(body.message || 'Thao tác thất bại'));
   }
 

@@ -37,6 +37,9 @@ const contentPageSize = 500;
 
 type WorkspaceTab = 'overview' | 'images' | 'narrations' | 'audio' | 'translations';
 type RejectTarget = { type: 'image'; item: MediaFileDto } | { type: 'narration'; item: NarrationDraftDto };
+type DeleteTarget =
+  | { type: 'image'; item: MediaFileDto }
+  | { type: 'narration'; item: NarrationDraftDto };
 type PoiImageCategory = 'Menu' | 'Highlight';
 
 type Translation = {
@@ -88,6 +91,7 @@ export function MediaLibraryPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [previewMedia, setPreviewMedia] = useState<MediaFileDto | null>(null);
   const [rejectTarget, setRejectTarget] = useState<RejectTarget | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [viewNarration, setViewNarration] = useState<NarrationDraftDto | null>(null);
   const [uploadAudioDraft, setUploadAudioDraft] = useState<NarrationDraftDto | null>(null);
@@ -310,6 +314,30 @@ export function MediaLibraryPage() {
       await invalidateSelectedPoiContent();
     },
   });
+  const deleteImageMutation = useMutation({
+    mutationFn: (id: number) => mediaApi.deleteMedia(id),
+    onSuccess: async () => {
+      setNotice('Đã xóa ảnh.');
+      setDeleteTarget(null);
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const deleteNarrationMutation = useMutation({
+    mutationFn: (id: number) => narrationsApi.deleteNarration(id),
+    onSuccess: async () => {
+      setNotice('Đã xóa bản thuyết minh.');
+      setDeleteTarget(null);
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const deleteAudioMutation = useMutation({
+    mutationFn: (trackId: number) =>
+      httpClient.delete(`/api/v1/audio/${trackId}`),
+    onSuccess: async () => {
+      setNotice('Đã xóa file âm thanh. Bản thuyết minh vẫn còn.');
+      await invalidateSelectedPoiContent();
+    },
+  });
   const generateNarrationTranslationsMutation = useMutation({
     mutationFn: () => {
       if (!translateNarrationDraft) {
@@ -404,6 +432,12 @@ export function MediaLibraryPage() {
     createNarrationMutation.mutate();
   };
 
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === 'image') deleteImageMutation.mutate(deleteTarget.item.id);
+    if (deleteTarget.type === 'narration') deleteNarrationMutation.mutate(deleteTarget.item.id);
+  };
+
   const handleSubmitReject = () => {
     const reason = rejectReason.trim();
     if (!reason) {
@@ -468,9 +502,12 @@ export function MediaLibraryPage() {
     uploadMutation.error,
     approveImageMutation.error,
     rejectImageMutation.error,
+    deleteImageMutation.error,
     createNarrationMutation.error,
     approveNarrationMutation.error,
     rejectNarrationMutation.error,
+    deleteNarrationMutation.error,
+    deleteAudioMutation.error,
     uploadNarrationAudioMutation.error,
     generateNarrationTranslationsMutation.error,
     saveTranslationMutation.error,
@@ -578,6 +615,7 @@ export function MediaLibraryPage() {
                 setRejectTarget({ type: 'image', item: media });
                 setRejectReason('');
               }}
+              onDelete={(media) => setDeleteTarget({ type: 'image', item: media })}
             />
           ) : null}
 
@@ -602,6 +640,7 @@ export function MediaLibraryPage() {
                 setRejectTarget({ type: 'narration', item: draft });
                 setRejectReason('');
               }}
+              onDelete={(draft) => setDeleteTarget({ type: 'narration', item: draft })}
               onView={setViewNarration}
               onTranslate={(draft) => {
                 setTranslateNarrationDraft(draft);
@@ -622,6 +661,7 @@ export function MediaLibraryPage() {
                 uploadNarrationAudioMutation.isPending ? uploadNarrationAudioMutation.variables : undefined,
               )}
               onUploadAudio={setUploadAudioDraft}
+              onDeleteAudio={(trackId) => deleteAudioMutation.mutate(trackId)}
             />
           ) : null}
 
@@ -665,6 +705,12 @@ export function MediaLibraryPage() {
           setRejectReason('');
         }}
         onSubmit={handleSubmitReject}
+      />
+      <DeleteConfirmModal
+        target={deleteTarget}
+        isLoading={deleteImageMutation.isPending || deleteNarrationMutation.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
       />
       <NarrationTextModal draft={viewNarration} onClose={() => setViewNarration(null)} />
       <TranslateNarrationModal
@@ -1021,6 +1067,7 @@ function ImagesTab({
   onPreview: (media: MediaFileDto) => void;
   onApprove: (media: MediaFileDto) => void;
   onReject: (media: MediaFileDto) => void;
+  onDelete: (media: MediaFileDto) => void;
 }) {
   const grouped = groupMediaByCategory(images);
 
@@ -1075,6 +1122,7 @@ function ImagesTab({
             onPreview={onPreview}
             onApprove={onApprove}
             onReject={onReject}
+            onDelete={onDelete}
           />
           <ImageCategoryGroup
             title="Highlights"
@@ -1084,6 +1132,7 @@ function ImagesTab({
             onPreview={onPreview}
             onApprove={onApprove}
             onReject={onReject}
+            onDelete={onDelete}
           />
         </div>
       ) : null}
@@ -1121,6 +1170,7 @@ function NarrationsTab({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
+  onDelete: (draft: NarrationDraftDto) => void;
   onView: (draft: NarrationDraftDto) => void;
   onTranslate: (draft: NarrationDraftDto) => void;
 }) {
@@ -1150,10 +1200,12 @@ function NarrationsTab({
       <NarrationList
         drafts={drafts}
         isLoading={isLoading}
+        isVendor={isVendor}
         canReview={canReview}
         busyId={busyId}
         onApprove={onApprove}
         onReject={onReject}
+        onDelete={onDelete}
         onView={onView}
         onTranslate={onTranslate}
       />
@@ -1177,6 +1229,7 @@ function AudioTab({
   isVendor: boolean;
   busyId: number | null;
   onUploadAudio: (draft: NarrationDraftDto) => void;
+  onDeleteAudio: (trackId: number) => void;
 }) {
   const approvedDrafts = drafts.filter((draft) => draft.status === 'Approved' || draft.status === 'AudioGenerated');
 
@@ -1207,7 +1260,7 @@ function AudioTab({
                 <th className="px-4 py-3">Bản thuyết minh</th>
                 <th className="px-4 py-3">Trạng thái audio</th>
                 <th className="px-4 py-3">Thời lượng</th>
-                {canUploadAudio ? <th className="px-4 py-3 text-right">Thao tác</th> : null}
+                <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1215,7 +1268,7 @@ function AudioTab({
                 <TableMessage colSpan={canUploadAudio ? 5 : 4} message="Đang tải trạng thái âm thanh..." />
               ) : null}
               {!isLoading && approvedDrafts.length === 0 ? (
-                <TableMessage colSpan={canUploadAudio ? 5 : 4} message="Chưa có bản thuyết minh đã duyệt để gắn MP3." />
+                <TableMessage colSpan={5} message="Chưa có bản thuyết minh đã duyệt để gắn MP3." />
               ) : null}
               {approvedDrafts.map((draft) => (
                 <tr key={draft.id}>
@@ -1232,13 +1285,25 @@ function AudioTab({
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{formatAudioDuration(draft.generatedAudioDurationSeconds)}</td>
-                  {canUploadAudio ? (
-                    <td className="px-4 py-3 text-right">
-                      <Button size="sm" isLoading={busyId === draft.id} onClick={() => onUploadAudio(draft)}>
-                        {draft.generatedAudioTrackId ? 'Thay MP3' : 'Tải MP3'}
-                      </Button>
-                    </td>
-                  ) : null}
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      {canUploadAudio ? (
+                        <Button size="sm" isLoading={busyId === draft.id} onClick={() => onUploadAudio(draft)}>
+                          {draft.generatedAudioTrackId ? 'Thay MP3' : 'Tải MP3'}
+                        </Button>
+                      ) : null}
+                      {canUploadAudio && draft.generatedAudioTrackId ? (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          isLoading={busyId === draft.id}
+                          onClick={() => onDeleteAudio(draft.generatedAudioTrackId!)}
+                        >
+                          Xóa MP3
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1591,10 +1656,12 @@ function NarrationForm({
 function NarrationList({
   drafts,
   isLoading,
+  isVendor,
   canReview,
   busyId,
   onApprove,
   onReject,
+  onDelete,
   onView,
   onTranslate,
 }: {
@@ -1604,6 +1671,7 @@ function NarrationList({
   busyId: number | null;
   onApprove: (draft: NarrationDraftDto) => void;
   onReject: (draft: NarrationDraftDto) => void;
+  onDelete: (draft: NarrationDraftDto) => void;
   onView: (draft: NarrationDraftDto) => void;
   onTranslate: (draft: NarrationDraftDto) => void;
 }) {
@@ -1669,6 +1737,17 @@ function NarrationList({
                         Từ chối
                       </Button>
                     ) : null}
+                    {/* Admin xóa bất kỳ lúc nào; Vendor chỉ xóa khi Pending */}
+                    {(canReview || (isVendor && draft.status === 'Pending')) ? (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        isLoading={busyId === draft.id}
+                        onClick={() => onDelete(draft)}
+                      >
+                        Xóa
+                      </Button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -1696,6 +1775,7 @@ function ImageCategoryGroup({
   onPreview: (media: MediaFileDto) => void;
   onApprove: (media: MediaFileDto) => void;
   onReject: (media: MediaFileDto) => void;
+  onDelete: (media: MediaFileDto) => void;
 }) {
   return (
     <Card className="p-4">
@@ -1741,6 +1821,9 @@ function ImageCategoryGroup({
                         Từ chối
                       </Button>
                     ) : null}
+                    <Button size="sm" variant="danger" isLoading={busyId === media.id} onClick={() => onDelete(media)}>
+                      Xóa
+                    </Button>
                   </div>
                 ) : null}
               </div>
@@ -2345,6 +2428,8 @@ function statusLabel(status: string): string {
       return 'Bị từ chối';
     case 'AudioGenerated':
       return 'Đã có âm thanh';
+    case 'Translating':
+      return 'Đang dịch…';
     default:
       return status;
   }
@@ -2413,6 +2498,54 @@ function formatTranslationLanguage(code: string, languages: LanguageDto[]): stri
 
 function formatDate(value?: string | null): string {
   return formatVietnamDateTime(value);
+}
+
+function DeleteConfirmModal({
+  target,
+  isLoading,
+  onClose,
+  onConfirm,
+}: {
+  target: DeleteTarget | null;
+  isLoading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const label =
+    target?.type === 'image'
+      ? `ảnh "${target.item.originalFileName}"`
+      : target?.type === 'narration'
+        ? `bản thuyết minh "${target.item.title}" (${target.item.languageCode})`
+        : '';
+
+  const warning =
+    target?.type === 'narration' && target.item.generatedAudioTrackId
+      ? 'Hành động này cũng sẽ xóa file âm thanh MP3 đã gắn với bản thuyết minh này.'
+      : null;
+
+  return (
+    <Modal open={Boolean(target)} onClose={onClose} title="Xác nhận xóa">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-700">
+          Bạn có chắc chắn muốn xóa {label}?{' '}
+          <span className="font-semibold text-red-600">Hành động này không thể hoàn tác.</span>
+        </p>
+        {warning ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            ⚠️ {warning}
+          </div>
+        ) : null}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="danger" isLoading={isLoading} onClick={onConfirm}>
+            Xóa
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 function formatAudioDuration(durationSeconds?: number | null): string {
