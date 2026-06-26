@@ -10,7 +10,7 @@ using VinhHy.NarrationAPI.Infrastructure.Data;
 namespace VinhHy.NarrationAPI.Infrastructure.Services;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// In-memory channel queue (singleton)
+// Queue
 // ─────────────────────────────────────────────────────────────────────────────
 public interface IAutoTranslateTtsQueue
 {
@@ -32,198 +32,222 @@ public sealed class AutoTranslateTtsQueue : IAutoTranslateTtsQueue
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Background worker: xử lý pipeline cho từng NarrationDraft được duyệt
-// Luồng: Admin approve → enqueue draft ID → worker dịch+TTS cho 5 ngôn ngữ
+// Background worker
 // ─────────────────────────────────────────────────────────────────────────────
 public sealed class AutoTranslateTtsPipelineService(
     IAutoTranslateTtsQueue queue,
     IServiceScopeFactory scopeFactory,
     ILogger<AutoTranslateTtsPipelineService> logger) : BackgroundService
 {
-    // Tất cả ngôn ngữ đích (lấy từ DB Languages.IsActive, trừ ngôn ngữ nguồn của draft)
-    private const int MaxParallelPerDraft = 3; // Giới hạn concurrent call Google API
+    // Giới hạn số ngôn ngữ chạy song song (mỗi lang dùng scope DbContext riêng)
+    private const int MaxParallelPerDraft = 3;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("AutoTranslateTtsPipelineService started.");
-
         while (!stoppingToken.IsCancellationRequested)
         {
             int draftId;
             try { draftId = await queue.DequeueAsync(stoppingToken).ConfigureAwait(false); }
             catch (OperationCanceledException) { break; }
-
-            // Fire-and-forget với error handling
             _ = ProcessDraftAsync(draftId, stoppingToken);
         }
-
         logger.LogInformation("AutoTranslateTtsPipelineService stopped.");
     }
 
     private async Task ProcessDraftAsync(int sourceDraftId, CancellationToken ct)
     {
-        using var scope = scopeFactory.CreateScope();
-        var db          = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var translator  = scope.ServiceProvider.GetRequiredService<ITranslationProvider>();
-        var tts         = scope.ServiceProvider.GetRequiredService<IGoogleTtsService>();
-        var fileUpload  = scope.ServiceProvider.GetRequiredService<IFileUploadService>();
-        var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        // ── Load source draft ────────────────────────────────────────────────
+        SourceDraftInfo? source;
+        List<string> targetLanguages;
 
-        NarrationDraft? sourceDraft;
-        try
+        using (var scope = scopeFactory.CreateScope())
         {
-            sourceDraft = await db.NarrationDrafts
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var draft = await db.NarrationDrafts
+                .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.Id == sourceDraftId, ct)
                 .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to load NarrationDraft {DraftId}", sourceDraftId);
-            return;
-        }
 
-        if (sourceDraft is null)
-        {
-            logger.LogWarning("NarrationDraft {DraftId} not found, skipping pipeline.", sourceDraftId);
-            return;
-        }
+            if (draft is null)
+            {
+                logger.LogWarning("NarrationDraft {DraftId} not found, skipping.", sourceDraftId);
+                return;
+            }
 
-        if (sourceDraft.Status != NarrationDraftStatuses.Approved &&
-            sourceDraft.Status != NarrationDraftStatuses.Translating)
-        {
-            logger.LogWarning("NarrationDraft {DraftId} is in status '{Status}', skipping pipeline.",
-                sourceDraftId, sourceDraft.Status);
-            return;
-        }
+            if (draft.Status != NarrationDraftStatuses.Approved &&
+                draft.Status != NarrationDraftStatuses.Translating)
+            {
+                logger.LogWarning("NarrationDraft {DraftId} status='{Status}', skipping.", sourceDraftId, draft.Status);
+                return;
+            }
 
-        // Lấy danh sách ngôn ngữ đích (tất cả active, trừ ngôn ngữ nguồn)
-        var targetLanguages = await db.Languages
-            .AsNoTracking()
-            .Where(l => l.IsActive && l.Code != sourceDraft.LanguageCode)
-            .Select(l => l.Code)
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
+            source = new SourceDraftInfo(
+                draft.Id, draft.PoiId, draft.LanguageCode,
+                draft.Title, draft.TextContent,
+                draft.SubmittedByUserId, draft.ReviewedByUserId);
+
+            // Tất cả ngôn ngữ active trong DB (kể cả ngôn ngữ nguồn để sinh TTS bản gốc)
+            targetLanguages = await db.Languages
+                .AsNoTracking()
+                .Where(l => l.IsActive)
+                .Select(l => l.Code)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            // Đánh dấu Translating
+            await db.NarrationDrafts
+                .Where(d => d.Id == sourceDraftId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(d => d.Status, NarrationDraftStatuses.Translating)
+                    .SetProperty(d => d.UpdatedAt, DateTime.UtcNow), ct)
+                .ConfigureAwait(false);
+        }
 
         if (targetLanguages.Count == 0)
         {
-            logger.LogInformation("No target languages for draft {DraftId}, pipeline complete.", sourceDraftId);
+            logger.LogInformation("No active languages for Draft={DraftId}, done.", sourceDraftId);
             return;
         }
 
         logger.LogInformation(
-            "Pipeline starting for Draft={DraftId} POI={PoiId} → [{Langs}]",
-            sourceDraftId, sourceDraft.PoiId, string.Join(", ", targetLanguages));
+            "Pipeline Draft={DraftId} POI={PoiId} → [{Langs}]",
+            sourceDraftId, source.PoiId, string.Join(", ", targetLanguages));
 
-        // Đánh dấu Translating
-        sourceDraft.Status    = NarrationDraftStatuses.Translating;
-        sourceDraft.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
-
-        // Xử lý song song, tối đa MaxParallelPerDraft
+        // ── Xử lý từng ngôn ngữ — MỖI LANG DÙNG SCOPE RIÊNG để tránh race ──
         var semaphore = new SemaphoreSlim(MaxParallelPerDraft);
-        var tasks = targetLanguages.Select(lang =>
-            ProcessLanguageAsync(sourceDraft, lang, db, translator, tts, environment, semaphore, ct));
-
+        var tasks = targetLanguages.Select(lang => ProcessOneLanguageAsync(source, lang, semaphore, ct));
         await Task.WhenAll(tasks).ConfigureAwait(false);
 
-        // Refresh entity và đánh dấu AudioGenerated
-        var refreshed = await db.NarrationDrafts.FindAsync([sourceDraftId], ct).ConfigureAwait(false);
-        if (refreshed is not null && refreshed.Status == NarrationDraftStatuses.Translating)
+        // ── Đánh dấu source draft hoàn thành ────────────────────────────────
+        using (var scope = scopeFactory.CreateScope())
         {
-            refreshed.Status    = NarrationDraftStatuses.AudioGenerated;
-            refreshed.UpdatedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.NarrationDrafts
+                .Where(d => d.Id == sourceDraftId && d.Status == NarrationDraftStatuses.Translating)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(d => d.Status, NarrationDraftStatuses.AudioGenerated)
+                    .SetProperty(d => d.UpdatedAt, DateTime.UtcNow), ct)
+                .ConfigureAwait(false);
         }
 
         logger.LogInformation("Pipeline completed for Draft={DraftId}", sourceDraftId);
     }
 
-    private async Task ProcessLanguageAsync(
-        NarrationDraft source,
+    // ── Mỗi ngôn ngữ: scope DbContext riêng → không có race condition ────────
+    private async Task ProcessOneLanguageAsync(
+        SourceDraftInfo source,
         string targetLang,
-        ApplicationDbContext db,
-        ITranslationProvider translator,
-        IGoogleTtsService tts,
-        IHostEnvironment environment,
         SemaphoreSlim semaphore,
         CancellationToken ct)
     {
         await semaphore.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            logger.LogInformation("Translating Draft={DraftId} → {Lang}", source.Id, targetLang);
+            using var scope = scopeFactory.CreateScope();
+            var db          = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var tts         = scope.ServiceProvider.GetRequiredService<IGoogleTtsService>();
+            var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
 
-            // ── STEP 1: Google Translate ──────────────────────────────────────
-            string translatedTitle, translatedText;
-            try
+            string finalTitle, finalText;
+
+            if (targetLang == source.LanguageCode)
             {
-                translatedTitle = await translator
-                    .TranslateAsync(source.Title, source.LanguageCode, targetLang, ct)
-                    .ConfigureAwait(false);
-                translatedText = await translator
-                    .TranslateAsync(source.TextContent, source.LanguageCode, targetLang, ct)
-                    .ConfigureAwait(false);
+                // ── Ngôn ngữ nguồn: không cần dịch, chỉ sinh TTS bản gốc ──
+                finalTitle = source.Title;
+                finalText  = source.TextContent;
+                logger.LogInformation("TTS source lang={Lang} Draft={DraftId}", targetLang, source.Id);
             }
-            catch (Exception ex)
+            else
             {
-                logger.LogError(ex, "Translation failed for Draft={DraftId} → {Lang}", source.Id, targetLang);
-                return;
+                // ── Ngôn ngữ đích: dịch trước rồi TTS ───────────────────────
+                var translator = scope.ServiceProvider.GetRequiredService<ITranslationProvider>();
+                logger.LogInformation("Translating Draft={DraftId} → {Lang}", source.Id, targetLang);
+                try
+                {
+                    finalTitle = await translator
+                        .TranslateAsync(source.Title, source.LanguageCode, targetLang, ct)
+                        .ConfigureAwait(false);
+                    finalText = await translator
+                        .TranslateAsync(source.TextContent, source.LanguageCode, targetLang, ct)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Translation failed Draft={DraftId} → {Lang}", source.Id, targetLang);
+                    return;
+                }
             }
 
-            // ── STEP 2: Google TTS → MP3 bytes ───────────────────────────────
+            // ── TTS → MP3 bytes ───────────────────────────────────────────────
             byte[] audioBytes;
             try
             {
-                audioBytes = await tts.SynthesizeAsync(translatedText, targetLang, ct).ConfigureAwait(false);
+                audioBytes = await tts.SynthesizeAsync(finalText, targetLang, ct).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "TTS synthesis failed for Draft={DraftId} → {Lang}", source.Id, targetLang);
+                logger.LogError(ex, "TTS failed Draft={DraftId} lang={Lang}", source.Id, targetLang);
                 return;
             }
 
-            // ── STEP 3: Lưu file MP3 vào disk ───────────────────────────────
-            var fileName = $"{Guid.NewGuid():N}.mp3";
-            var audioDir = Path.Combine(environment.ContentRootPath, "uploads", "audio");
+            // ── Lưu MP3 ra disk ───────────────────────────────────────────────
+            var fileName    = $"{Guid.NewGuid():N}.mp3";
+            var audioDir    = Path.Combine(environment.ContentRootPath, "uploads", "audio");
             Directory.CreateDirectory(audioDir);
-            var filePath = Path.Combine(audioDir, fileName);
+            var filePath    = Path.Combine(audioDir, fileName);
             await File.WriteAllBytesAsync(filePath, audioBytes, ct).ConfigureAwait(false);
             var relativeUrl = $"uploads/audio/{fileName}";
-            var durationSeconds = Mp3DurationDetector.TryDetectDurationSeconds(filePath);
+            var duration    = Mp3DurationDetector.TryDetectDurationSeconds(filePath);
 
-            // ── STEP 4: Upsert NarrationDraft (bản dịch) ────────────────────
+            // ── Upsert NarrationDraft cho ngôn ngữ này ────────────────────────
             var now = DateTime.UtcNow;
-            var existingDraft = await db.NarrationDrafts
-                .FirstOrDefaultAsync(d => d.PoiId == source.PoiId && d.LanguageCode == targetLang, ct)
-                .ConfigureAwait(false);
 
-            if (existingDraft is null)
+            // Nếu là ngôn ngữ nguồn, draft đã tồn tại (chính source draft)
+            // Với ngôn ngữ đích, có thể đã tồn tại từ lần chạy trước
+            NarrationDraft? draftForLang;
+            if (targetLang == source.LanguageCode)
             {
-                existingDraft = new NarrationDraft
-                {
-                    PoiId    = source.PoiId,
-                    LanguageCode = targetLang,
-                    CreatedAt = now,
-                };
-                await db.NarrationDrafts.AddAsync(existingDraft, ct).ConfigureAwait(false);
+                draftForLang = await db.NarrationDrafts
+                    .FirstOrDefaultAsync(d => d.Id == source.Id, ct)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                draftForLang = await db.NarrationDrafts
+                    .FirstOrDefaultAsync(d => d.PoiId == source.PoiId && d.LanguageCode == targetLang, ct)
+                    .ConfigureAwait(false);
             }
 
-            existingDraft.Title            = translatedTitle.Trim();
-            existingDraft.TextContent      = translatedText.Trim();
-            existingDraft.Voice            = TtsVoiceMap.Get(targetLang).VoiceName;
-            existingDraft.Status           = NarrationDraftStatuses.AudioGenerated;
-            existingDraft.SubmittedByUserId = source.SubmittedByUserId;
-            existingDraft.SubmittedAt      = now;
-            existingDraft.ReviewedByUserId = source.ReviewedByUserId;
-            existingDraft.ReviewedAt       = now;
-            existingDraft.RejectionReason  = null;
-            existingDraft.AudioGeneratedAt = now;
-            existingDraft.UpdatedAt        = now;
+            if (draftForLang is null)
+            {
+                draftForLang = new NarrationDraft
+                {
+                    PoiId        = source.PoiId,
+                    LanguageCode = targetLang,
+                    CreatedAt    = now,
+                };
+                await db.NarrationDrafts.AddAsync(draftForLang, ct).ConfigureAwait(false);
+            }
+
+            draftForLang.Title             = finalTitle.Trim();
+            draftForLang.TextContent       = finalText.Trim();
+            draftForLang.Voice             = TtsVoiceMap.Get(targetLang).VoiceName;
+            draftForLang.Status            = NarrationDraftStatuses.AudioGenerated;
+            draftForLang.SubmittedByUserId = source.SubmittedByUserId;
+            draftForLang.SubmittedAt       = now;
+            draftForLang.ReviewedByUserId  = source.ReviewedByUserId;
+            draftForLang.ReviewedAt        = now;
+            draftForLang.RejectionReason   = null;
+            draftForLang.AudioGeneratedAt  = now;
+            draftForLang.UpdatedAt         = now;
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-            // ── STEP 5: Upsert AudioTrack ────────────────────────────────────
+            // ── Upsert AudioTrack ─────────────────────────────────────────────
             var audioTrack = await db.AudioTracks
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(a =>
                     a.POIId == source.PoiId &&
                     a.LanguageCode == targetLang &&
@@ -245,31 +269,39 @@ public sealed class AutoTranslateTtsPipelineService(
                 audioTrack.Version++;
             }
 
-            audioTrack.Title           = translatedTitle.Trim();
-            audioTrack.AudioType       = "prerecorded";
-            audioTrack.FileUrl         = relativeUrl;
-            audioTrack.TTSText         = translatedText.Trim();
-            audioTrack.DurationSeconds = durationSeconds;
-            audioTrack.FileSizeBytes   = audioBytes.Length;
-            audioTrack.MimeType        = "audio/mpeg";
-            audioTrack.IsActive        = true;
-            audioTrack.UpdatedAt       = now;
+            audioTrack.Title          = finalTitle.Trim();
+            audioTrack.AudioType      = "prerecorded";
+            audioTrack.FileUrl        = relativeUrl;
+            audioTrack.TTSText        = finalText.Trim();
+            audioTrack.DurationSeconds = duration;
+            audioTrack.FileSizeBytes  = audioBytes.Length;
+            audioTrack.MimeType       = "audio/mpeg";
+            audioTrack.IsActive       = true;
+            audioTrack.UpdatedAt      = now;
 
-            existingDraft.GeneratedAudioTrack = audioTrack;
-
+            draftForLang.GeneratedAudioTrack = audioTrack;
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
             logger.LogInformation(
-                "Pipeline lang={Lang} done: Draft={TranslatedDraftId} AudioTrack={TrackId}",
-                targetLang, existingDraft.Id, audioTrack.Id);
+                "Done lang={Lang} Draft={TranslatedId} AudioTrack={TrackId}",
+                targetLang, draftForLang.Id, audioTrack.Id);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error in pipeline lang={Lang} Draft={DraftId}", targetLang, source.Id);
+            logger.LogError(ex, "Unexpected error lang={Lang} Draft={DraftId}", targetLang, source.Id);
         }
         finally
         {
             semaphore.Release();
         }
     }
+
+    private sealed record SourceDraftInfo(
+        int Id,
+        int PoiId,
+        string LanguageCode,
+        string Title,
+        string TextContent,
+        int SubmittedByUserId,
+        int? ReviewedByUserId);
 }
