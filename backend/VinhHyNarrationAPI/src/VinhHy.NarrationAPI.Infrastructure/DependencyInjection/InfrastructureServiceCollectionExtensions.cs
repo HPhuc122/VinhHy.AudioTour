@@ -55,6 +55,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<PresenceStore>();
         services.AddHostedService<PresencePurgeService>();
 
+        // Auto-translate + TTS pipeline (runs after admin approves a NarrationDraft)
+        services.AddSingleton<IAutoTranslateTtsQueue, AutoTranslateTtsQueue>();
+        services.AddHostedService<AutoTranslateTtsPipelineService>();
+
         return services;
     }
 
@@ -138,6 +142,15 @@ public static class InfrastructureServiceCollectionExtensions
                 : 30;
             client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
         });
+        services.AddHttpClient<GoogleTtsService>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TranslationOptions>>();
+            var timeoutSeconds = options.Value.GoogleTranslate.TimeoutSeconds > 0
+                ? options.Value.GoogleTranslate.TimeoutSeconds
+                : 60; // TTS có thể mất lâu hơn
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+        });
+        services.AddScoped<IGoogleTtsService, GoogleTtsService>();
         services.AddScoped<ITranslationProvider>(sp =>
         {
             var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TranslationOptions>>();

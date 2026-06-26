@@ -6,4 +6,5 @@ public static class NarrationDraftStatuses
     public const string Approved = "Approved";
     public const string Rejected = "Rejected";
     public const string AudioGenerated = "AudioGenerated";
+    public const string Translating = "Translating"; // Auto-translate+TTS pipeline đang chạy
 }

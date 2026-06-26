@@ -23,17 +23,20 @@ public class NarrationDraftService : INarrationDraftService
     private readonly ApplicationDbContext _db;
     private readonly IHostEnvironment _environment;
     private readonly ITranslationProvider _translationProvider;
+    private readonly IAutoTranslateTtsQueue _ttsQueue;
     private readonly long _maxAudioFileSizeBytes;
 
     public NarrationDraftService(
         ApplicationDbContext db,
         IHostEnvironment environment,
         IConfiguration configuration,
-        ITranslationProvider translationProvider)
+        ITranslationProvider translationProvider,
+        IAutoTranslateTtsQueue ttsQueue)
     {
         _db = db;
         _environment = environment;
         _translationProvider = translationProvider;
+        _ttsQueue = ttsQueue;
         _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
             ?? DefaultMaxAudioFileSizeBytes;
     }
@@ -182,6 +185,10 @@ public class NarrationDraftService : INarrationDraftService
         draft.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        // Kích hoạt pipeline tự động dịch + TTS cho tất cả ngôn ngữ còn lại
+        await _ttsQueue.EnqueueAsync(id, cancellationToken).ConfigureAwait(false);
+
         return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
@@ -592,6 +599,7 @@ public class NarrationDraftService : INarrationDraftService
             NarrationDraftStatuses.Approved => NarrationDraftStatuses.Approved,
             NarrationDraftStatuses.Rejected => NarrationDraftStatuses.Rejected,
             NarrationDraftStatuses.AudioGenerated => NarrationDraftStatuses.AudioGenerated,
+            NarrationDraftStatuses.Translating => NarrationDraftStatuses.Translating,
             _ => throw new ValidationException(nameof(status), "Status is invalid.")
         };
     }
