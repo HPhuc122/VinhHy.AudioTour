@@ -8,7 +8,7 @@ Bo sequence nay duoc sinh tu danh sach UC chuan trong [`UC_AUDIT_FOR_DIAGRAM.md`
 |---|---|---|---|
 | UC01 | Dang nhap va duy tri phien | [`UC01_dang_nhap_va_duy_tri_phien_sequence.puml`](sequence/UC01_dang_nhap_va_duy_tri_phien_sequence.puml) | Da trien khai ro rang |
 | UC02 | Dang ky tai khoan chu sap | [`UC02_dang_ky_tai_khoan_chu_sap_sequence.puml`](sequence/UC02_dang_ky_tai_khoan_chu_sap_sequence.puml) | Da trien khai ro rang |
-| UC03 | Xem dashboard va bieu do thong ke theo vai tro | [`UC03_xem_dashboard_theo_vai_tro_sequence.puml`](sequence/UC03_xem_dashboard_theo_vai_tro_sequence.puml) | Da trien khai ro rang; da cap nhat bieu do 30 ngay, donut nguon truy cap va gioi han Vendor |
+| UC03 | Xem dashboard va bieu do thong ke theo vai tro | [`UC03_xem_dashboard_theo_vai_tro_sequence.puml`](sequence/UC03_xem_dashboard_theo_vai_tro_sequence.puml) | Da trien khai ro rang; da cap nhat khach online, luot hom nay, grouped analytics, ban do POI/admin audio preview, thong ke AudioTrack va gioi han Vendor |
 | UC04 | Quan ly POI va dang ky sap | [`UC04_quan_ly_poi_va_dang_ky_sap_sequence.puml`](sequence/UC04_quan_ly_poi_va_dang_ky_sap_sequence.puml) | Da trien khai ro rang |
 | UC05 | Duyet va quyet dinh vong doi POI | [`UC05_duyet_va_quyet_dinh_vong_doi_poi_sequence.puml`](sequence/UC05_duyet_va_quyet_dinh_vong_doi_poi_sequence.puml) | Da trien khai ro rang |
 | UC06 | Thanh toan mo phong de kich hoat sap | [`UC06_thanh_toan_mo_phong_de_kich_hoat_sap_sequence.puml`](sequence/UC06_thanh_toan_mo_phong_de_kich_hoat_sap_sequence.puml) | Da trien khai ro rang |
@@ -16,8 +16,8 @@ Bo sequence nay duoc sinh tu danh sach UC chuan trong [`UC_AUDIT_FOR_DIAGRAM.md`
 | UC08 | Gui hinh anh noi dung POI | [`UC08_gui_hinh_anh_noi_dung_poi_sequence.puml`](sequence/UC08_gui_hinh_anh_noi_dung_poi_sequence.puml) | Da trien khai ro rang |
 | UC09 | Kiem duyet va quan ly hinh anh | [`UC09_kiem_duyet_va_quan_ly_hinh_anh_sequence.puml`](sequence/UC09_kiem_duyet_va_quan_ly_hinh_anh_sequence.puml) | Da trien khai ro rang |
 | UC10 | Soan va gui ban thuyet minh | [`UC10_soan_va_gui_ban_thuyet_minh_sequence.puml`](sequence/UC10_soan_va_gui_ban_thuyet_minh_sequence.puml) | Da trien khai ro rang |
-| UC11 | Kiem duyet ban thuyet minh | [`UC11_kiem_duyet_ban_thuyet_minh_sequence.puml`](sequence/UC11_kiem_duyet_ban_thuyet_minh_sequence.puml) | Da trien khai ro rang |
-| UC12 | Dich thuyet minh va gan MP3 | [`UC12_dich_thuyet_minh_va_gan_mp3_sequence.puml`](sequence/UC12_dich_thuyet_minh_va_gan_mp3_sequence.puml) | Da trien khai ro rang |
+| UC11 | Kiem duyet ban thuyet minh | [`UC11_kiem_duyet_ban_thuyet_minh_sequence.puml`](sequence/UC11_kiem_duyet_ban_thuyet_minh_sequence.puml) | Da cap nhat chinh sua noi dung va kich hoat pipeline dich/TTS |
+| UC12 | Dich thuyet minh va gan MP3 | [`UC12_dich_thuyet_minh_va_gan_mp3_sequence.puml`](sequence/UC12_dich_thuyet_minh_va_gan_mp3_sequence.puml) | Da cap nhat pipeline tu dong dich, tao TTS va preview audio |
 | UC13 | Quan ly tour, ban dich va thu tu diem dung | [`UC13_quan_ly_tour_ban_dich_va_thu_tu_diem_dung_sequence.puml`](sequence/UC13_quan_ly_tour_ban_dich_va_thu_tu_diem_dung_sequence.puml) | Da trien khai ro rang |
 | UC14 | Quan ly ma QR gan POI/Tour | [`UC14_quan_ly_ma_qr_gan_poi_tour_sequence.puml`](sequence/UC14_quan_ly_ma_qr_gan_poi_tour_sequence.puml) | Da trien khai ro rang |
 | UC15 | Quan ly ngon ngu | [`UC15_quan_ly_ngon_ngu_sequence.puml`](sequence/UC15_quan_ly_ngon_ngu_sequence.puml) | Da trien khai ro rang |
@@ -50,7 +50,7 @@ X01-X05 chua duoc danh so UC chuan va chua ve sequence. Can xac nhan APIClient c
 | Duyet vendor | Dang ky tao Vendor active; khong co trang thai/endpoint approve-reject vendor. |
 | Business registration | Khong co entity/controller/service/repository/form ho so kinh doanh. |
 | Cart/order/e-commerce | Chi co payment session mo phong, khong co cart/order. |
-| Tao TTS noi bo | `GenerateAudioAsync` luon tra loi khong ho tro; UI dung upload MP3. |
+| Tao TTS noi bo rieng le ngoai quy trinh thuyet minh | Da nam trong UC11/UC12: duyet hoac sua text se tao/cap nhat MP3 tu dong, upload MP3 chi con la thao tac thay the. |
 | Phan tich xu huong/du bao nang cao | UC03 da co bieu do 30 ngay va ti le nguon truy cap; khong co forecast, ranking xu huong hay service du bao rieng. |
 | Quan ly AudioTrack truc tiep | Co backend CRUD nhung khong co caller/page web; audio that da duoc bieu dien trong UC12 va UC23. |
 | Xem ho so/dang xuat | Chi doc/xoa session o Presentation Layer, khong co Business/Data Access/Database de ve theo mau bat buoc. |

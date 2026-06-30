@@ -13,13 +13,13 @@ UI -> UI: Xac dinh vai tro hien tai
 alt Admin hoac AnalyticsViewer
   UI -> Business: Gui yeu cau dashboard tong quan
   Business -> Business: Kiem tra quyen analytics
-  Business -> DataAccess: Doc so dem van hanh
-  DataAccess -> Database: Doc POI, tour, QR, media va narration
+  Business -> DataAccess: Doc so dem van hanh, AudioTrack va presence hien tai
+  DataAccess -> Database: Doc POI, tour, QR, media, AudioTrack, narration va log nghe
   Database --> DataAccess: Tra du lieu tong hop
-  DataAccess --> Business: Tra so dem dashboard
-  Business --> UI: Tra the thong ke
+  DataAccess --> Business: Tra so dem dashboard va luot truy cap
+  Business --> UI: Tra the thong ke, khach online va luot hom nay
 
-  UI -> Business: Gui yeu cau bieu do 30 ngay
+  UI -> Business: Gui yeu cau bieu do theo khoang thoi gian
   Business -> DataAccess: Doc log nghe theo ngay
   DataAccess -> Database: Doc NarrationLogs
   Database --> DataAccess: Tra log nghe
@@ -33,6 +33,13 @@ alt Admin hoac AnalyticsViewer
   DataAccess --> Business: Tra summary
   Business --> UI: Tra donut chart
 
+  UI -> Business: Gui yeu cau thong ke nhom
+  Business -> DataAccess: Gom log theo gio, thu, ngay, tuan hoac thang
+  DataAccess -> Database: Doc NarrationLogs theo bo loc
+  Database --> DataAccess: Tra log nghe
+  DataAccess --> Business: Tra grouped analytics
+  Business --> UI: Tra bieu do cot theo nhom
+
   opt Actor la Admin
     UI -> Business: Gui yeu cau POI cho ban do
     Business -> DataAccess: Doc POI co toa do
@@ -40,9 +47,18 @@ alt Admin hoac AnalyticsViewer
     Database --> DataAccess: Tra POI
     DataAccess --> Business: Tra danh sach POI
     Business --> UI: Tra marker ban do
+
+    opt Actor chon marker POI
+      UI -> Business: Gui yeu cau preview audio cua POI
+      Business -> DataAccess: Doc AudioTrack active kem version va updatedAt
+      DataAccess -> Database: Doc AudioTrack va POI
+      Database --> DataAccess: Tra audio preview
+      DataAccess --> Business: Tra danh sach audio
+      Business --> UI: Tra audio preview bao ve CMS
+    end
   end
 
-  UI -> UI: Ve the so lieu, line chart, donut va cot ngang
+  UI -> UI: Ve the so lieu, line chart, donut, cot nhom va ban do
 else Vendor
   UI -> Business: Gui yeu cau danh sach sap cua Vendor
   Business -> Business: Ap dung owner hien tai
@@ -53,7 +69,14 @@ else Vendor
   Business --> UI: Tra danh sach sap
 
   alt Co sap chinh
-    UI -> Business: Gui yeu cau bieu do 30 ngay theo sap
+    UI -> Business: Gui yeu cau dashboard tong quan theo Vendor
+    Business -> DataAccess: Doc so dem POI, media, AudioTrack, narration, QR va presence cua sap
+    DataAccess -> Database: Doc POI, MediaFile, AudioTrack, NarrationDraft, PoiTranslation va NarrationLogs
+    Database --> DataAccess: Tra du lieu tong hop cua Vendor
+    DataAccess --> Business: Tra so dem va active visitors theo sap
+    Business --> UI: Tra the trang thai va chi so sap
+
+    UI -> Business: Gui yeu cau bieu do theo khoang thoi gian cua sap
     Business -> Business: Kiem tra Vendor so huu POI
     Business -> DataAccess: Doc log nghe cua POI
     DataAccess -> Database: Doc NarrationLogs theo POI
@@ -61,13 +84,32 @@ else Vendor
     DataAccess --> Business: Tra daily va summary
     Business --> UI: Tra line chart va donut chart
 
+    UI -> Business: Gui yeu cau thong ke nhom cua sap
+    Business -> Business: Kiem tra Vendor so huu POI
+    Business -> DataAccess: Gom log cua POI theo bo loc
+    DataAccess -> Database: Doc NarrationLogs theo POI
+    Database --> DataAccess: Tra log nghe
+    DataAccess --> Business: Tra grouped analytics
+    Business --> UI: Tra bieu do cot theo nhom
+
     UI -> Business: Gui yeu cau co cau noi dung sap
-    Business -> DataAccess: Doc anh, narration va ban dich
-    DataAccess -> Database: Doc MediaFile, NarrationDraft va PoiTranslation
+    Business -> DataAccess: Doc anh, narration, AudioTrack va ban dich
+    DataAccess -> Database: Doc MediaFile, NarrationDraft, AudioTrack va PoiTranslation
     Database --> DataAccess: Tra du lieu noi dung
     DataAccess --> Business: Tra thong ke noi dung
     Business --> UI: Tra cot ngang noi dung
-    UI -> UI: Ve bieu do khach ghe sap va co cau noi dung
+
+    opt Sap cho thanh toan
+      Actor -> UI: Chon thanh toan MoMo mo phong
+      UI -> Business: Chuyen sang luong UC06
+    end
+
+    opt Vendor chon tac vu noi dung
+      Actor -> UI: Chon anh, thuyet minh hoac ban dich
+      UI -> UI: Dieu huong sang UC08, UC10 hoac UC07 voi poiId hien tai
+    end
+
+    UI -> UI: Ve trang thai sap, ban do, bieu do khach ghe va co cau noi dung
   else Chua co sap
     UI --> Actor: Hien thi trang thai trong va nut dang ky sap
   end

@@ -81,6 +81,22 @@ export const publicAudioTourApi = {
 
     return res.data;
   },
+
+  async recordAudioPlay(
+    audioTrackId: number,
+    accessToken: string,
+    languageCode = 'vi',
+    triggerType: AudioTourTriggerType = 'manual',
+  ): Promise<void> {
+    await httpClient.post(
+      `/public/audio/${audioTrackId}/play-log`,
+      undefined,
+      {
+        params: { languageCode, triggerType },
+        headers: { 'X-Guest-Access-Token': accessToken },
+      },
+    );
+  },
 };
 
 function filterAudioByLanguage(tour: PublicAudioTourTourDto, languageCode: string): PublicAudioTourTourDto {

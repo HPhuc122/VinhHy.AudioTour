@@ -308,6 +308,7 @@ public class AnalyticsService : IAnalyticsService
         var ownerUserId = GetVendorOwnerUserId();
         var poiQuery = _db.Pois.AsNoTracking();
         var mediaQuery = _db.MediaFiles.AsNoTracking();
+        var audioTrackQuery = BuildPlayableAudioTrackQuery(ownerUserId);
         var siteNarrationQuery = _db.NarrationLogs.AsNoTracking();
         var narrationQuery = _db.NarrationLogs.AsNoTracking();
         var qrQuery = _db.QrLocations.AsNoTracking();
@@ -340,7 +341,7 @@ public class AnalyticsService : IAnalyticsService
             ActiveQrCodes = await qrQuery.CountAsync(q => q.IsActive, cancellationToken).ConfigureAwait(false),
             TotalMediaFiles = await mediaQuery.CountAsync(cancellationToken).ConfigureAwait(false),
             TotalImages = await mediaQuery.CountAsync(m => m.FileType == "image", cancellationToken).ConfigureAwait(false),
-            TotalAudioFiles = await mediaQuery.CountAsync(m => m.FileType == "audio", cancellationToken).ConfigureAwait(false),
+            TotalAudioFiles = await audioTrackQuery.CountAsync(cancellationToken).ConfigureAwait(false),
             DeletedMediaFiles = await mediaQuery.CountAsync(m => m.IsDeleted, cancellationToken).ConfigureAwait(false),
             PendingImages = await mediaQuery.CountAsync(
                 m => m.FileType == "image" && m.ApprovalStatus == ApprovalStatuses.Pending,
@@ -411,6 +412,23 @@ public class AnalyticsService : IAnalyticsService
 
         return ownerUserId.HasValue
             ? query.Where(n => n.Poi.UserId == ownerUserId.Value)
+            : query;
+    }
+
+    private IQueryable<AudioTrack> BuildPlayableAudioTrackQuery(int? ownerUserId)
+    {
+        var query = _db.AudioTracks
+            .AsNoTracking()
+            .Where(a =>
+                a.IsActive &&
+                (
+                    (a.AudioType == "prerecorded" && a.FileUrl != null && a.FileUrl != "") ||
+                    (a.AudioType == "tts" && a.TTSText != null && a.TTSText != "") ||
+                    (a.FileUrl != null && a.FileUrl != "")
+                ));
+
+        return ownerUserId.HasValue
+            ? query.Where(a => a.Poi.UserId == ownerUserId.Value)
             : query;
     }
 

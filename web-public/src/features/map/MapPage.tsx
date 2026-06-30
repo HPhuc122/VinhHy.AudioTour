@@ -1042,6 +1042,7 @@ function PublicPoiInfoPanel({
                     accessToken={accessRecord.accessToken}
                     autoPlay={index === 0 && hasAccess}
                     autoPlayKey={`${poi.id}:${track.audioTrackId ?? track.id}:${selectionTrigger}:${autoPlayRequestKey}:${accessRecord.accessToken}`}
+                    triggerType={selectionTrigger}
                     onUnauthorized={onExpired}
                     onAutoPlayBlocked={onAutoPlayBlocked}
                     onAutoPlayStarted={onAutoPlayStarted}

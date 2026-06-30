@@ -98,6 +98,7 @@ export function MediaLibraryPage() {
   const [translateNarrationDraft, setTranslateNarrationDraft] = useState<NarrationDraftDto | null>(null);
   const [narrationTargetLanguageCodes, setNarrationTargetLanguageCodes] = useState<string[]>([]);
   const [overwriteNarrations, setOverwriteNarrations] = useState(false);
+  const [pipelineRefreshUntil, setPipelineRefreshUntil] = useState<number | null>(null);
   const [draftForm, setDraftForm] = useState({
     title: '',
     languageCode: 'vi',
@@ -150,6 +151,12 @@ export function MediaLibraryPage() {
         ? narrationsApi.getNarrationsByPoi(selectedPoiId, { page: 1, pageSize: contentPageSize, status: 'all' })
         : Promise.resolve({ items: [], page: 1, pageSize: contentPageSize, totalCount: 0, totalPages: 0 }),
     enabled: Boolean(selectedPoiId),
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      const hasTranslatingDraft = items.some((draft) => draft.status === 'Translating');
+      const isWithinRefreshWindow = pipelineRefreshUntil !== null && Date.now() < pipelineRefreshUntil;
+      return hasTranslatingDraft || isWithinRefreshWindow ? 3000 : false;
+    },
   });
 
   const pendingImagesQuery = useQuery({
@@ -188,10 +195,35 @@ export function MediaLibraryPage() {
   const languages = languagesQuery.data ?? [];
   const translationProviderStatus = translationProviderQuery.data;
   const activeLanguages = useMemo(() => languages.filter((language) => language.isActive), [languages]);
+  const hasPipelineWork = narrations.some((draft) => draft.status === 'Translating');
+  const shouldRefreshPipeline =
+    Boolean(selectedPoiId) &&
+    (hasPipelineWork || (pipelineRefreshUntil !== null && Date.now() < pipelineRefreshUntil));
   const contentSummary = useMemo(
     () => buildContentSummary(images, narrations, translations),
     [images, narrations, translations],
   );
+
+  useEffect(() => {
+    if (!shouldRefreshPipeline || !selectedPoiId) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: ['content-workspace', 'narrations-by-poi', selectedPoiId] });
+      void queryClient.invalidateQueries({ queryKey: ['content-workspace', 'pending-narrations'] });
+      void queryClient.invalidateQueries({ queryKey: ['cms-audio-preview', 'poi', selectedPoiId] });
+      void queryClient.invalidateQueries({ queryKey: narrationQueryKeys.all });
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [queryClient, selectedPoiId, shouldRefreshPipeline]);
+
+  useEffect(() => {
+    if (pipelineRefreshUntil !== null && Date.now() >= pipelineRefreshUntil && !hasPipelineWork) {
+      setPipelineRefreshUntil(null);
+    }
+  }, [hasPipelineWork, pipelineRefreshUntil]);
 
   useEffect(() => {
     setActiveTab(normalizeWorkspaceTab(searchParams.get('tab')));
@@ -292,7 +324,8 @@ export function MediaLibraryPage() {
   const approveNarrationMutation = useMutation({
     mutationFn: (id: number) => narrationsApi.approveNarration(id),
     onSuccess: async () => {
-      setNotice('Đã duyệt bản thuyết minh.');
+      setNotice('Đã duyệt bản thuyết minh. Hệ thống đang dịch và tạo MP3 tự động.');
+      setPipelineRefreshUntil(Date.now() + 120_000);
       await invalidateSelectedPoiContent();
     },
   });
@@ -311,6 +344,16 @@ export function MediaLibraryPage() {
     onSuccess: async () => {
       setNotice('Đã tải MP3 và gắn audio cho bản thuyết minh.');
       setUploadAudioDraft(null);
+      await invalidateSelectedPoiContent();
+    },
+  });
+  const updateNarrationTextMutation = useMutation({
+    mutationFn: ({ draft, textContent }: { draft: NarrationDraftDto; textContent: string }) =>
+      narrationsApi.updateText(draft.id, { textContent }),
+    onSuccess: async (draft) => {
+      setViewNarration(draft);
+      setNotice('Đã cập nhật nội dung và đồng bộ lại thuyết minh/MP3 cho tất cả ngôn ngữ.');
+      setPipelineRefreshUntil(Date.now() + 120_000);
       await invalidateSelectedPoiContent();
     },
   });
@@ -509,6 +552,7 @@ export function MediaLibraryPage() {
     deleteNarrationMutation.error,
     deleteAudioMutation.error,
     uploadNarrationAudioMutation.error,
+    updateNarrationTextMutation.error,
     generateNarrationTranslationsMutation.error,
     saveTranslationMutation.error,
     deleteTranslationMutation.error,
@@ -657,6 +701,7 @@ export function MediaLibraryPage() {
               isLoading={narrationsQuery.isLoading}
               canUploadAudio={canUploadNarrationAudio}
               isVendor={isVendor}
+              refreshAudioPreview={shouldRefreshPipeline}
               busyId={getBusyMutationId(
                 uploadNarrationAudioMutation.isPending ? uploadNarrationAudioMutation.variables : undefined,
               )}
@@ -712,7 +757,13 @@ export function MediaLibraryPage() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
       />
-      <NarrationTextModal draft={viewNarration} onClose={() => setViewNarration(null)} />
+      <NarrationTextModal
+        draft={viewNarration}
+        canEdit={canReviewContent}
+        isSaving={updateNarrationTextMutation.isPending}
+        onClose={() => setViewNarration(null)}
+        onSave={(draft, textContent) => updateNarrationTextMutation.mutate({ draft, textContent })}
+      />
       <TranslateNarrationModal
         draft={translateNarrationDraft}
         narrations={narrations}
@@ -1182,8 +1233,8 @@ function NarrationsTab({
         <Card className="border-blue-100 bg-blue-50 p-4">
           <h3 className="text-base font-semibold text-blue-950">Quy trình thuyết minh của admin</h3>
           <p className="mt-1 text-sm leading-6 text-blue-800">
-            Admin duyệt nội dung vendor gửi, sao chép nội dung đã duyệt sang công cụ Text-to-Speech bên ngoài,
-            rồi tải MP3 vào tab Âm thanh cho đúng POI và ngôn ngữ. Hệ thống chưa tạo TTS nội bộ.
+            Admin duyệt nội dung vendor gửi, hệ thống tự dịch và tạo MP3 cho các ngôn ngữ đang hoạt động.
+            Danh sách thuyết minh và âm thanh sẽ tự cập nhật trong quá trình xử lý.
           </p>
         </Card>
       ) : null}
@@ -1221,6 +1272,7 @@ function AudioTab({
   isLoading,
   canUploadAudio,
   isVendor,
+  refreshAudioPreview,
   busyId,
   onUploadAudio,
   onDeleteAudio,
@@ -1230,6 +1282,7 @@ function AudioTab({
   isLoading: boolean;
   canUploadAudio: boolean;
   isVendor: boolean;
+  refreshAudioPreview: boolean;
   busyId: number | null;
   onUploadAudio: (draft: NarrationDraftDto) => void;
   onDeleteAudio: (trackId: number) => void;
@@ -1243,7 +1296,7 @@ function AudioTab({
         <p className="mt-1 text-sm text-gray-500">
           CMS phát thử qua endpoint audio-preview được bảo vệ, không hiển thị đường dẫn file thô.
         </p>
-        <CmsAudioPreviewPlayer poiId={poi.id} />
+        <CmsAudioPreviewPlayer poiId={poi.id} refreshIntervalMs={refreshAudioPreview ? 3000 : undefined} />
       </Card>
 
       <Card className="p-0">
@@ -1608,7 +1661,7 @@ function NarrationForm({
         <p className="mt-1 text-xs text-gray-500">
           {isVendor
             ? 'Bản thuyết minh sau khi gửi sẽ chờ admin duyệt.'
-            : 'Admin duyệt nội dung do vendor gửi rồi tải MP3 sau khi dùng công cụ Text-to-Speech bên ngoài.'}
+            : 'Admin duyệt nội dung do vendor gửi, hệ thống sẽ tự dịch và tạo MP3 sau khi duyệt.'}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1670,6 +1723,7 @@ function NarrationList({
 }: {
   drafts: NarrationDraftDto[];
   isLoading: boolean;
+  isVendor: boolean;
   canReview: boolean;
   busyId: number | null;
   onApprove: (draft: NarrationDraftDto) => void;
@@ -2105,18 +2159,58 @@ function TranslateNarrationModal({
   );
 }
 
-function NarrationTextModal({ draft, onClose }: { draft: NarrationDraftDto | null; onClose: () => void }) {
+function NarrationTextModal({
+  draft,
+  canEdit,
+  isSaving,
+  onClose,
+  onSave,
+}: {
+  draft: NarrationDraftDto | null;
+  canEdit: boolean;
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: (draft: NarrationDraftDto, textContent: string) => void;
+}) {
   const [copied, setCopied] = useState(false);
+  const [textContent, setTextContent] = useState('');
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTextContent(draft?.textContent ?? '');
+    setFieldError(null);
+    setCopied(false);
+  }, [draft]);
 
   const handleCopy = async () => {
     if (!draft) return;
-    await navigator.clipboard.writeText(draft.textContent);
+    await navigator.clipboard.writeText(textContent);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
   };
 
+  const handleSave = () => {
+    if (!draft) return;
+
+    const normalized = textContent.trim();
+    if (normalized.length < 10) {
+      setFieldError('Nội dung thuyết minh phải có ít nhất 10 ký tự.');
+      return;
+    }
+
+    if (normalized.length > 8000) {
+      setFieldError('Nội dung thuyết minh không được vượt quá 8000 ký tự.');
+      return;
+    }
+
+    setFieldError(null);
+    onSave(draft, normalized);
+  };
+
+  const hasChanges = draft ? textContent.trim() !== draft.textContent.trim() : false;
+
   return (
-    <Modal open={Boolean(draft)} onClose={onClose} title="Nội dung thuyết minh cho TTS">
+    <Modal open={Boolean(draft)} onClose={onClose} title="Nội dung thuyết minh cho TTS" scrollable>
       {draft ? (
         <div className="space-y-4">
           <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
@@ -2125,20 +2219,30 @@ function NarrationTextModal({ draft, onClose }: { draft: NarrationDraftDto | nul
               {draft.poiName ?? `POI ${draft.poiId}`} · {formatLanguageLabel(draft.languageCode)}
             </p>
             <p className="mt-2 text-xs text-gray-600">
-              Sao chép nội dung này sang công cụ Text-to-Speech bên ngoài, sau đó tải MP3 ở tab Âm thanh.
+              Khi lưu, hệ thống sẽ đồng bộ lại bản thuyết minh và MP3 cho tất cả ngôn ngữ.
             </p>
           </div>
           <textarea
-            readOnly
-            value={draft.textContent}
+            readOnly={!canEdit || isSaving}
+            value={textContent}
             rows={10}
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-800 shadow-sm focus:outline-none"
+            onChange={(event) => {
+              setTextContent(event.target.value);
+              setFieldError(null);
+            }}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm leading-6 text-gray-800 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
           />
+          {fieldError ? <Alert variant="error" message={fieldError} /> : null}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
               Đóng
             </Button>
             <Button onClick={handleCopy}>{copied ? 'Đã sao chép' : 'Sao chép cho TTS'}</Button>
+            {canEdit ? (
+              <Button disabled={!hasChanges} isLoading={isSaving} onClick={handleSave}>
+                Lưu và đồng bộ MP3
+              </Button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -2191,7 +2295,7 @@ function UploadNarrationAudioModal({
               {draft.poiName ?? `POI ${draft.poiId}`} · {formatLanguageLabel(draft.languageCode)}
             </p>
             <p className="mt-2 text-xs text-gray-600">
-              Tải MP3 đã tạo từ công cụ Text-to-Speech bên ngoài cho đúng POI và ngôn ngữ này.
+              Tải MP3 thủ công cho đúng POI và ngôn ngữ này khi cần thay thế file hệ thống tự tạo.
             </p>
           </div>
           {error ? <Alert variant="error" message={error} /> : null}

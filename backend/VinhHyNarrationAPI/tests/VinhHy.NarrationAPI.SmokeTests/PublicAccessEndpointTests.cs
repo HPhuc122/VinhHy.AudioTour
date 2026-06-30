@@ -142,7 +142,7 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
     }
 
     [Fact]
-    public async Task PublicPoiAudioTourEndpoint_WhenTriggeredByGps_StoresGpsNarrationLog()
+    public async Task PublicAudioPlayLogEndpoint_WhenTriggeredByGps_StoresGpsNarrationLog()
     {
         var (_, poiId) = await SeedAudioTourAsync();
         var qrCode = await SeedQrAsync(requiresPayment: false, priceAmount: 0m, durationMinutes: 60);
@@ -163,9 +163,34 @@ public class PublicAccessEndpointTests(NarrationApiWebApplicationFactory factory
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        using var scope = factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var log = await db.NarrationLogs
+        int audioTrackId;
+        using (var responseDoc = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+        {
+            audioTrackId = responseDoc.RootElement
+                .GetProperty("data")
+                .GetProperty("audioTracks")[0]
+                .GetProperty("audioTrackId")
+                .GetInt32();
+        }
+
+        using (var noPlayScope = factory.Services.CreateScope())
+        {
+            var noPlayDb = noPlayScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.False(await noPlayDb.NarrationLogs.AnyAsync(item => item.POIId == poiId));
+        }
+
+        var playLogRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/public/audio/{audioTrackId}/play-log?languageCode=vi&triggerType=gps");
+        playLogRequest.Headers.Add("X-Guest-Access-Token", accessToken);
+
+        var playLogResponse = await _client.SendAsync(playLogRequest);
+
+        Assert.Equal(HttpStatusCode.OK, playLogResponse.StatusCode);
+
+        using var playScope = factory.Services.CreateScope();
+        var playDb = playScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var log = await playDb.NarrationLogs
             .Where(item => item.POIId == poiId)
             .OrderByDescending(item => item.Id)
             .FirstAsync();

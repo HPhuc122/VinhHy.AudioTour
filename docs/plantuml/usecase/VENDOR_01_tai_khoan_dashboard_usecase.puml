@@ -24,8 +24,13 @@ rectangle "KhanhHoi AudioTour Web Vendor" {
   usecase "UC01\nDang nhap va\nduy tri phien" as UC01
   usecase "UC03\nXem dashboard\nVendor" as UC03
   usecase "Xem bao cao\nthong ke cua sap" as StoreStats
-  usecase "Xem bieu do\nkhach ghe sap" as VisitChart
+  usecase "Xem khach online\nva luot ghe sap" as VisitChart
+  usecase "Xem thong ke nhom\ntheo khoang thoi gian" as GroupedChart
   usecase "Xem co cau\nsap va noi dung" as ContentChart
+  usecase "Theo doi audio\ntu dong da tao" as AudioTrackStats
+  usecase "Theo doi tien trinh\nduyet-thanh toan-active" as Progress
+  usecase "Mo tac vu anh,\nthuyet minh, ban dich" as ContentActions
+  usecase "Thanh toan MoMo\nmo phong tu dashboard" as DashboardPayment
   usecase "Gioi han du lieu\ntheo sap cua minh" as VendorScope
 }
 
@@ -36,7 +41,12 @@ Vendor --> UC03
 UC03 ..> UC01 : <<include>>
 UC03 ..> StoreStats : <<include>>
 UC03 ..> VisitChart : <<include>>
+UC03 ..> GroupedChart : <<include>>
 UC03 ..> ContentChart : <<include>>
+ContentChart ..> AudioTrackStats : <<include>>
+UC03 ..> Progress : <<include>>
 UC03 ..> VendorScope : <<include>>
+ContentActions ..> UC03 : <<extend>>
+DashboardPayment ..> UC03 : <<extend>>
 
 @enduml

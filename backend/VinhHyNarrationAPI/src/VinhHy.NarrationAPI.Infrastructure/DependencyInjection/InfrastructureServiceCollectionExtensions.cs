@@ -58,6 +58,7 @@ public static class InfrastructureServiceCollectionExtensions
         // Auto-translate + TTS pipeline (runs after admin approves a NarrationDraft)
         services.AddSingleton<IAutoTranslateTtsQueue, AutoTranslateTtsQueue>();
         services.AddHostedService<AutoTranslateTtsPipelineService>();
+        services.AddHostedService<NarrationDraftTextChangeMonitorService>();
 
         return services;
     }

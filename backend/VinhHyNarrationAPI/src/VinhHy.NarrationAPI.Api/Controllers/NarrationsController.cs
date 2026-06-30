@@ -76,6 +76,21 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
         return this.ApiOk(draft, "Narration draft rejected");
     }
 
+    [HttpPut("{id:int}/text")]
+    [Authorize(Roles = RoleGroups.ContentManagement)]
+    public async Task<IActionResult> UpdateText(
+        int id,
+        [FromBody] UpdateNarrationDraftTextRequest request,
+        CancellationToken cancellationToken)
+    {
+        var draft = await narrationDraftService.UpdateTextAsync(
+            id,
+            request,
+            GetRequiredCurrentUserId(),
+            cancellationToken);
+        return this.ApiOk(draft, "Narration text updated");
+    }
+
     [HttpPost("{id:int}/translations")]
     [Authorize(Roles = RoleGroups.ContentManagement)]
     public async Task<IActionResult> GenerateTranslations(
@@ -96,7 +111,7 @@ public class NarrationsController(INarrationDraftService narrationDraftService) 
     public async Task<IActionResult> GenerateAudio(int id, CancellationToken cancellationToken)
     {
         var draft = await narrationDraftService.GenerateAudioAsync(id, GetRequiredCurrentUserId(), cancellationToken);
-        return this.ApiOk(draft, "Hệ thống không tạo TTS nội bộ. Vui lòng tải MP3 đã tạo từ công cụ bên ngoài.");
+        return this.ApiOk(draft, "Đã tạo lại MP3 từ nội dung thuyết minh.");
     }
 
     [HttpPost("{id:int}/upload-audio")]

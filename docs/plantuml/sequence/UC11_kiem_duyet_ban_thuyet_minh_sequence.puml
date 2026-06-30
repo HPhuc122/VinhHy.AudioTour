@@ -15,14 +15,39 @@ Database --> DataAccess: Tra du lieu
 DataAccess --> Business: Tra draft
 Business --> UI: Hien thi noi dung
 
+opt Admin chinh sua noi dung thuyet minh
+  Actor -> UI: Sua noi dung text trong modal xem noi dung
+  UI -> Business: Gui yeu cau cap nhat text
+  Business -> Business: Kiem tra quyen, do dai va trang thai draft
+  alt Noi dung hop le
+    Business -> Business: Xem ngon ngu vua sua la nguon dong bo
+    Business -> Business: Tao lai MP3 cho ngon ngu vua sua
+    loop Moi ngon ngu active khac
+      Business -> Business: Dich lai title/text va tao lai MP3
+      Business -> DataAccess: Upsert NarrationDraft va AudioTrack
+      DataAccess -> Database: Ghi Status AudioGenerated, GeneratedAudioTrack va metadata audio
+      Database --> DataAccess: Xac nhan
+    end
+    Business -> DataAccess: Cap nhat NarrationDraft nguon va AudioTrack nguon
+    DataAccess -> Database: Ghi Status AudioGenerated, text va metadata audio
+    Database --> DataAccess: Xac nhan
+    Business --> UI: Tra draft da cap nhat va audio moi
+    UI -> UI: Lam moi danh sach thuyet minh va am thanh
+  else Noi dung khong hop le
+    Business --> UI: Tra thong bao loi
+  end
+end
+
 alt Admin chon Duyet
   UI -> Business: Gui yeu cau approve
   Business -> Business: Kiem tra quyen va trang thai Pending
   alt Hop le
-    Business -> DataAccess: Ghi Approved, reviewer va thoi diem
+    Business -> DataAccess: Ghi Translating, reviewer va thoi diem
     DataAccess -> Database: Cap nhat NarrationDraft
     Database --> DataAccess: Xac nhan
-    Business --> UI: Tra draft da duyet
+    Business -> Business: Dua draft vao hang doi dich va tao TTS
+    Business --> UI: Tra draft dang xu ly
+    UI -> UI: Tu dong refetch bang thuyet minh va am thanh
   else Sai quyen, khong ton tai hoac sai trang thai
     Business --> UI: Tra thong bao loi
   end

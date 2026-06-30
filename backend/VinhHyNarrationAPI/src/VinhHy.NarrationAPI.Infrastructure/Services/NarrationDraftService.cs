@@ -25,6 +25,7 @@ public class NarrationDraftService : INarrationDraftService
     private readonly IHostEnvironment _environment;
     private readonly ITranslationProvider _translationProvider;
     private readonly IAutoTranslateTtsQueue _ttsQueue;
+    private readonly IGoogleTtsService _googleTtsService;
     private readonly SoftDeleteService _softDelete;
     private readonly long _maxAudioFileSizeBytes;
 
@@ -34,12 +35,14 @@ public class NarrationDraftService : INarrationDraftService
         IConfiguration configuration,
         ITranslationProvider translationProvider,
         IAutoTranslateTtsQueue ttsQueue,
+        IGoogleTtsService googleTtsService,
         SoftDeleteService softDelete)
     {
         _db = db;
         _environment = environment;
         _translationProvider = translationProvider;
         _ttsQueue = ttsQueue;
+        _googleTtsService = googleTtsService;
         _softDelete = softDelete;
         _maxAudioFileSizeBytes = configuration.GetValue<long?>("MediaUpload:MaxAudioFileSizeBytes")
             ?? DefaultMaxAudioFileSizeBytes;
@@ -223,6 +226,27 @@ public class NarrationDraftService : INarrationDraftService
         return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<NarrationDraftDto> UpdateTextAsync(
+        int id,
+        UpdateNarrationDraftTextRequest request,
+        int reviewerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var nextText = ValidateNarrationText(request.TextContent);
+        var draft = await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (draft.TextContent.Trim() == nextText)
+        {
+            return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+        }
+
+        await SyncNarrationTextAndAudioAsync(draft, nextText, reviewerUserId, cancellationToken)
+            .ConfigureAwait(false);
+
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<GenerateNarrationTranslationsResponse> GenerateTranslationsAsync(
         int sourceDraftId,
         GenerateNarrationTranslationsRequest request,
@@ -340,12 +364,40 @@ public class NarrationDraftService : INarrationDraftService
         int reviewerUserId,
         CancellationToken cancellationToken = default)
     {
-        await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
-        throw new ValidationException(
-            nameof(id),
-            "Hệ thống không tạo TTS nội bộ. Vui lòng dùng công cụ Text-to-Speech bên ngoài rồi tải MP3 lên.");
-    }
+        var draft = await GetTrackedAsync(id, cancellationToken).ConfigureAwait(false);
+        if (draft.Status != NarrationDraftStatuses.Approved &&
+            draft.Status != NarrationDraftStatuses.AudioGenerated &&
+            draft.Status != NarrationDraftStatuses.Translating)
+        {
+            throw new ValidationException(nameof(id), "TTS is allowed only for approved narration.");
+        }
 
+        var text = ValidateNarrationText(draft.TextContent);
+        var audioBytes = await _googleTtsService
+            .SynthesizeAsync(text, draft.LanguageCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        var now = DateTime.UtcNow;
+        await UpsertGeneratedAudioAsync(
+                draft,
+                draft.Title,
+                text,
+                audioBytes,
+                now,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        draft.TextContent = text;
+        draft.Status = NarrationDraftStatuses.AudioGenerated;
+        draft.ReviewedByUserId ??= reviewerUserId;
+        draft.ReviewedAt ??= now;
+        draft.AudioGeneratedAt = now;
+        draft.SimulatedAudioUrl = null;
+        draft.UpdatedAt = now;
+
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return await GetMappedAsync(id, cancellationToken).ConfigureAwait(false);
+    }
     public async Task<NarrationDraftDto> UploadAudioAsync(
         int id,
         UploadNarrationAudioRequest request,
@@ -493,6 +545,155 @@ public class NarrationDraftService : INarrationDraftService
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<AudioTrack> UpsertGeneratedAudioAsync(
+        NarrationDraft draft,
+        string title,
+        string text,
+        byte[] audioBytes,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var fileName = $"{Guid.NewGuid():N}.mp3";
+        var uploadDirectory = Path.Combine(_environment.ContentRootPath, "uploads", "audio");
+        Directory.CreateDirectory(uploadDirectory);
+
+        var absolutePath = Path.Combine(uploadDirectory, fileName);
+        await File.WriteAllBytesAsync(absolutePath, audioBytes, cancellationToken).ConfigureAwait(false);
+
+        var audioTrack = await _db.AudioTracks
+            .FirstOrDefaultAsync(a =>
+                a.POIId == draft.PoiId &&
+                a.LanguageCode == draft.LanguageCode &&
+                a.DeletedAt == null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (audioTrack is null)
+        {
+            audioTrack = new AudioTrack
+            {
+                POIId = draft.PoiId,
+                LanguageCode = draft.LanguageCode,
+                CreatedAt = now
+            };
+            await _db.AudioTracks.AddAsync(audioTrack, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            audioTrack.Version++;
+        }
+
+        audioTrack.Title = title.Trim();
+        audioTrack.AudioType = "prerecorded";
+        audioTrack.FileUrl = Path.Combine("uploads", "audio", fileName).Replace('\\', '/');
+        audioTrack.TTSText = text.Trim();
+        audioTrack.DurationSeconds = Mp3DurationDetector.TryDetectDurationSeconds(absolutePath);
+        audioTrack.FileSizeBytes = audioBytes.Length;
+        audioTrack.MimeType = "audio/mpeg";
+        audioTrack.IsActive = true;
+        audioTrack.UpdatedAt = now;
+
+        draft.GeneratedAudioTrack = audioTrack;
+        return audioTrack;
+    }
+
+    private async Task SyncNarrationTextAndAudioAsync(
+        NarrationDraft sourceDraft,
+        string sourceText,
+        int reviewerUserId,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        sourceDraft.TextContent = sourceText;
+        sourceDraft.Status = NarrationDraftStatuses.AudioGenerated;
+        sourceDraft.ReviewedByUserId ??= reviewerUserId;
+        sourceDraft.ReviewedAt ??= now;
+        sourceDraft.RejectionReason = null;
+        sourceDraft.SimulatedAudioUrl = null;
+        sourceDraft.UpdatedAt = now;
+
+        var sourceAudioBytes = await _googleTtsService
+            .SynthesizeAsync(sourceText, sourceDraft.LanguageCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        await UpsertGeneratedAudioAsync(
+                sourceDraft,
+                sourceDraft.Title,
+                sourceText,
+                sourceAudioBytes,
+                now,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        sourceDraft.AudioGeneratedAt = now;
+
+        var activeLanguageCodes = await _db.Languages
+            .AsNoTracking()
+            .Where(language => language.IsActive)
+            .Select(language => language.Code)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var targetLanguageCodes = activeLanguageCodes
+            .Where(code => !string.Equals(code, sourceDraft.LanguageCode, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var existingDrafts = await _db.NarrationDrafts
+            .Where(draft => draft.PoiId == sourceDraft.PoiId && targetLanguageCodes.Contains(draft.LanguageCode))
+            .ToDictionaryAsync(draft => draft.LanguageCode, StringComparer.OrdinalIgnoreCase, cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var targetLanguageCode in targetLanguageCodes)
+        {
+            var translatedTitle = await _translationProvider
+                .TranslateAsync(sourceDraft.Title, sourceDraft.LanguageCode, targetLanguageCode, cancellationToken)
+                .ConfigureAwait(false);
+            var translatedText = await _translationProvider
+                .TranslateAsync(sourceText, sourceDraft.LanguageCode, targetLanguageCode, cancellationToken)
+                .ConfigureAwait(false);
+
+            var normalizedText = ValidateNarrationText(translatedText);
+            var audioBytes = await _googleTtsService
+                .SynthesizeAsync(normalizedText, targetLanguageCode, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!existingDrafts.TryGetValue(targetLanguageCode, out var targetDraft))
+            {
+                targetDraft = new NarrationDraft
+                {
+                    PoiId = sourceDraft.PoiId,
+                    LanguageCode = targetLanguageCode,
+                    CreatedAt = now
+                };
+                await _db.NarrationDrafts.AddAsync(targetDraft, cancellationToken).ConfigureAwait(false);
+                existingDrafts[targetLanguageCode] = targetDraft;
+            }
+
+            targetDraft.Title = translatedTitle.Trim();
+            targetDraft.TextContent = normalizedText;
+            targetDraft.Voice = TtsVoiceMap.Get(targetLanguageCode).VoiceName;
+            targetDraft.Status = NarrationDraftStatuses.AudioGenerated;
+            targetDraft.SubmittedByUserId = sourceDraft.SubmittedByUserId;
+            targetDraft.SubmittedAt = now;
+            targetDraft.ReviewedByUserId = reviewerUserId;
+            targetDraft.ReviewedAt = now;
+            targetDraft.RejectionReason = null;
+            targetDraft.SimulatedAudioUrl = null;
+            targetDraft.AudioGeneratedAt = now;
+            targetDraft.UpdatedAt = now;
+
+            await UpsertGeneratedAudioAsync(
+                    targetDraft,
+                    targetDraft.Title,
+                    normalizedText,
+                    audioBytes,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     private static void TryDeleteFile(string absolutePath)
     {
         try
@@ -592,25 +793,7 @@ public class NarrationDraftService : INarrationDraftService
             throw new ValidationException(nameof(request.LanguageCode), "Narration for this POI and language already exists.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.TextContent))
-        {
-            throw new ValidationException(nameof(request.TextContent), "Narration text is required.");
-        }
-
-        var textContent = request.TextContent.Trim();
-        if (textContent.Length < MinTextContentLength)
-        {
-            throw new ValidationException(
-                nameof(request.TextContent),
-                $"Narration text must be at least {MinTextContentLength} characters.");
-        }
-
-        if (textContent.Length > MaxTextContentLength)
-        {
-            throw new ValidationException(
-                nameof(request.TextContent),
-                $"Narration text cannot exceed {MaxTextContentLength} characters.");
-        }
+        _ = ValidateNarrationText(request.TextContent);
 
         if (string.IsNullOrWhiteSpace(request.Voice))
         {
@@ -621,6 +804,31 @@ public class NarrationDraftService : INarrationDraftService
         {
             throw new ValidationException(nameof(request.Voice), $"Voice cannot exceed {MaxVoiceLength} characters.");
         }
+    }
+
+    private static string ValidateNarrationText(string? textContent)
+    {
+        if (string.IsNullOrWhiteSpace(textContent))
+        {
+            throw new ValidationException(nameof(UpdateNarrationDraftTextRequest.TextContent), "Narration text is required.");
+        }
+
+        var normalized = textContent.Trim();
+        if (normalized.Length < MinTextContentLength)
+        {
+            throw new ValidationException(
+                nameof(UpdateNarrationDraftTextRequest.TextContent),
+                $"Narration text must be at least {MinTextContentLength} characters.");
+        }
+
+        if (normalized.Length > MaxTextContentLength)
+        {
+            throw new ValidationException(
+                nameof(UpdateNarrationDraftTextRequest.TextContent),
+                $"Narration text cannot exceed {MaxTextContentLength} characters.");
+        }
+
+        return normalized;
     }
 
     private void ValidateAudioUpload(UploadNarrationAudioRequest request)

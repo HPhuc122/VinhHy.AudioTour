@@ -44,7 +44,9 @@ public class CmsAudioPreviewController(
                 DurationSeconds = track.DurationSeconds,
                 FileSizeBytes = track.FileSizeBytes,
                 MimeType = track.MimeType,
-                IsActive = track.IsActive
+                IsActive = track.IsActive,
+                Version = track.Version,
+                UpdatedAt = track.UpdatedAt
             })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);

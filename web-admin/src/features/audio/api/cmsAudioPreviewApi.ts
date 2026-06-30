@@ -14,6 +14,8 @@ export interface CmsAudioPreviewTrackDto {
   fileSizeBytes?: number | null;
   mimeType?: string | null;
   isActive: boolean;
+  version: number;
+  updatedAt: string;
 }
 
 export function createCmsAudioPreviewApi(httpClient: AxiosInstance) {
@@ -26,10 +28,13 @@ export function createCmsAudioPreviewApi(httpClient: AxiosInstance) {
       return unwrapApiResponse(response.data);
     },
 
-    async getAudioBlob(audioTrackId: number): Promise<Blob> {
+    async getAudioBlob(audioTrackId: number, revision?: string): Promise<Blob> {
       const response = await httpClient.get<Blob>(
         `${CMS_AUDIO_PREVIEW_BASE}/${audioTrackId}/stream`,
-        { responseType: 'blob' },
+        {
+          responseType: 'blob',
+          params: revision ? { _v: revision } : undefined,
+        },
       );
 
       if (!isPlayableAudioBlob(response.data)) {

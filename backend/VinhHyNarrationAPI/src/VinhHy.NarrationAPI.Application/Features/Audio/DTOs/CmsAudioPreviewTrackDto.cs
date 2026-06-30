@@ -19,4 +19,8 @@ public class CmsAudioPreviewTrackDto
     public string? MimeType { get; set; }
 
     public bool IsActive { get; set; }
+
+    public int Version { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
 }

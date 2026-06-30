@@ -111,13 +111,16 @@ function AdminDashboard({
     () => getPoiMapPoints(poisMapQuery.data?.items ?? []),
     [poisMapQuery.data],
   );
-  const analyticsPoiOptions = useMemo(
-    () => (poisMapQuery.data?.items ?? []).map((poi) => ({
-      code: poi.code,
-      label: `${poi.name || poi.code} (${poi.code})`,
-    })),
-    [poisMapQuery.data],
-  );
+  // --- FIX: khai báo analytics queries cho AdminDashboard ---
+  const adminAnalyticsFilter = useMemo<AnalyticsQueryFilter>(() => ({
+    from: toDateOnlyString(new Date(Date.now() - (ANALYTICS_RANGE_DAYS - 1) * 86_400_000)),
+    to: toDateOnlyString(new Date()),
+    groupBy: 'WeekOfMonth',
+  }), []);
+
+  const dailyAnalyticsQuery = useAnalyticsDailyQuery(adminAnalyticsFilter);
+  const summaryAnalyticsQuery = useAnalyticsSummaryQuery(adminAnalyticsFilter);
+  // ----------------------------------------------------------
 
   return (
     <section className="app-page">
@@ -158,21 +161,12 @@ function AdminDashboard({
       <AnalyticsChartsSection
         title="Thống kê truy cập"
         description="Lượt nghe phân theo QR, GPS và truy cập thủ công trên toàn hệ thống."
-<<<<<<< HEAD
         daily={dailyAnalyticsQuery.data}
         summary={summaryAnalyticsQuery.data}
         currentSiteVisits={stats?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         isLoading={dailyAnalyticsQuery.isLoading || summaryAnalyticsQuery.isLoading}
         error={dailyAnalyticsQuery.error || summaryAnalyticsQuery.error}
-=======
-        currentSiteVisits={stats?.activeVisitors}
-        currentSiteVisitsLabel="Khách đang online"
-        poiOptions={analyticsPoiOptions}
-        canSelectPoi
-        isLoading={false}
-        error={null}
->>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection
@@ -273,6 +267,22 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
   const primaryPayment = getPaymentStatusValue(primaryPoi?.paymentStatus);
   const canPayPrimaryPoi =
     Boolean(primaryPoi) && primaryLifecycle === LIFECYCLE_PENDING_PAYMENT && primaryPayment === PAYMENT_PENDING;
+
+  // --- FIX: khai báo analytics queries cho VendorDashboard ---
+  const vendorAnalyticsFilter = useMemo<AnalyticsQueryFilter>(() => ({
+    from: toDateOnlyString(new Date(Date.now() - (ANALYTICS_RANGE_DAYS - 1) * 86_400_000)),
+    to: toDateOnlyString(new Date()),
+    groupBy: 'WeekOfMonth',
+    poiId: primaryPoiId,
+  }), [primaryPoiId]);
+
+  const vendorDailyAnalyticsQuery = useAnalyticsDailyQuery(vendorAnalyticsFilter, {
+    enabled: Boolean(primaryPoiId),
+  });
+  const vendorSummaryAnalyticsQuery = useAnalyticsSummaryQuery(vendorAnalyticsFilter, {
+    enabled: Boolean(primaryPoiId),
+  });
+  // -----------------------------------------------------------
 
   const vendorImagesAll = useMediaQuery(
     { page: 1, pageSize: 1, fileType: 'image', approvalStatus: 'all', poiId: primaryPoiId },
@@ -442,26 +452,15 @@ function VendorDashboard({ currentUserId }: { currentUserId?: number }) {
       <AnalyticsChartsSection
         title="Thống kê khách ghé sạp"
         description="Tính lượt ghé sạp từ QR, GPS và thao tác mở/nghe thủ công của khách."
-<<<<<<< HEAD
         daily={vendorDailyAnalyticsQuery.data}
         summary={vendorSummaryAnalyticsQuery.data}
-=======
->>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
         currentSiteVisits={vendorDashboardStatsQuery.data?.activeVisitors}
         currentSiteVisitsLabel="Khách đang online"
         currentPoiVisits={vendorDashboardStatsQuery.data?.activeVisitorsByPoi}
         currentPoiVisitsLabel="Khách đang ở sạp"
-<<<<<<< HEAD
         isLoading={vendorDailyAnalyticsQuery.isLoading || vendorSummaryAnalyticsQuery.isLoading}
         error={vendorDailyAnalyticsQuery.error || vendorSummaryAnalyticsQuery.error}
         emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong 30 ngày qua.' : 'Chưa có sạp để thống kê.'}
-=======
-        fixedPoiId={primaryPoiId}
-        isEnabled={Boolean(primaryPoiId)}
-        isLoading={false}
-        error={null}
-        emptyMessage={primaryPoi ? 'Chưa có lượt truy cập sạp trong khoảng thời gian này.' : 'Chưa có sạp để thống kê.'}
->>>>>>> e01399c6f704ee4eb567955851ce990107c6fae1
       />
 
       <BreakdownChartsSection
@@ -662,22 +661,20 @@ function VendorProgressStepper({ poi }: { poi?: PoiDto | null }) {
           return (
             <div
               key={step}
-              className={`rounded-lg border px-3 py-3 ${
-                current
-                  ? 'border-blue-200 bg-blue-50'
-                  : done
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-100 bg-gray-50'
-              }`}
+              className={`rounded-lg border px-3 py-3 ${current
+                ? 'border-blue-200 bg-blue-50'
+                : done
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-gray-100 bg-gray-50'
+                }`}
             >
               <div
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                  done
-                    ? 'bg-green-600 text-white'
-                    : current
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-400'
-                }`}
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${done
+                  ? 'bg-green-600 text-white'
+                  : current
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-400'
+                  }`}
               >
                 {done ? '✓' : index + 1}
               </div>
@@ -1678,9 +1675,8 @@ function PoiDashboardMap({
               <p className="text-xs text-gray-500">{poi.code}</p>
               {poi.category ? <p className="mt-1 text-xs text-gray-600">{poi.category}</p> : null}
               <span
-                className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs ${
-                  poi.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                }`}
+                className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-xs ${poi.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                  }`}
               >
                 {poi.isActive ? 'Hoạt động' : 'Tạm tắt'}
               </span>
@@ -1820,7 +1816,7 @@ function AdminPoiInfoPanel({ poi, onClose }: { poi: PoiMapPoint; onClose: () => 
               {formatLifecycleStatus(poi.lifecycleStatus)}
             </span>
             <span className={poi.isActive ? 'rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700' : 'rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-600'}>
-                {poi.isActive ? 'Hoạt động' : 'Tạm tắt'}
+              {poi.isActive ? 'Hoạt động' : 'Tạm tắt'}
             </span>
           </div>
 

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using VinhHy.NarrationAPI.Application.Exceptions;
 using VinhHy.NarrationAPI.Application.Features.PublicAudioTour.DTOs;
 using VinhHy.NarrationAPI.Application.Interfaces;
@@ -13,16 +12,13 @@ public class PublicAudioTourService : IPublicAudioTourService
 {
     private readonly IUnitOfWork _uow;
     private readonly IPublicAccessService _publicAccessService;
-    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public PublicAudioTourService(
         IUnitOfWork uow,
-        IPublicAccessService publicAccessService,
-        IHttpContextAccessor httpContextAccessor)
+        IPublicAccessService publicAccessService)
     {
         _uow = uow;
         _publicAccessService = publicAccessService;
-        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<PublicAudioTourTourDto> GetTourAsync(
@@ -76,9 +72,6 @@ public class PublicAudioTourService : IPublicAudioTourService
         }
 
         var audioTracks = await _uow.AudioTracks.GetByPoiIdAsync(poiId, cancellationToken)
-            .ConfigureAwait(false);
-
-        await RecordPublicVisitAsync(poiId, NormalizeTriggerType(triggerType), languageCode, cancellationToken)
             .ConfigureAwait(false);
 
         return MapPoi(poi, languageCode, orderIndex: 0, audioTracks);
@@ -151,54 +144,4 @@ public class PublicAudioTourService : IPublicAudioTourService
     private static string NormalizeLanguageCode(string? languageCode) =>
         string.IsNullOrWhiteSpace(languageCode) ? "vi" : languageCode.Trim().ToLowerInvariant();
 
-    private static string NormalizeTriggerType(string? triggerType)
-    {
-        var normalized = string.IsNullOrWhiteSpace(triggerType)
-            ? TriggerTypes.Manual
-            : triggerType.Trim().ToLowerInvariant();
-
-        return normalized switch
-        {
-            TriggerTypes.Gps => TriggerTypes.Gps,
-            TriggerTypes.Qr => TriggerTypes.Qr,
-            TriggerTypes.Manual => TriggerTypes.Manual,
-            _ => TriggerTypes.Manual
-        };
-    }
-
-    private async Task RecordPublicVisitAsync(
-        int poiId,
-        string triggerType,
-        string? languageCode,
-        CancellationToken cancellationToken)
-    {
-        var deviceId = await ResolveKnownDeviceIdAsync(cancellationToken).ConfigureAwait(false);
-
-        await _uow.NarrationLogs.AddAsync(
-            new NarrationLog
-            {
-                POIId = poiId,
-                TriggerType = triggerType,
-                LanguageCode = NormalizeLanguageCode(languageCode),
-                PlayedAt = DateTime.UtcNow,
-                DeviceId = deviceId,
-                Synced = true
-            },
-            cancellationToken).ConfigureAwait(false);
-
-        await _uow.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<string?> ResolveKnownDeviceIdAsync(CancellationToken cancellationToken)
-    {
-        var candidate = _httpContextAccessor.HttpContext?.Request.Headers["X-Guest-Device-Id"].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return null;
-        }
-
-        var deviceId = candidate.Trim();
-        var device = await _uow.Devices.GetByDeviceIdAsync(deviceId, cancellationToken).ConfigureAwait(false);
-        return device is null ? null : deviceId;
-    }
 }

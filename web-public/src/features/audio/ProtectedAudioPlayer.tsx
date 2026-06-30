@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { publicAudioTourApi, type PublicAudioTourAudioDto } from '../../api/publicAudioTourApi';
+import { publicAudioTourApi, type AudioTourTriggerType, type PublicAudioTourAudioDto } from '../../api/publicAudioTourApi';
 import { ROUTES } from '../../routes/routeConstants';
 import { useI18n } from '../../i18n/I18nContext';
 
@@ -13,6 +13,7 @@ interface ProtectedAudioPlayerProps {
   poiName?: string;
   autoPlay?: boolean;
   autoPlayKey?: string | number | null;
+  triggerType?: AudioTourTriggerType;
   onUnauthorized?: () => void;
   onAutoPlayBlocked?: () => void;
   onAutoPlayStarted?: () => void;
@@ -24,6 +25,7 @@ export function ProtectedAudioPlayer({
   poiName,
   autoPlay = false,
   autoPlayKey = null,
+  triggerType = 'manual',
   onUnauthorized,
   onAutoPlayBlocked,
   onAutoPlayStarted,
@@ -101,6 +103,17 @@ export function ProtectedAudioPlayer({
     };
   }, [accessToken, track.audioTrackId, track.id, track.isAvailable]);
 
+  const handlePlay = () => {
+    void publicAudioTourApi
+      .recordAudioPlay(track.audioTrackId ?? track.id, accessToken, track.languageCode, triggerType)
+      .catch((error) => {
+        const code = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if (code === 401) {
+          onUnauthorizedRef.current?.();
+        }
+      });
+  };
+
   useEffect(() => {
     if (!autoPlay || status !== 'ready' || !audioUrl || !audioElementRef.current) {
       return;
@@ -147,7 +160,7 @@ export function ProtectedAudioPlayer({
       </div>
 
       {status === 'ready' && audioUrl ? (
-        <audio ref={audioElementRef} controls preload="auto" src={audioUrl} className="w-full" />
+        <audio ref={audioElementRef} controls preload="auto" src={audioUrl} className="w-full" onPlay={handlePlay} />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-3">
           <p className="text-sm text-gray-300">{statusMessage}</p>

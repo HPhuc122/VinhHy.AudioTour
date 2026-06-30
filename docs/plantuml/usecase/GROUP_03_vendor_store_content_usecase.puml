@@ -27,6 +27,9 @@ rectangle "KhanhHoi AudioTour Web Vendor" {
   usecase "Quan ly ban dich\nPOI" as UC07
   usecase "Gui hinh anh\nnoi dung POI" as UC08
   usecase "Soan va gui ban\nthuyet minh" as UC10
+  usecase "Theo doi tien trinh\nsap tren dashboard" as Progress
+  usecase "Theo doi audio\nTTS tu dong" as AudioTrackStats
+  usecase "Mo tac vu noi dung\ntu dashboard" as DashboardActions
   usecase "Kiem tra sap\nthuoc Vendor" as OwnerCheck
 }
 
@@ -47,6 +50,8 @@ UC08 ..> UC01 : <<include>>
 UC10 ..> UC01 : <<include>>
 
 UC03 ..> OwnerCheck : <<include>>
+UC03 ..> Progress : <<include>>
+UC03 ..> AudioTrackStats : <<include>>
 UC04 ..> OwnerCheck : <<include>>
 UC06 ..> OwnerCheck : <<include>>
 UC07 ..> OwnerCheck : <<include>>
@@ -57,5 +62,9 @@ UC06 ..> UC04 : <<extend>>
 UC07 ..> UC04 : <<extend>>
 UC08 ..> UC04 : <<extend>>
 UC10 ..> UC04 : <<extend>>
+DashboardActions ..> UC03 : <<extend>>
+DashboardActions ..> UC07 : <<include>>
+DashboardActions ..> UC08 : <<include>>
+DashboardActions ..> UC10 : <<include>>
 
 @enduml

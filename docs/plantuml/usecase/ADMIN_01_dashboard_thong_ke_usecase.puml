@@ -23,18 +23,26 @@ rectangle "KhanhHoi AudioTour Web Admin" {
   usecase "UC03\nXem dashboard va\nbieu do thong ke" as UC03
   usecase "UC01\nDang nhap va\nduy tri phien" as UC01
   usecase "Xem the so lieu\ntong quan" as Cards
-  usecase "Xem bieu do\n30 ngay" as DailyChart
+  usecase "Thong ke am thanh\ntu AudioTrack" as AudioTrackStats
+  usecase "Xem khach online\nva luot hom nay" as PresenceStats
+  usecase "Xem bieu do\ntheo khoang thoi gian" as DailyChart
   usecase "Xem ti le nguon\nQR/GPS/thu cong" as SourceChart
+  usecase "Xem thong ke nhom\ntheo gio/thu/ngay" as GroupedChart
   usecase "Xem co cau\nvan hanh" as OpsChart
   usecase "Xem ban do\nPOI quan tri" as AdminMap
+  usecase "Preview audio\nPOI tren ban do" as AudioPreview
 }
 
 Admin --> UC03
 UC03 ..> UC01 : <<include>>
 UC03 ..> Cards : <<include>>
+Cards ..> AudioTrackStats : <<include>>
+UC03 ..> PresenceStats : <<include>>
 UC03 ..> DailyChart : <<include>>
 UC03 ..> SourceChart : <<include>>
+UC03 ..> GroupedChart : <<include>>
 UC03 ..> OpsChart : <<include>>
 AdminMap ..> UC03 : <<extend>>
+AudioPreview ..> AdminMap : <<extend>>
 
 @enduml

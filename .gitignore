@@ -157,3 +157,6 @@ offline-packages/
 
 **/uploads/
 **/wwwroot/uploads/
+backend.rar
+
+*.rar

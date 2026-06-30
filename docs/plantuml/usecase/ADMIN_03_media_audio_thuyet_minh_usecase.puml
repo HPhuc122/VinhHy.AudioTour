@@ -27,8 +27,11 @@ rectangle "KhanhHoi AudioTour Web Admin" {
   usecase "Xem thu vien\nmedia" as MediaList
   usecase "Duyet hoac tu choi\nhinh anh" as ReviewImage
   usecase "Duyet hoac tu choi\nban thuyet minh" as ReviewNarration
-  usecase "Tao ban dich\nthuyet minh" as TranslateNarration
-  usecase "Tai len va gan\nfile MP3" as AttachMp3
+  usecase "Chinh sua noi dung\nthuyet minh" as EditNarration
+  usecase "Tu dong dich\nthuyet minh" as TranslateNarration
+  usecase "Tu dong tao\nfile MP3" as AutoTts
+  usecase "Tai len va gan\nfile MP3 thay the" as AttachMp3
+  usecase "Preview audio\nbao ve CMS" as PreviewAudio
 }
 
 Admin --> UC09
@@ -41,8 +44,11 @@ UC12 ..> UC01 : <<include>>
 UC09 ..> MediaList : <<include>>
 UC09 ..> ReviewImage : <<include>>
 UC11 ..> ReviewNarration : <<include>>
+UC11 ..> EditNarration : <<include>>
 UC12 ..> TranslateNarration : <<include>>
-UC12 ..> AttachMp3 : <<include>>
+UC12 ..> AutoTts : <<include>>
+UC12 ..> PreviewAudio : <<include>>
+AttachMp3 ..> UC12 : <<extend>>
 UC12 ..> UC11 : <<extend>>
 
 @enduml

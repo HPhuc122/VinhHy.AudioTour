@@ -55,6 +55,10 @@ export interface UploadNarrationAudioRequest {
   durationSeconds?: number;
 }
 
+export interface UpdateNarrationDraftTextRequest {
+  textContent: string;
+}
+
 export interface GenerateNarrationTranslationsRequest {
   targetLanguageCodes: string[];
   overwriteExisting: boolean;
@@ -146,6 +150,15 @@ export function createNarrationsApi(httpClient: AxiosInstance) {
       return unwrapApiResponse(response.data);
     },
 
+    async updateText(id: number, request: UpdateNarrationDraftTextRequest): Promise<NarrationDraftDto> {
+      const response = await httpClient.put<ApiResponse<NarrationDraftDto>>(
+        `${NARRATIONS_BASE}/${id}/text`,
+        request,
+      );
+
+      return unwrapApiResponse(response.data);
+    },
+
     async deleteNarration(id: number): Promise<void> {
       const response = await httpClient.delete<ApiResponse<null>>(`${NARRATIONS_BASE}/${id}`);
       unwrapApiResponse(response.data, true);
@@ -177,7 +190,7 @@ function unwrapApiResponse<T>(body: ApiResponse<T>, allowNull?: boolean): T {
     throw toApiClientError(new Error(body.message || 'Thao tác thất bại'));
   }
 
-  return body.data;
+  return body.data as T;
 }
 
 export type NarrationsApi = ReturnType<typeof createNarrationsApi>;

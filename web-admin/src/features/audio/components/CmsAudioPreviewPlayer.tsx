@@ -9,9 +9,10 @@ import {
 
 interface CmsAudioPreviewPlayerProps {
   poiId: number;
+  refreshIntervalMs?: number;
 }
 
-export function CmsAudioPreviewPlayer({ poiId }: CmsAudioPreviewPlayerProps) {
+export function CmsAudioPreviewPlayer({ poiId, refreshIntervalMs }: CmsAudioPreviewPlayerProps) {
   const { httpClient } = useAuth();
   const cmsAudioPreviewApi = useMemo(() => createCmsAudioPreviewApi(httpClient), [httpClient]);
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
@@ -19,12 +20,19 @@ export function CmsAudioPreviewPlayer({ poiId }: CmsAudioPreviewPlayerProps) {
   const tracksQuery = useQuery({
     queryKey: ['cms-audio-preview', 'poi', poiId],
     queryFn: () => cmsAudioPreviewApi.getByPoi(poiId),
+    refetchInterval: refreshIntervalMs,
   });
 
   const tracks = tracksQuery.data ?? [];
 
   useEffect(() => {
     if (!selectedTrackId && tracks.length > 0) {
+      setSelectedTrackId(tracks[0]!.id);
+    }
+  }, [selectedTrackId, tracks]);
+
+  useEffect(() => {
+    if (selectedTrackId && tracks.length > 0 && !tracks.some((track) => track.id === selectedTrackId)) {
       setSelectedTrackId(tracks[0]!.id);
     }
   }, [selectedTrackId, tracks]);
@@ -71,11 +79,12 @@ function CmsAudioTrackPlayer({
   getAudioBlob,
 }: {
   track: CmsAudioPreviewTrackDto;
-  getAudioBlob: (audioTrackId: number) => Promise<Blob>;
+  getAudioBlob: (audioTrackId: number, revision?: string) => Promise<Blob>;
 }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const audioRevision = `${track.id}:${track.version}:${track.updatedAt}:${track.fileSizeBytes ?? ''}`;
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -87,7 +96,7 @@ function CmsAudioTrackPlayer({
       setErrorMessage(null);
 
       try {
-        const blob = await getAudioBlob(track.id);
+        const blob = await getAudioBlob(track.id, audioRevision);
         if (cancelled) {
           return;
         }
@@ -111,7 +120,7 @@ function CmsAudioTrackPlayer({
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [getAudioBlob, track.id]);
+  }, [audioRevision, getAudioBlob, track.id]);
 
   return (
     <div>
