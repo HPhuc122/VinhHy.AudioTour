@@ -1,52 +1,43 @@
 @startuml
 title Sequence Diagram - UC22 Chon va mua goi thuyet minh mo phong
 
-actor "Khach tham quan" as Actor
-participant "Presentation Layer\nWebPublicUI - PackagesPage" as UI
-participant "Business Logic Layer\nPublicPackagesController + PublicAccessController + QrService + PublicAccessService" as Business
-participant "Data Access Layer\nQrRepository + GuestAccessPassRepository + AccessPaymentSessionRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Guest" as Guest
+participant "PackagesPage" as PackagesPage
+participant "publicPackagesApi" as PublicPackagesApi
+participant "publicAccessApi" as PublicAccessApi
+participant "PublicPackagesController" as PublicPackagesController
+participant "QrService" as QrService
+participant "PublicAccessController" as PublicAccessController
+participant "PublicAccessService" as PublicAccessService
+participant "QrRepository" as QrRepository
+participant "AccessPaymentSessionRepository" as AccessPaymentSessionRepository
+participant "GuestAccessPassRepository" as GuestAccessPassRepository
+entity "QrLocation" as QrLocation
+entity "AccessPaymentSession" as AccessPaymentSession
+entity "GuestAccessPass" as GuestAccessPass
 
-Actor -> UI: Mo trang goi thuyet minh
-UI -> Business: Gui yeu cau danh sach package
-Business -> DataAccess: Doc QR service-level active
-DataAccess -> Database: Doc QrLocation khong gan rieng POI/Tour
-Database --> DataAccess: Tra danh sach
-DataAccess --> Business: Tra QR package
-Business --> UI: Tra gia, thoi luong va yeu cau thanh toan
-UI --> Actor: Hien thi cac goi
+Guest -> PackagesPage: openPackages()
+PackagesPage -> PublicPackagesApi: getPackages()
+PublicPackagesApi -> PublicPackagesController: GetPackages()
+PublicPackagesController -> QrService: GetPublicPackagesAsync(cancellationToken)
+QrService -> QrRepository: GetActiveServiceLevelAsync(cancellationToken)
+QrRepository --> QrLocation: IReadOnlyList<QrLocation>
 
-opt Co pass da luu
-  UI -> Business: Gui token de validate
-  Business -> DataAccess: Doc GuestAccessPass
-  DataAccess -> Database: Doc pass va han dung
-  Database --> DataAccess: Tra ket qua
-  Business --> UI: Tra trang thai pass
-end
+Guest -> PackagesPage: buy(pkg.code)
+PackagesPage -> PublicAccessApi: start(pkg.code)
+PublicAccessApi -> PublicAccessController: Start(StartAccessRequest)
+PublicAccessController -> PublicAccessService: StartAsync(request, cancellationToken)
+PublicAccessService -> QrRepository: GetByCodeAsync(request.QrCode)
+QrRepository --> QrLocation: QrLocation
+PublicAccessService -> GuestAccessPassRepository: AddAsync(pass, cancellationToken)
+PublicAccessService -> AccessPaymentSessionRepository: AddAsync(session, cancellationToken)
+AccessPaymentSessionRepository --> AccessPaymentSession: AccessPaymentSession
 
-Actor -> UI: Chon mua goi
-UI -> Business: Gui code de bat dau access
-Business -> DataAccess: Doc QR va tao pass
-DataAccess -> Database: Ghi GuestAccessPass
-Database --> DataAccess: Xac nhan
-alt Goi mien phi
-  Business --> UI: Tra token ngay
-else Goi can thanh toan
-  Business -> DataAccess: Tao AccessPaymentSession Pending
-  DataAccess -> Database: Ghi payment session
-  Database --> DataAccess: Tra session id
-  Business --> UI: Tra session
-  UI -> Business: Gui thanh toan mo phong thanh cong
-  Business -> DataAccess: Kiem tra va cap nhat session/pass
-  DataAccess -> Database: Ghi Paid va Active
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra token va han dung
-end
-alt Nhan duoc token hop le
-  UI -> UI: Luu pass cuc bo
-  UI --> Actor: Hien thi dem nguoc va nut bat dau nghe
-else Bat dau hoac thanh toan loi
-  Business --> UI: Tra trang thai loi
-  UI --> Actor: Hien thi khong the mua/phat
-end
+PackagesPage -> PublicAccessApi: simulatePayment(paymentSessionId, true)
+PublicAccessApi -> PublicAccessController: SimulatePayment(SimulatePaymentRequest)
+PublicAccessController -> PublicAccessService: SimulatePaymentAsync(request, cancellationToken)
+PublicAccessService -> AccessPaymentSessionRepository: GetByIdAsync(request.PaymentSessionId)
+AccessPaymentSessionRepository --> AccessPaymentSession: AccessPaymentSession
+PublicAccessService -> GuestAccessPassRepository: Update(pass)
+GuestAccessPassRepository --> GuestAccessPass: GuestAccessPass
 @enduml

@@ -1,47 +1,48 @@
 @startuml
 title Sequence Diagram - UC01 Dang nhap va duy tri phien
 
-actor "Nhan vien CMS" as Actor
-participant "Presentation Layer\nWebAdminUI - LoginPage va AuthProvider" as UI
-participant "Business Logic Layer\nAuthController + AuthService + JwtTokenService" as Business
-participant "Data Access Layer\nUserRepository + RoleRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+actor "Vendor" as Vendor
+participant "LoginPage" as LoginPage
+participant "AuthProvider" as AuthProvider
+participant "authApi" as AuthApi
+participant "AuthController" as AuthController
+participant "AuthService" as AuthService
+participant "JwtTokenService" as JwtTokenService
+participant "UserRepository" as UserRepository
+entity "User" as User
+entity "Role" as Role
 
-Actor -> UI: Nhap ten dang nhap va mat khau
-UI -> UI: Kiem tra thong tin bat buoc
-UI -> Business: Gui yeu cau dang nhap
-Business -> DataAccess: Tim user kem vai tro
-DataAccess -> Database: Doc du lieu user va role
-Database --> DataAccess: Tra thong tin tai khoan
-DataAccess --> Business: Tra user
-alt Tai khoan ton tai, active va mat khau dung
-  Business -> Business: Tao access token va refresh token
-  Business -> DataAccess: Luu refresh token va han dung
-  DataAccess -> Database: Ghi thay doi user
-  Database --> DataAccess: Xac nhan
-  DataAccess --> Business: Hoan tat
-  Business --> UI: Tra phien va vai tro
-  UI --> Actor: Chuyen vao dashboard
-else Sai thong tin hoac tai khoan bi khoa
-  Business --> UI: Tra loi khong duoc xac thuc
-  UI --> Actor: Hien thi loi dang nhap
+Admin -> LoginPage: submit(credentials)
+Vendor -> LoginPage: submit(credentials)
+LoginPage -> AuthProvider: login(credentials)
+AuthProvider -> AuthApi: login(credentials)
+AuthApi -> AuthController: Login(LoginRequest)
+AuthController -> AuthService: LoginAsync(request, cancellationToken)
+AuthService -> UserRepository: GetByUsernameAsync(request.Username)
+UserRepository --> User: User
+User --> Role: Role
+alt User.IsActive && password hop le
+  AuthService -> JwtTokenService: GenerateAccessToken(user)
+  AuthService -> JwtTokenService: GenerateRefreshToken()
+  AuthService -> UserRepository: Update(user)
+  AuthController --> AuthApi: LoginResponse
+  AuthApi --> AuthProvider: LoginResponseDto
+  AuthProvider --> LoginPage: AuthSession
+else user null hoac password sai
+  AuthController --> AuthApi: Unauthorized()
+  AuthApi --> LoginPage: ApiError
 end
 
-opt Access token het han
-  UI -> Business: Gui refresh token
-  Business -> DataAccess: Tim user theo refresh token
-  DataAccess -> Database: Doc token va han dung
-  Database --> DataAccess: Tra ket qua
-  DataAccess --> Business: Tra user hoac khong tim thay
-  alt Refresh token con hop le
-    Business -> Business: Phat cap token moi
-    Business -> DataAccess: Cap nhat refresh token moi
-    DataAccess -> Database: Ghi thay doi
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra phien moi
-  else Token sai, het han hoac user inactive
-    Business --> UI: Tra loi phien het han
-    UI --> Actor: Xoa phien va yeu cau dang nhap lai
-  end
+opt access token het han
+  AuthProvider -> AuthApi: refresh(refreshToken)
+  AuthApi -> AuthController: Refresh(RefreshTokenRequest)
+  AuthController -> AuthService: RefreshTokenAsync(request, cancellationToken)
+  AuthService -> UserRepository: GetByRefreshTokenAsync(request.RefreshToken)
+  UserRepository --> User: User
+  AuthService -> JwtTokenService: GenerateAccessToken(user)
+  AuthService -> JwtTokenService: GenerateRefreshToken()
+  AuthService -> UserRepository: Update(user)
+  AuthController --> AuthApi: LoginResponse
 end
 @enduml

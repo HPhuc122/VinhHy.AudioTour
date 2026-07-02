@@ -1,34 +1,30 @@
 @startuml
 title Sequence Diagram - UC15 Quan ly ngon ngu
 
-actor "Admin / SuperAdmin" as Actor
-participant "Presentation Layer\nWebAdminUI - LanguagePage va LanguageModal" as UI
-participant "Business Logic Layer\nLanguagesController + LanguageService" as Business
-participant "Data Access Layer\nLanguageRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+participant "LanguagePage/LanguageModal" as LanguagePage
+participant "languagesApi" as LanguagesApi
+participant "LanguagesController" as LanguagesController
+participant "LanguageService" as LanguageService
+participant "LanguageRepository" as LanguageRepository
+participant "UnitOfWork" as UnitOfWork
+entity "Language" as Language
 
-Actor -> UI: Mo trang ngon ngu
-UI -> Business: Gui yeu cau doc tat ca ngon ngu
-Business -> DataAccess: Doc danh sach ke ca bi tat
-DataAccess -> Database: Doc Language
-Database --> DataAccess: Tra danh sach
-DataAccess --> Business: Tra du lieu
-Business --> UI: Hien thi danh sach
+Admin -> LanguagePage: useLanguagesQuery()
+LanguagePage -> LanguagesApi: getAll(activeOnly)
+LanguagesApi -> LanguagesController: GetAll(activeOnly)
+LanguagesController -> LanguageService: GetAllAsync(activeOnly, cancellationToken)
+LanguageService -> LanguageRepository: GetAllAsync(activeOnly, cancellationToken)
+LanguageRepository --> Language: IReadOnlyList<Language>
 
-Actor -> UI: Chon tao, sua hoac xoa
-UI -> Business: Gui yeu cau thay doi
-Business -> Business: Kiem tra quyen AdminOnly
-Business -> DataAccess: Doc ngon ngu hien co
-DataAccess -> Database: Kiem tra code va tham chieu
-Database --> DataAccess: Tra ket qua
-alt Code duoc ho tro, khong trung va du lieu hop le
-  Business -> DataAccess: Ghi thay doi Language
-  DataAccess -> Database: Tao, cap nhat hoac xoa
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra ket qua
-  UI --> Actor: Cap nhat danh sach
-else Khong co quyen, code sai, bi trung hoac khong ton tai
-  Business --> UI: Tra thong bao loi
-  UI --> Actor: Hien thi loi
+alt create/update/delete
+  Admin -> LanguagePage: submitLanguage(request)
+  LanguagePage -> LanguagesApi: create(request) / update(code, request) / delete(code)
+  LanguagesApi -> LanguagesController: Create(...) / Update(...) / Delete(...)
+  LanguagesController -> LanguageService: CreateAsync(...) / UpdateAsync(...) / DeleteAsync(...)
+  LanguageService -> LanguageRepository: GetByCodeAsync(code)
+  LanguageRepository --> Language: Language?
+  LanguageService -> LanguageRepository: AddAsync(language) / Update(language) / Delete(language)
+  LanguageService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 end
 @enduml

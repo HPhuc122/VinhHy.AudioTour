@@ -1,68 +1,35 @@
 @startuml
 title Sequence Diagram - UC11 Kiem duyet ban thuyet minh
 
-actor "Admin / ContentAdmin" as Actor
-participant "Presentation Layer\nWebAdminUI - MediaLibraryPage tab Ban thuyet minh" as UI
-participant "Business Logic Layer\nNarrationsController + NarrationDraftService" as Business
-participant "Data Access Layer\nApplicationDbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+participant "MediaLibraryPage" as MediaLibraryPage
+participant "narrationsApi" as NarrationsApi
+participant "NarrationsController" as NarrationsController
+participant "NarrationDraftService" as NarrationDraftService
+participant "AutoTranslateTtsPipelineService" as AutoTranslateTtsPipelineService
+participant "UnitOfWork" as UnitOfWork
+entity "NarrationDraft" as NarrationDraft
+entity "AudioTrack" as AudioTrack
 
-Actor -> UI: Mo draft Pending va xem noi dung
-UI -> Business: Gui yeu cau doc narration
-Business -> DataAccess: Doc draft va thong tin nguoi gui
-DataAccess -> Database: Doc NarrationDraft va User
-Database --> DataAccess: Tra du lieu
-DataAccess --> Business: Tra draft
-Business --> UI: Hien thi noi dung
-
-opt Admin chinh sua noi dung thuyet minh
-  Actor -> UI: Sua noi dung text trong modal xem noi dung
-  UI -> Business: Gui yeu cau cap nhat text
-  Business -> Business: Kiem tra quyen, do dai va trang thai draft
-  alt Noi dung hop le
-    Business -> Business: Xem ngon ngu vua sua la nguon dong bo
-    Business -> Business: Tao lai MP3 cho ngon ngu vua sua
-    loop Moi ngon ngu active khac
-      Business -> Business: Dich lai title/text va tao lai MP3
-      Business -> DataAccess: Upsert NarrationDraft va AudioTrack
-      DataAccess -> Database: Ghi Status AudioGenerated, GeneratedAudioTrack va metadata audio
-      Database --> DataAccess: Xac nhan
-    end
-    Business -> DataAccess: Cap nhat NarrationDraft nguon va AudioTrack nguon
-    DataAccess -> Database: Ghi Status AudioGenerated, text va metadata audio
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra draft da cap nhat va audio moi
-    UI -> UI: Lam moi danh sach thuyet minh va am thanh
-  else Noi dung khong hop le
-    Business --> UI: Tra thong bao loi
-  end
+Admin -> MediaLibraryPage: clickApproveOrReject(id)
+alt approve
+  MediaLibraryPage -> NarrationsApi: approveNarration(id)
+  NarrationsApi -> NarrationsController: Approve(id)
+  NarrationsController -> NarrationDraftService: ApproveAsync(id, cancellationToken)
+  NarrationDraftService -> NarrationDraft: set Status=Approved
+  NarrationDraftService -> AutoTranslateTtsPipelineService: EnqueueAsync(id, cancellationToken)
+else reject
+  MediaLibraryPage -> NarrationsApi: rejectNarration(id, reason)
+  NarrationsApi -> NarrationsController: Reject(id, RejectNarrationDraftRequest)
+  NarrationsController -> NarrationDraftService: RejectAsync(id, request, cancellationToken)
+  NarrationDraftService -> NarrationDraft: set Status=Rejected
+else update text
+  MediaLibraryPage -> NarrationsApi: updateText(id, request)
+  NarrationsApi -> NarrationsController: UpdateText(id, UpdateNarrationDraftTextRequest)
+  NarrationsController -> NarrationDraftService: UpdateTextAsync(id, request, cancellationToken)
+  NarrationDraftService -> NarrationDraft: set Content/Title
+  NarrationDraftService -> AudioTrack: mark stale when needed
 end
-
-alt Admin chon Duyet
-  UI -> Business: Gui yeu cau approve
-  Business -> Business: Kiem tra quyen va trang thai Pending
-  alt Hop le
-    Business -> DataAccess: Ghi Translating, reviewer va thoi diem
-    DataAccess -> Database: Cap nhat NarrationDraft
-    Database --> DataAccess: Xac nhan
-    Business -> Business: Dua draft vao hang doi dich va tao TTS
-    Business --> UI: Tra draft dang xu ly
-    UI -> UI: Tu dong refetch bang thuyet minh va am thanh
-  else Sai quyen, khong ton tai hoac sai trang thai
-    Business --> UI: Tra thong bao loi
-  end
-else Admin chon Tu choi
-  Actor -> UI: Nhap ly do
-  UI -> Business: Gui yeu cau reject
-  Business -> Business: Kiem tra quyen, trang thai va ly do
-  alt Hop le
-    Business -> DataAccess: Ghi Rejected va ly do
-    DataAccess -> Database: Cap nhat NarrationDraft
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra draft bi tu choi
-  else Thieu ly do hoac sai trang thai
-    Business --> UI: Tra thong bao loi
-  end
-end
-UI --> Actor: Cap nhat danh sach hoac hien thi loi
+NarrationDraftService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+NarrationsController --> NarrationsApi: NarrationDraftDto
 @enduml

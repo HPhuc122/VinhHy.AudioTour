@@ -1,51 +1,52 @@
 @startuml
 title Sequence Diagram - UC04 Quan ly POI va dang ky sap
 
-actor "Admin / ContentAdmin / Vendor" as Actor
-participant "Presentation Layer\nWebAdminUI - PoiPage va PoiFormModal" as UI
-participant "Business Logic Layer\nPoisController + PoiService + FileUploadService + SoftDeleteService" as Business
-participant "Data Access Layer\nPoiRepository + UserRepository + DeletedRecordRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+actor "Vendor" as Vendor
+participant "PoiPage" as PoiPage
+participant "PoiFormModal" as PoiFormModal
+participant "poisApi" as PoisApi
+participant "PoisController" as PoisController
+participant "PoiService" as PoiService
+participant "FileUploadService" as FileUploadService
+participant "PoiRepository" as PoiRepository
+participant "UserRepository" as UserRepository
+participant "UnitOfWork" as UnitOfWork
+entity "Poi" as Poi
+entity "User" as User
 
-Actor -> UI: Mo danh sach hoac form POI
-UI -> Business: Gui yeu cau doc danh sach
-Business -> Business: Kiem tra vai tro va loc owner neu la Vendor
-Business -> DataAccess: Doc POI theo bo loc
-DataAccess -> Database: Doc du lieu POI
-Database --> DataAccess: Tra danh sach
-DataAccess --> Business: Tra ket qua
-Business --> UI: Hien thi danh sach
+Admin -> PoiPage: usePoisQuery(filter)
+Vendor -> PoiPage: usePoisQuery(filter)
+PoiPage -> PoisApi: getPaged(filter)
+PoisApi -> PoisController: GetPaged(PoiListFilter)
+PoisController -> PoiService: GetPagedAsync(filter, currentUserId, isVendor, cancellationToken)
+PoiService -> PoiRepository: GetPagedAsync(filter)
+PoiRepository --> Poi: IReadOnlyList<Poi>
+PoisController --> PoisApi: PagedResult<PoiDto>
 
-alt Tao hoac cap nhat POI
-  Actor -> UI: Nhap thong tin, toa do va chon anh
-  UI -> UI: Kiem tra du lieu form
-  UI -> Business: Gui yeu cau luu POI
-  Business -> Business: Kiem tra quyen, owner va du lieu
-  alt Hop le
-    Business -> DataAccess: Kiem tra POI/user va ghi thay doi
-    DataAccess -> Database: Tao hoac cap nhat POI
-    Database --> DataAccess: Xac nhan
-    DataAccess --> Business: Tra POI moi
-    Business --> UI: Tra ket qua thanh cong
-    UI --> Actor: Cap nhat danh sach va trang thai
-  else Khong hop le, khong ton tai hoac sai owner
-    Business --> UI: Tra thong bao loi
-    UI --> Actor: Hien thi loi
+alt create
+  Vendor -> PoiFormModal: submit(CreatePoiRequest)
+  Admin -> PoiFormModal: submit(CreatePoiRequest)
+  PoiFormModal -> PoisApi: create(formData)
+  PoisApi -> PoisController: Create(CreatePoiRequest)
+  PoisController -> PoiService: CreateAsync(request, currentUserId, isVendor, cancellationToken)
+  PoiService -> UserRepository: GetByIdAsync(ownerUserId)
+  UserRepository --> User: User
+  opt request.ImageFile != null
+    PoiService -> FileUploadService: SaveFileAsync(file, "uploads/pois", cancellationToken)
   end
-else Admin xoa mem POI
-  UI -> Business: Gui yeu cau xoa
-  Business -> Business: Kiem tra quyen quan ly noi dung
-  Business -> DataAccess: Danh dau xoa va ghi tombstone
-  DataAccess -> Database: Cap nhat POI va DeletedRecord
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra ket qua
-  UI --> Actor: Cap nhat danh sach
-else Admin khoi phuc POI
-  UI -> Business: Gui yeu cau khoi phuc
-  Business -> DataAccess: Tim POI ke ca da xoa va bo DeletedAt
-  DataAccess -> Database: Ghi POI da khoi phuc
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra ket qua
-  UI --> Actor: Cap nhat danh sach
+  PoiService -> Poi: new Poi(...)
+  PoiService -> PoiRepository: AddAsync(poi, cancellationToken)
+  PoiService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+  PoisController --> PoisApi: PoiDto
+else update
+  PoiFormModal -> PoisApi: update(id, formData)
+  PoisApi -> PoisController: Update(id, UpdatePoiRequest)
+  PoisController -> PoiService: UpdateAsync(id, request, currentUserId, isVendor, cancellationToken)
+  PoiService -> PoiRepository: GetByIdAsync(id)
+  PoiRepository --> Poi: Poi
+  PoiService -> PoiRepository: Update(poi)
+  PoiService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+  PoisController --> PoisApi: PoiDto
 end
 @enduml

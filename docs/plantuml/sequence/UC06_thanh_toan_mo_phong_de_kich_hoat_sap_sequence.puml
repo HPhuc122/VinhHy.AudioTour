@@ -1,45 +1,40 @@
 @startuml
 title Sequence Diagram - UC06 Thanh toan mo phong de kich hoat sap
 
-actor "Vendor" as Actor
-participant "Presentation Layer\nWebAdminUI - VendorDashboard va PoiTable" as UI
-participant "Business Logic Layer\nPoisController + PoiService" as Business
-participant "Data Access Layer\nPoiRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Vendor" as Vendor
+participant "VendorDashboard" as VendorDashboard
+participant "poisApi" as PoisApi
+participant "PoisController" as PoisController
+participant "PoiService" as PoiService
+participant "PoiRepository" as PoiRepository
+participant "UnitOfWork" as UnitOfWork
+entity "Poi" as Poi
+entity "PoiPaymentSession" as PoiPaymentSession
 
-Actor -> UI: Chon thanh toan MoMo mo phong
-UI -> Business: Gui yeu cau bat dau thanh toan
-Business -> Business: Kiem tra role Vendor va user id
-Business -> DataAccess: Doc POI cua Vendor
-DataAccess -> Database: Doc POI va trang thai
-Database --> DataAccess: Tra POI
-DataAccess --> Business: Tra du lieu
-alt POI dung owner va dang cho thanh toan
-  Business -> DataAccess: Tao PoiPaymentSession Pending 15 phut
-  DataAccess -> Database: Ghi payment session
-  Database --> DataAccess: Tra session id
-  DataAccess --> Business: Tra session
-  Business --> UI: Tra thong tin session
-  UI -> Business: Gui ket qua thanh toan mo phong
-  Business -> DataAccess: Doc session kem POI
-  DataAccess -> Database: Doc payment session
-  Database --> DataAccess: Tra session
-  DataAccess --> Business: Tra session va POI
-  alt Session con han, dung Vendor va mo phong thanh cong
-    Business -> DataAccess: Cap nhat session Paid va POI Active
-    DataAccess -> Database: Ghi session, payment status va thoi han POI
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra POI da kich hoat
-    UI --> Actor: Hien thi thanh toan thanh cong
-  else Session het han hoac mo phong that bai
-    Business -> DataAccess: Ghi Expired hoac Failed
-    DataAccess -> Database: Cap nhat session
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra trang thai that bai
-    UI --> Actor: Hien thi loi, POI chua active
-  end
-else Sai owner hoac sai trang thai
-  Business --> UI: Tra loi khong duoc thanh toan
-  UI --> Actor: Hien thi loi
+Vendor -> VendorDashboard: clickStartPayment(poiId)
+VendorDashboard -> PoisApi: startPayment(poiId)
+PoisApi -> PoisController: StartPayment(id)
+PoisController -> PoiService: StartPaymentAsync(id, currentUserId, cancellationToken)
+PoiService -> PoiRepository: GetByIdAsync(id)
+PoiRepository --> Poi: Poi
+PoiService -> PoiPaymentSession: new PoiPaymentSession(...)
+PoiService -> PoiRepository: Update(poi)
+PoiService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+PoisController --> PoisApi: StartPoiPaymentResponse
+
+Vendor -> VendorDashboard: confirmSimulatedMomo(sessionId)
+VendorDashboard -> PoisApi: simulateMomoPayment(poiId, request)
+PoisApi -> PoisController: SimulateMomoPayment(id, SimulatePoiPaymentRequest)
+PoisController -> PoiService: SimulateMomoPaymentAsync(id, request, currentUserId, cancellationToken)
+PoiService -> PoiRepository: GetByIdAsync(id)
+PoiRepository --> Poi: Poi
+Poi --> PoiPaymentSession: PaymentSessions
+alt session hop le && request.Success
+  PoiService -> Poi: set Paid/Active
+else session het han hoac failed
+  PoiService -> Poi: set PaymentFailed/Expired
 end
+PoiService -> PoiRepository: Update(poi)
+PoiService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+PoisController --> PoisApi: SimulatePoiPaymentResponse
 @enduml

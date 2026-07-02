@@ -1,34 +1,29 @@
 @startuml
 title Sequence Diagram - UC17 Quan ly vai tro
 
-actor "Admin / SuperAdmin" as Actor
-participant "Presentation Layer\nWebAdminUI - RolesPage va RoleFormModal" as UI
-participant "Business Logic Layer\nRolesController + RoleService" as Business
-participant "Data Access Layer\nRoleRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+participant "RolesPage/RoleFormModal" as RolesPage
+participant "rolesApi" as RolesApi
+participant "RolesController" as RolesController
+participant "RoleService" as RoleService
+participant "RoleRepository" as RoleRepository
+participant "UnitOfWork" as UnitOfWork
+entity "Role" as Role
 
-Actor -> UI: Mo danh sach vai tro
-UI -> Business: Gui yeu cau doc role
-Business -> Business: Kiem tra quyen AdminOnly
-Business -> DataAccess: Doc danh sach role
-DataAccess -> Database: Doc Role
-Database --> DataAccess: Tra danh sach
-DataAccess --> Business: Tra du lieu
-Business --> UI: Hien thi role
+Admin -> RolesPage: useRoles()
+RolesPage -> RolesApi: getAll()
+RolesApi -> RolesController: GetAll()
+RolesController -> RoleService: GetAllAsync(cancellationToken)
+RoleService -> RoleRepository: GetAllAsync(cancellationToken)
+RoleRepository --> Role: IReadOnlyList<Role>
 
-Actor -> UI: Chon tao, sua hoac xoa role
-UI -> Business: Gui yeu cau thay doi
-Business -> DataAccess: Kiem tra ten role va role hien co
-DataAccess -> Database: Doc Role
-Database --> DataAccess: Tra ket qua
-alt Ten hop le va role ton tai khi can
-  Business -> DataAccess: Ghi thay doi role
-  DataAccess -> Database: Tao, cap nhat hoac xoa Role
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra ket qua
-  UI --> Actor: Cap nhat danh sach
-else Trung ten, khong tim thay hoac dang duoc tham chieu
-  Business --> UI: Tra thong bao loi
-  UI --> Actor: Hien thi loi
+alt create/update/delete
+  RolesPage -> RolesApi: create(data) / update(id, data) / delete(id)
+  RolesApi -> RolesController: Create(...) / Update(...) / Delete(...)
+  RolesController -> RoleService: CreateAsync(...) / UpdateAsync(...) / DeleteAsync(...)
+  RoleService -> RoleRepository: GetByIdAsync(id)
+  RoleRepository --> Role: Role?
+  RoleService -> RoleRepository: AddAsync(role) / Update(role) / Delete(role)
+  RoleService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 end
 @enduml

@@ -30,6 +30,20 @@ public class AuthEndpointTests(NarrationApiWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task Login_WithValidAdminEmail_ReturnsSuccessEnvelope()
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new LoginRequest { Username = "admin@vinhhy.local", Password = "ChangeMe123!" });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(doc.RootElement.GetProperty("success").GetBoolean());
+        Assert.True(doc.RootElement.GetProperty("data").TryGetProperty("accessToken", out _));
+    }
+
+    [Fact]
     public async Task Login_WithInvalidPassword_ReturnsUnauthorized()
     {
         var response = await _client.PostAsJsonAsync(

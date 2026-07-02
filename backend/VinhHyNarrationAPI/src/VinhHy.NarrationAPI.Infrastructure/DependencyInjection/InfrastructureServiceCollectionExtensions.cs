@@ -116,6 +116,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IPoiService, PoiService>();
         services.AddScoped<IPublicPoiService, PublicPoiService>();
+        services.AddHttpClient<IPublicRouteService, PublicRouteService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+        });
         services.AddScoped<IPoiTranslationService, PoiTranslationService>();
         services.AddScoped<IAudioService, AudioService>();
         services.AddScoped<IMediaService, MediaService>();

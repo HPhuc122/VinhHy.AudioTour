@@ -56,6 +56,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<AnalyticsDaily> AnalyticsDaily => Set<AnalyticsDaily>();
 
+    public DbSet<PublicWebVisit> PublicWebVisits => Set<PublicWebVisit>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

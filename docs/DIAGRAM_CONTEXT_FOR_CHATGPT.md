@@ -12,9 +12,9 @@ Pham vi da doc:
 
 | UC | Ten chuc nang | Actor su dung | Man hinh lien quan | Controller lien quan | Service lien quan | Repository lien quan | Entity / bang du lieu lien quan | Bang chung file path | Trang thai |
 |---|---|---|---|---|---|---|---|---|---|
-| UC01 | Dang nhap CMS/Admin | Admin / Vendor / User | `web-admin/src/features/auth/pages/LoginPage.tsx`, `web-admin/src/features/auth/components/LoginForm.tsx` | `AuthController` | `AuthService`, `JwtTokenService` | `UserRepository`, `RoleRepository`, `UnitOfWork` | `User`, `Role` | `web-admin/src/features/auth/api/authApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/AuthController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/AuthService.cs` | Da trien khai |
+| UC01 | Dang nhap CMS/Admin | Admin / Vendor | `web-admin/src/features/auth/pages/LoginPage.tsx`, `web-admin/src/features/auth/components/LoginForm.tsx` | `AuthController` | `AuthService`, `JwtTokenService` | `UserRepository`, `RoleRepository`, `UnitOfWork` | `User`, `Role` | `web-admin/src/features/auth/api/authApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/AuthController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/AuthService.cs` | Da trien khai |
 | UC02 | Dang ky tai khoan Vendor | Vendor | `web-admin/src/features/auth/pages/VendorRegisterPage.tsx`, route `/dang-ky-chu-sap` | `AuthController` | `AuthService` | `UserRepository`, `RoleRepository`, `UnitOfWork` | `User`, `Role` | `web-admin/src/routes/AppRoutes.tsx`; `web-admin/src/features/auth/api/authApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/AuthController.cs` | Da trien khai |
-| UC03 | Xem dashboard quan tri / vendor | Admin / Vendor / User | `web-admin/src/pages/DashboardPage.tsx` | `AnalyticsController`, `PoisController`, `MediaController`, `NarrationsController`, `PoiTranslationsController` | `AnalyticsService`, `PoiService`, `MediaService`, `NarrationDraftService`, `PoiTranslationService` | `AnalyticsRepository`, `PoiRepository`, `MediaRepository`, `PoiTranslationRepository`, `UnitOfWork` | `AnalyticsDaily`, `Poi`, `MediaFile`, `NarrationDraft`, `PoiTranslation` | `web-admin/src/pages/DashboardPage.tsx`; `web-admin/src/features/analytics/api/analyticsApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/AnalyticsController.cs` | Da trien khai |
+| UC03 | Xem dashboard quan tri / vendor | Admin / Vendor | `web-admin/src/pages/DashboardPage.tsx` | `AnalyticsController`, `PoisController`, `MediaController`, `NarrationsController`, `PoiTranslationsController` | `AnalyticsService`, `PoiService`, `MediaService`, `NarrationDraftService`, `PoiTranslationService` | `AnalyticsRepository`, `PoiRepository`, `MediaRepository`, `PoiTranslationRepository`, `UnitOfWork` | `AnalyticsDaily`, `Poi`, `MediaFile`, `NarrationDraft`, `PoiTranslation` | `web-admin/src/pages/DashboardPage.tsx`; `web-admin/src/features/analytics/api/analyticsApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/AnalyticsController.cs` | Da trien khai |
 | UC04 | Quan ly POI / dang ky sap | Admin / Vendor | `web-admin/src/features/pois/pages/PoiPage.tsx`, `PoiFormModal.tsx`, `PoiTable.tsx`, routes `/pois`, `/register-poi` | `PoisController` | `PoiService`, `FileUploadService`, `SoftDeleteService` | `PoiRepository`, `UserRepository`, `DeletedRecordRepository`, `UnitOfWork` | `Poi`, `User`, `DeletedRecord`, `PoiPaymentSession` | `web-admin/src/features/pois/api/poisApi.ts`; `web-admin/src/features/pois/components/PoiFormModal.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PoisController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/PoiService.cs` | Da trien khai |
 | UC05 | Duyet / tu choi / yeu cau thanh toan POI | Admin | `web-admin/src/features/pois/components/PoiTable.tsx`, `web-admin/src/pages/DashboardPage.tsx` | `PoisController` | `PoiService` | `PoiRepository`, `UnitOfWork` | `Poi`, `PoiPaymentSession` | `web-admin/src/features/pois/api/poisApi.ts`; `web-admin/src/features/pois/components/PoiTable.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PoisController.cs` | Da trien khai |
 | UC06 | Vendor thanh toan POI bang MoMo mo phong | Vendor | `web-admin/src/pages/DashboardPage.tsx`, `PoiTable.tsx` | `PoisController` | `PoiService` | `PoiRepository`, `UnitOfWork` | `Poi`, `PoiPaymentSession` | `web-admin/src/features/pois/api/poisApi.ts`; `web-admin/src/pages/DashboardPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PoisController.cs` | Da trien khai |
@@ -26,13 +26,13 @@ Pham vi da doc:
 | UC12 | Quan ly ngon ngu | Admin | `web-admin/src/features/languages/pages/LanguagePage.tsx` | `LanguagesController` | `LanguageService` | `LanguageRepository`, `UnitOfWork` | `Language` | `web-admin/src/features/languages/api/languagesApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/LanguagesController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/LanguageService.cs` | Da trien khai |
 | UC13 | Quan ly nguoi dung | Admin | `web-admin/src/features/users/pages/UsersPage.tsx`, `UserFormModal.tsx` | `UsersController` | `UserService` | `UserRepository`, `RoleRepository`, `UnitOfWork` | `User`, `Role` | `web-admin/src/features/users/api/usersApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/UsersController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/UserService.cs` | Da trien khai |
 | UC14 | Quan ly vai tro | Admin | `web-admin/src/features/roles/pages/RolesPage.tsx`, `RoleFormModal.tsx` | `RolesController` | `RoleService` | `RoleRepository`, `UnitOfWork` | `Role` | `web-admin/src/features/roles/api/rolesApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/RolesController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/RoleService.cs` | Da trien khai |
-| UC15 | Khach xem danh sach, tim kiem, chi tiet POI | Khach | `web-public/src/features/pois/PoisPage.tsx`, `PoiDetailPage.tsx`, `SearchPage.tsx`, `HomePage.tsx` | `PublicPoisController`, `PublicMediaController` | `PublicPoiService` | `PoiRepository`, `MediaRepository`, `UnitOfWork` | `Poi`, `PoiTranslation`, `MediaFile`, `AudioTrack` | `web-public/src/api/poisApi.ts`; `web-public/src/features/search/SearchPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPoisController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/PublicPoiService.cs` | Da trien khai |
-| UC16 | Khach xem tour va lo trinh tour | Khach | `web-public/src/features/tours/ToursPage.tsx`, `TourDetailPage.tsx`, `TourRoutePage.tsx` | `PublicToursController`, `PublicAudioTourController` | `TourService`, `PublicAudioTourService`, `PublicAccessService` | `TourRepository`, `TourTranslationRepository`, `TourPoiRepository`, `PoiRepository`, `GuestAccessPassRepository`, `UnitOfWork` | `Tour`, `TourTranslation`, `TourPoi`, `Poi`, `GuestAccessPass` | `web-public/src/api/toursApi.ts`; `web-public/src/api/publicAudioTourApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicToursController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAudioTourController.cs` | Da trien khai |
-| UC17 | Khach xem ban do POI / tour | Khach | `web-public/src/features/map/MapPage.tsx` | `PublicPoisController`, `PublicToursController`, `PublicAudioTourController` | `PublicPoiService`, `TourService`, `PublicAudioTourService` | `PoiRepository`, `TourRepository`, `TourPoiRepository`, `UnitOfWork` | `Poi`, `Tour`, `TourPoi`, `AudioTrack` | `web-public/src/features/map/MapPage.tsx`; `web-public/src/api/poisApi.ts`; `web-public/src/api/toursApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPoisController.cs` | Da trien khai |
-| UC18 | Khach quet QR, mo quyen truy cap, thanh toan mo phong va nghe audio bao ve | Khach | `web-public/src/features/qr/QrLandingPage.tsx`, `ProtectedAudioPlayer.tsx`, `AccessRequiredPanel.tsx`, `PaymentRequiredPanel.tsx`, `AccessExpiredPanel.tsx` | `QrController`, `PublicAccessController`, `PublicAudioTourController`, `PublicAudioController` | `QrService`, `PublicAccessService`, `PublicAudioTourService` | `QrRepository`, `GuestAccessPassRepository`, `AccessPaymentSessionRepository`, `AudioTrackRepository`, `PoiRepository`, `TourRepository`, `UnitOfWork` | `QrLocation`, `GuestAccessPass`, `AccessPaymentSession`, `AudioTrack`, `Poi`, `Tour` | `web-public/src/api/qrApi.ts`; `web-public/src/api/publicAccessApi.ts`; `web-public/src/api/publicAudioTourApi.ts`; `web-public/src/features/qr/QrLandingPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAccessController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAudioController.cs` | Da trien khai |
-| UC19 | Khach xem goi thuyet minh cong khai | Khach | `web-public/src/features/packages/PackagesPage.tsx` | `PublicPackagesController`, `PublicAccessController` | `QrService`, `PublicAccessService` | `QrRepository`, `AccessPaymentSessionRepository`, `GuestAccessPassRepository`, `UnitOfWork` | `QrLocation`, `AccessPaymentSession`, `GuestAccessPass` | `web-public/src/api/publicPackagesApi.ts`; `web-public/src/features/packages/PackagesPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPackagesController.cs` | Da trien khai |
-| UC20 | Dong bo du lieu / goi offline qua API | User | Chua thay man hinh web-admin/web-public; co controller API va code mobile rieng | `SyncController`, `OfflinePackagesController` | `SyncService`, `OfflinePackageService` | `SyncRepository`, `OfflinePackageRepository`, `DeletedRecordRepository`, `LanguageRepository`, `PoiRepository`, `TourRepository`, `AudioTrackRepository`, `UnitOfWork` | `SyncHistory`, `OfflinePackage`, `DeletedRecord`, `Language`, `Poi`, `Tour`, `AudioTrack` | `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/SyncController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/OfflinePackagesController.cs`; `mobile/src/VinhHy.AudioTour.Mobile/Services/SyncOrchestratorService.cs` | Co mot phan |
-| UC21 | Ghi log phat thuyet minh | User / Admin | Chua thay man hinh web-admin/web-public rieng; co API va dashboard co tong audio plays | `NarrationLogsController`, `AnalyticsController` | `NarrationLogService`, `AnalyticsService` | `NarrationLogRepository`, `AnalyticsRepository`, `UnitOfWork` | `NarrationLog`, `AnalyticsDaily` | `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/NarrationLogsController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/NarrationLogService.cs`; `web-admin/src/features/analytics/api/analyticsApi.ts` | Co mot phan |
+| UC15 | Guest xem danh sach, tim kiem, chi tiet POI | Guest | `web-public/src/features/pois/PoisPage.tsx`, `PoiDetailPage.tsx`, `SearchPage.tsx`, `HomePage.tsx` | `PublicPoisController`, `PublicMediaController` | `PublicPoiService` | `PoiRepository`, `MediaRepository`, `UnitOfWork` | `Poi`, `PoiTranslation`, `MediaFile`, `AudioTrack` | `web-public/src/api/poisApi.ts`; `web-public/src/features/search/SearchPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPoisController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/PublicPoiService.cs` | Da trien khai |
+| UC16 | Guest xem tour va lo trinh tour | Guest | `web-public/src/features/tours/ToursPage.tsx`, `TourDetailPage.tsx`, `TourRoutePage.tsx` | `PublicToursController`, `PublicAudioTourController` | `TourService`, `PublicAudioTourService`, `PublicAccessService` | `TourRepository`, `TourTranslationRepository`, `TourPoiRepository`, `PoiRepository`, `GuestAccessPassRepository`, `UnitOfWork` | `Tour`, `TourTranslation`, `TourPoi`, `Poi`, `GuestAccessPass` | `web-public/src/api/toursApi.ts`; `web-public/src/api/publicAudioTourApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicToursController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAudioTourController.cs` | Da trien khai |
+| UC17 | Guest xem ban do POI / tour | Guest | `web-public/src/features/map/MapPage.tsx` | `PublicPoisController`, `PublicToursController`, `PublicAudioTourController` | `PublicPoiService`, `TourService`, `PublicAudioTourService` | `PoiRepository`, `TourRepository`, `TourPoiRepository`, `UnitOfWork` | `Poi`, `Tour`, `TourPoi`, `AudioTrack` | `web-public/src/features/map/MapPage.tsx`; `web-public/src/api/poisApi.ts`; `web-public/src/api/toursApi.ts`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPoisController.cs` | Da trien khai |
+| UC18 | Guest quet QR, mo quyen truy cap, thanh toan mo phong va nghe audio bao ve | Guest | `web-public/src/features/qr/QrLandingPage.tsx`, `ProtectedAudioPlayer.tsx`, `AccessRequiredPanel.tsx`, `PaymentRequiredPanel.tsx`, `AccessExpiredPanel.tsx` | `QrController`, `PublicAccessController`, `PublicAudioTourController`, `PublicAudioController` | `QrService`, `PublicAccessService`, `PublicAudioTourService` | `QrRepository`, `GuestAccessPassRepository`, `AccessPaymentSessionRepository`, `AudioTrackRepository`, `PoiRepository`, `TourRepository`, `UnitOfWork` | `QrLocation`, `GuestAccessPass`, `AccessPaymentSession`, `AudioTrack`, `Poi`, `Tour` | `web-public/src/api/qrApi.ts`; `web-public/src/api/publicAccessApi.ts`; `web-public/src/api/publicAudioTourApi.ts`; `web-public/src/features/qr/QrLandingPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAccessController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicAudioController.cs` | Da trien khai |
+| UC19 | Guest xem goi thuyet minh cong khai | Guest | `web-public/src/features/packages/PackagesPage.tsx` | `PublicPackagesController`, `PublicAccessController` | `QrService`, `PublicAccessService` | `QrRepository`, `AccessPaymentSessionRepository`, `GuestAccessPassRepository`, `UnitOfWork` | `QrLocation`, `AccessPaymentSession`, `GuestAccessPass` | `web-public/src/api/publicPackagesApi.ts`; `web-public/src/features/packages/PackagesPage.tsx`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/PublicPackagesController.cs` | Da trien khai |
+| UC20 | Dong bo du lieu / goi offline qua API | Guest | Chua thay man hinh web-admin/web-public; co controller API va code mobile rieng | `SyncController`, `OfflinePackagesController` | `SyncService`, `OfflinePackageService` | `SyncRepository`, `OfflinePackageRepository`, `DeletedRecordRepository`, `LanguageRepository`, `PoiRepository`, `TourRepository`, `AudioTrackRepository`, `UnitOfWork` | `SyncHistory`, `OfflinePackage`, `DeletedRecord`, `Language`, `Poi`, `Tour`, `AudioTrack` | `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/SyncController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/OfflinePackagesController.cs`; `mobile/src/VinhHy.AudioTour.Mobile/Services/SyncOrchestratorService.cs` | Co mot phan |
+| UC21 | Ghi log phat thuyet minh | Guest / Admin | Chua thay man hinh web-admin/web-public rieng; co API va dashboard co tong audio plays | `NarrationLogsController`, `AnalyticsController` | `NarrationLogService`, `AnalyticsService` | `NarrationLogRepository`, `AnalyticsRepository`, `UnitOfWork` | `NarrationLog`, `AnalyticsDaily` | `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Api/Controllers/NarrationLogsController.cs`; `backend/VinhHyNarrationAPI/src/VinhHy.NarrationAPI.Infrastructure/Services/NarrationLogService.cs`; `web-admin/src/features/analytics/api/analyticsApi.ts` | Co mot phan |
 
 ## Chuc nang khong nen ve neu khong co them bang chung code
 
@@ -48,237 +48,16 @@ Pham vi da doc:
 | Quan ly thong bao day / push notification | Khong thay push notification controller/service/model. | Da doc controllers, services, entities backend. | Khong nen ve. |
 | Ban hang / gio hang / don hang | Chi thay access/payment session mo phong cho QR/POI, khong thay cart/order module. | `PublicAccessController.cs`, `PoisController.cs`, entities `AccessPaymentSession`, `PoiPaymentSession`. | Khong bien thanh e-commerce flow. |
 
-## Participant OOP de xuat cho Sequence Diagram
+## Quy uoc participant cho Sequence Diagram
 
-### UC01 - Dang nhap CMS/Admin
-Participant nen dung:
-- WebAdminUI / LoginPage
-- AuthController
-- AuthService
-- UserRepository
-- RoleRepository
-- DbContext
-- Database
+Tat ca sequence diagram chi duoc dung 3 actor cua he thong: `Admin`, `Vendor`, `Guest`. Khong tao actor khac nhu `User`, `Khach`, `Nhan vien CMS`, `ContentAdmin`, `SuperAdmin`, `APIClient` hay `MobileApp` trong bo sequence web.
 
-### UC02 - Dang ky tai khoan Vendor
-Participant nen dung:
-- WebAdminUI / VendorRegisterPage
-- AuthController
-- AuthService
-- UserRepository
-- RoleRepository
-- DbContext
-- Database
-
-### UC03 - Xem dashboard quan tri / vendor
-Participant nen dung:
-- WebAdminUI / DashboardPage
-- AnalyticsController
-- AnalyticsService
-- AnalyticsRepository
-- PoisController
-- PoiService
-- PoiRepository
-- DbContext
-- Database
-
-### UC04 - Quan ly POI / dang ky sap
-Participant nen dung:
-- WebAdminUI / PoiPage
-- PoisController
-- PoiService
-- PoiRepository
-- UserRepository
-- FileUploadService
-- DbContext
-- Database
-
-### UC05 - Duyet / tu choi / yeu cau thanh toan POI
-Participant nen dung:
-- WebAdminUI / PoiTable
-- PoisController
-- PoiService
-- PoiRepository
-- DbContext
-- Database
-
-### UC06 - Vendor thanh toan POI bang MoMo mo phong
-Participant nen dung:
-- WebAdminUI / DashboardPage hoac PoiTable
-- PoisController
-- PoiService
-- PoiRepository
-- DbContext
-- Database
-
-### UC07 - Quan ly ban dich POI va sinh ban dich
-Participant nen dung:
-- WebAdminUI / PoiTranslationModal
-- PoiTranslationsController
-- PoiTranslationService
-- PoiTranslationRepository
-- PoiRepository
-- LanguageRepository
-- DbContext
-- Database
-
-### UC08 - Quan ly thu vien media anh/audio
-Participant nen dung:
-- WebAdminUI / MediaLibraryPage
-- MediaController
-- MediaService
-- MediaRepository
-- FileUploadService
-- DbContext
-- Database
-
-### UC09 - Quan ly ban thuyet minh / duyet / tao audio
-Participant nen dung:
-- WebAdminUI / MediaLibraryPage
-- NarrationsController
-- NarrationDraftService
-- MediaRepository
-- AudioTrackRepository
-- FileUploadService
-- DbContext
-- Database
-
-### UC10 - Quan ly tour, ban dich tour va thu tu POI trong tour
-Participant nen dung:
-- WebAdminUI / TourListPage hoac TourEditPage
-- ToursController
-- TourService
-- TourRepository
-- TourTranslationRepository
-- TourPoiRepository
-- PoiRepository
-- DbContext
-- Database
-
-### UC11 - Quan ly ma QR gan POI/Tour
-Participant nen dung:
-- WebAdminUI / QrListPage hoac QrCreatePage
-- QrController
-- QrService
-- QrRepository
-- PoiRepository
-- TourRepository
-- DbContext
-- Database
-
-### UC12 - Quan ly ngon ngu
-Participant nen dung:
-- WebAdminUI / LanguagePage
-- LanguagesController
-- LanguageService
-- LanguageRepository
-- DbContext
-- Database
-
-### UC13 - Quan ly nguoi dung
-Participant nen dung:
-- WebAdminUI / UsersPage
-- UsersController
-- UserService
-- UserRepository
-- RoleRepository
-- DbContext
-- Database
-
-### UC14 - Quan ly vai tro
-Participant nen dung:
-- WebAdminUI / RolesPage
-- RolesController
-- RoleService
-- RoleRepository
-- DbContext
-- Database
-
-### UC15 - Khach xem danh sach, tim kiem, chi tiet POI
-Participant nen dung:
-- WebPublicUI / PoisPage hoac SearchPage hoac PoiDetailPage
-- PublicPoisController
-- PublicPoiService
-- PoiRepository
-- MediaRepository
-- DbContext
-- Database
-
-### UC16 - Khach xem tour va lo trinh tour
-Participant nen dung:
-- WebPublicUI / ToursPage hoac TourDetailPage hoac TourRoutePage
-- PublicToursController
-- TourService
-- TourRepository
-- TourTranslationRepository
-- TourPoiRepository
-- DbContext
-- Database
-
-### UC17 - Khach xem ban do POI / tour
-Participant nen dung:
-- WebPublicUI / MapPage
-- PublicPoisController
-- PublicPoiService
-- PoiRepository
-- PublicToursController
-- TourService
-- TourRepository
-- DbContext
-- Database
-
-### UC18 - Khach quet QR, mo quyen truy cap, thanh toan mo phong va nghe audio bao ve
-Participant nen dung:
-- WebPublicUI / QrLandingPage
-- QrController
-- QrService
-- PublicAccessController
-- PublicAccessService
-- PublicAudioTourController
-- PublicAudioTourService
-- PublicAudioController
-- QrRepository
-- GuestAccessPassRepository
-- AccessPaymentSessionRepository
-- AudioTrackRepository
-- DbContext
-- Database
-
-### UC19 - Khach xem goi thuyet minh cong khai
-Participant nen dung:
-- WebPublicUI / PackagesPage
-- PublicPackagesController
-- QrService
-- QrRepository
-- PublicAccessController
-- PublicAccessService
-- DbContext
-- Database
-
-### UC20 - Dong bo du lieu / goi offline qua API
-Participant nen dung:
-- APIClient / SyncClient
-- SyncController
-- SyncService
-- SyncRepository
-- OfflinePackagesController
-- OfflinePackageService
-- OfflinePackageRepository
-- DbContext
-- Database
-
-### UC21 - Ghi log phat thuyet minh
-Participant nen dung:
-- APIClient / AudioPlayerClient
-- NarrationLogsController
-- NarrationLogService
-- NarrationLogRepository
-- AnalyticsController
-- AnalyticsService
-- AnalyticsRepository
-- DbContext
-- Database
-
+Participant phai la thanh phan that co the truy vet trong source code:
+- Web-admin: page/component/API client that, controller, service, repository, `UnitOfWork` khi co ghi, va entity domain.
+- Web-public: page/component/API client that, `Public...Controller` hoac `QrController`, service/repository that, va entity domain.
+- Khong dung participant gom lop nhu `Presentation Layer`, `Business Logic Layer`, `Data Access Layer`.
+- Khong dung participant `Database`; sequence dung o entity domain nhu `User`, `Role`, `Poi`, `MediaFile`, `NarrationDraft`, `AudioTrack`, `Tour`, `TourTranslation`, `TourPoi`, `QrLocation`, `GuestAccessPass`, `AccessPaymentSession`, `Language`, `NarrationLog`.
+- Mui ten phai ghi method/API handler chinh xac, vi du `AuthController.Login()`, `AuthService.LoginAsync()`, `UserRepository.GetByUsernameAsync()`, `PoisController.Create()`, `PoiService.CreateAsync()`, `PoiRepository.AddAsync()`.
 ## Luong nghiep vu de xuat
 
 ### UC01 - Dang nhap CMS/Admin
@@ -590,10 +369,11 @@ Nen gom nhom chuong muc:
 - Dong bo va log nen de phu luc/API: UC20, UC21.
 
 Ten participant chuan cho tung nhom:
-- Web-admin: `WebAdminUI / TenTrang`, `Controller`, `Service`, `Repository`, `DbContext`, `Database`.
-- Web-public: `WebPublicUI / TenTrang`, `Public...Controller` hoac `QrController`, service that su ton tai, repository that su ton tai, `DbContext`, `Database`.
-- Backend-only/API: `APIClient`, `Controller`, `Service`, `Repository`, `DbContext`, `Database`.
-- Database chi ghi la `Database`, khong ghi ten database cu the.
+- Actor chi duoc la `Admin`, `Vendor`, `Guest`.
+- Web-admin: ten page/component/API client that, `Controller`, `Service`, `Repository`, `UnitOfWork` khi co save, va entity domain.
+- Web-public: ten page/component/API client that, `Public...Controller` hoac `QrController`, service/repository that su ton tai, va entity domain.
+- Khong dung participant `Database`; sequence dung o entity nhu `Poi`, `Tour`, `QrLocation`, `GuestAccessPass`, `AudioTrack`.
+- Mui ten phai ghi method/API handler chinh xac, vi du `PoisController.Create()`, `PoiService.CreateAsync()`, `PoiRepository.AddAsync()`.
 
 Nhung diem can tranh de khong bia sai du an:
 - Khong dung `MobileApp` khi ve sequence cho web-public; web-public la React web.

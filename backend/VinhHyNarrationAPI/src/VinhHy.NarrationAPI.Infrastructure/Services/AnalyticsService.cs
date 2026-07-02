@@ -309,7 +309,6 @@ public class AnalyticsService : IAnalyticsService
         var poiQuery = _db.Pois.AsNoTracking();
         var mediaQuery = _db.MediaFiles.AsNoTracking();
         var audioTrackQuery = BuildPlayableAudioTrackQuery(ownerUserId);
-        var siteNarrationQuery = _db.NarrationLogs.AsNoTracking();
         var narrationQuery = _db.NarrationLogs.AsNoTracking();
         var qrQuery = _db.QrLocations.AsNoTracking();
 
@@ -317,6 +316,7 @@ public class AnalyticsService : IAnalyticsService
         // e.g. ICT 2026-06-25 00:00 = UTC 2026-06-24 17:00
         var ictNow = DateTime.UtcNow.Add(IctOffset);
         var todayIct = ictNow.Date;
+        var todayIctDate = DateOnly.FromDateTime(todayIct);
         var todayUtcStart = todayIct.Subtract(IctOffset);
         var tomorrowUtcStart = todayIct.AddDays(1).Subtract(IctOffset);
 
@@ -361,8 +361,10 @@ public class AnalyticsService : IAnalyticsService
             TodayAudioPlays = await narrationQuery
                 .CountAsync(n => n.PlayedAt >= todayUtcStart && n.PlayedAt < tomorrowUtcStart, cancellationToken)
                 .ConfigureAwait(false),
-            TotalSiteVisits = await siteNarrationQuery.CountAsync(cancellationToken).ConfigureAwait(false),
-            TodaySiteVisits = (int)Math.Min(_presence.TotalUniqueVisitors, int.MaxValue),
+            TotalSiteVisits = await _db.PublicWebVisits.CountAsync(cancellationToken).ConfigureAwait(false),
+            TodaySiteVisits = await _db.PublicWebVisits
+                .CountAsync(v => v.VisitDate == todayIctDate, cancellationToken)
+                .ConfigureAwait(false),
             TotalVendorPoiVisits = ownerUserId.HasValue
                 ? await narrationQuery.CountAsync(cancellationToken).ConfigureAwait(false)
                 : null,

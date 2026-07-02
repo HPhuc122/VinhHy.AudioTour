@@ -35,6 +35,7 @@ export function ProtectedAudioPlayer({
   const [status, setStatus] = useState<Status>('loading');
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const lastAutoPlayKeyRef = useRef<string | number | null>(null);
+  const loggedPlayKeyRef = useRef<string | null>(null);
   const onUnauthorizedRef = useRef(onUnauthorized);
   const onAutoPlayBlockedRef = useRef(onAutoPlayBlocked);
   const onAutoPlayStartedRef = useRef(onAutoPlayStarted);
@@ -68,6 +69,7 @@ export function ProtectedAudioPlayer({
 
       setStatus('loading');
       setAudioUrl(null);
+      loggedPlayKeyRef.current = null;
 
       try {
         const blob = await publicAudioTourApi.getAudioBlob(track.audioTrackId ?? track.id, accessToken);
@@ -104,14 +106,26 @@ export function ProtectedAudioPlayer({
   }, [accessToken, track.audioTrackId, track.id, track.isAvailable]);
 
   const handlePlay = () => {
+    const playKey = `${track.audioTrackId ?? track.id}:${accessToken}:${audioUrl ?? ''}:${triggerType}`;
+    if (loggedPlayKeyRef.current === playKey) {
+      return;
+    }
+
+    loggedPlayKeyRef.current = playKey;
+
     void publicAudioTourApi
       .recordAudioPlay(track.audioTrackId ?? track.id, accessToken, track.languageCode, triggerType)
       .catch((error) => {
+        loggedPlayKeyRef.current = null;
         const code = axios.isAxiosError(error) ? error.response?.status : undefined;
         if (code === 401) {
           onUnauthorizedRef.current?.();
         }
       });
+  };
+
+  const handleEnded = () => {
+    loggedPlayKeyRef.current = null;
   };
 
   useEffect(() => {
@@ -160,7 +174,15 @@ export function ProtectedAudioPlayer({
       </div>
 
       {status === 'ready' && audioUrl ? (
-        <audio ref={audioElementRef} controls preload="auto" src={audioUrl} className="w-full" onPlay={handlePlay} />
+        <audio
+          ref={audioElementRef}
+          controls
+          preload="auto"
+          src={audioUrl}
+          className="w-full"
+          onPlay={handlePlay}
+          onEnded={handleEnded}
+        />
       ) : (
         <div className="rounded-lg border border-gray-800 bg-gray-950 px-3 py-3">
           <p className="text-sm text-gray-300">{statusMessage}</p>

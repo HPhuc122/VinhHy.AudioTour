@@ -1,30 +1,34 @@
 @startuml
 title Sequence Diagram - UC18 Kham pha va tim kiem POI cong khai
 
-actor "Khach tham quan" as Actor
-participant "Presentation Layer\nWebPublicUI - HomePage, PoisPage, SearchPage va PoiDetailPage" as UI
-participant "Business Logic Layer\nPublicPoisController + PublicPoiService" as Business
-participant "Data Access Layer\nPoiRepository + PoiTranslationRepository + MediaRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Guest" as Guest
+participant "HomePage/PoisPage/SearchPage/PoiDetailPage" as PublicPoiPage
+participant "poisApi" as PoisApi
+participant "PublicPoisController" as PublicPoisController
+participant "PublicPoiService" as PublicPoiService
+participant "PoiRepository" as PoiRepository
+participant "MediaRepository" as MediaRepository
+entity "Poi" as Poi
+entity "PoiTranslation" as PoiTranslation
+entity "MediaFile" as MediaFile
 
-Actor -> UI: Mo danh sach, tim kiem hoac chi tiet POI
-Actor -> UI: Chon ngon ngu, danh muc hoac nhap tu khoa
-UI -> Business: Gui yeu cau public POI
-Business -> DataAccess: Doc POI theo bo loc
-DataAccess -> Database: Doc Poi va PoiTranslation
-Database --> DataAccess: Tra du lieu POI
-DataAccess --> Business: Tra cac POI ung vien
-Business -> Business: Loc active, lifecycle, xoa mem va thoi han
-Business -> DataAccess: Doc anh Approved cua cac POI hop le
-DataAccess -> Database: Doc MediaFile
-Database --> DataAccess: Tra anh
-DataAccess --> Business: Tra anh hop le
-alt Co POI cong khai
-  Business -> Business: Chon ban dich yeu cau hoac fallback
-  Business --> UI: Tra danh sach hoac chi tiet
-  UI --> Actor: Hien thi POI va lien ket ban do/goi nghe
-else Khong co ket qua hoac POI khong con public
-  Business --> UI: Tra danh sach rong hoac khong tim thay
-  UI --> Actor: Hien thi trang thai khong co du lieu
+Guest -> PublicPoiPage: search/openPoi(filterOrId)
+alt list/search
+  PublicPoiPage -> PoisApi: getPaged(filter, lang)
+  PoisApi -> PublicPoisController: GetPaged(PoiListFilter, languageCode)
+  PublicPoisController -> PublicPoiService: GetPagedAsync(filter, languageCode, cancellationToken)
+  PublicPoiService -> PoiRepository: GetPagedAsync(publicFilter)
+  PoiRepository --> Poi: IReadOnlyList<Poi>
+else detail
+  PublicPoiPage -> PoisApi: getById(id, lang)
+  PoisApi -> PublicPoisController: GetById(id, languageCode)
+  PublicPoisController -> PublicPoiService: GetByIdAsync(id, languageCode, cancellationToken)
+  PublicPoiService -> PoiRepository: GetByIdAsync(id)
+  PoiRepository --> Poi: Poi
 end
+Poi --> PoiTranslation: Translations
+PublicPoiService -> MediaRepository: GetApprovedImagesByPoiIdsAsync(poiIds)
+MediaRepository --> MediaFile: IReadOnlyList<MediaFile>
+PublicPoisController --> PoisApi: PublicPoiDto / PagedResult<PublicPoiDto>
+PoisApi --> PublicPoiPage: mapped POI data
 @enduml

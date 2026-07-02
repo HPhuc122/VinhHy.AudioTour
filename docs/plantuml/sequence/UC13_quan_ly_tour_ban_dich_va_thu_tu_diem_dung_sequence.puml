@@ -1,52 +1,44 @@
 @startuml
-title Sequence Diagram - UC13 Quan ly tour ban dich va thu tu diem dung
+title Sequence Diagram - UC13 Quan ly tour, ban dich va thu tu diem dung
 
-actor "Admin / ContentAdmin" as Actor
-participant "Presentation Layer\nWebAdminUI - TourListPage va TourEditPage" as UI
-participant "Business Logic Layer\nToursController + TourService + SoftDeleteService" as Business
-participant "Data Access Layer\nTourRepository + TourTranslationRepository + TourPoiRepository + PoiRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+participant "TourListPage/TourEditPage" as TourPage
+participant "tourApi" as TourApi
+participant "ToursController" as ToursController
+participant "TourService" as TourService
+participant "TourRepository" as TourRepository
+participant "TourTranslationRepository" as TourTranslationRepository
+participant "TourPoiRepository" as TourPoiRepository
+participant "PoiRepository" as PoiRepository
+participant "UnitOfWork" as UnitOfWork
+entity "Tour" as Tour
+entity "TourTranslation" as TourTranslation
+entity "TourPoi" as TourPoi
+entity "Poi" as Poi
 
-Actor -> UI: Mo danh sach hoac trang sua tour
-UI -> Business: Gui yeu cau doc tour
-Business -> Business: Kiem tra quyen
-Business -> DataAccess: Doc tour, ban dich va diem dung
-DataAccess -> Database: Doc Tour, TourTranslation, TourPoi va Poi
-Database --> DataAccess: Tra du lieu
-DataAccess --> Business: Tra tour
-Business --> UI: Hien thi du lieu
+Admin -> TourPage: submitTour(request)
+TourPage -> TourApi: create(request) / update(id, request)
+TourApi -> ToursController: Create(...) / Update(...)
+ToursController -> TourService: CreateAsync(...) / UpdateAsync(...)
+TourService -> TourRepository: AddAsync(tour) / Update(tour)
+TourService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 
-alt Tao hoac cap nhat tour
-  Actor -> UI: Nhap thong tin tour
-  UI -> Business: Gui yeu cau luu
-  Business -> Business: Kiem tra ngon ngu va du lieu
-  Business -> DataAccess: Ghi Tour
-  DataAccess -> Database: Tao hoac cap nhat tour
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra tour moi
-else Quan ly ban dich tour
-  UI -> Business: Gui yeu cau them, sua hoac xoa ban dich
-  Business -> DataAccess: Kiem tra tour, ngon ngu va trung lap
-  DataAccess -> Database: Doc va ghi TourTranslation
-  Database --> DataAccess: Tra ket qua
-  Business --> UI: Tra ban dich moi
-else Gan, bo hoac sap xep POI
-  UI -> Business: Gui danh sach diem dung
-  Business -> DataAccess: Kiem tra tour, POI va thu tu
-  DataAccess -> Database: Doc va ghi TourPoi
-  Database --> DataAccess: Tra ket qua
-  Business --> UI: Tra thu tu moi
-else Xoa tour
-  UI -> Business: Gui yeu cau xoa
-  Business -> DataAccess: Danh dau xoa va ghi DeletedRecord
-  DataAccess -> Database: Cap nhat Tour va tombstone
-  Database --> DataAccess: Xac nhan
-  Business --> UI: Tra ket qua
+alt translation
+  TourPage -> TourApi: addTranslation(tourId, request) / updateTranslation(id, request)
+  TourApi -> ToursController: AddTranslation(...) / UpdateTranslation(...)
+  ToursController -> TourService: AddTranslationAsync(...) / UpdateTranslationAsync(...)
+  TourService -> TourRepository: GetByIdAsync(tourId)
+  TourRepository --> Tour: Tour
+  TourService -> TourTranslationRepository: AddAsync(...) / Update(...)
+  TourTranslationRepository --> TourTranslation: TourTranslation
+else route order
+  TourPage -> TourApi: addPoi(tourId, request) / reorderPois(tourId, request)
+  TourApi -> ToursController: AddPoi(...) / ReorderPois(...)
+  ToursController -> TourService: AddPoiAsync(...) / ReorderPoisAsync(...)
+  TourService -> PoiRepository: GetByIdAsync(poiId)
+  PoiRepository --> Poi: Poi
+  TourService -> TourPoiRepository: AddAsync(...) / Update(...)
+  TourPoiRepository --> TourPoi: TourPoi
 end
-alt Thao tac hop le
-  UI --> Actor: Cap nhat man hinh tour
-else Khong tim thay, trung lap hoac sai thu tu
-  Business --> UI: Tra thong bao loi
-  UI --> Actor: Hien thi loi va giu du lieu cu
-end
+TourService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 @enduml

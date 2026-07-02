@@ -1,41 +1,35 @@
 @startuml
-title Sequence Diagram - UC02 Dang ky tai khoan chu sap
+title Sequence Diagram - UC02 Dang ky tai khoan Vendor
 
-actor "Chu sap" as Actor
-participant "Presentation Layer\nWebAdminUI - VendorRegisterPage" as UI
-participant "Business Logic Layer\nAuthController + AuthService" as Business
-participant "Data Access Layer\nUserRepository + RoleRepository + DbContext" as DataAccess
-database "Database" as Database
+actor "Vendor" as Vendor
+participant "VendorRegisterPage" as VendorRegisterPage
+participant "authApi" as AuthApi
+participant "AuthController" as AuthController
+participant "AuthService" as AuthService
+participant "UserRepository" as UserRepository
+participant "RoleRepository" as RoleRepository
+participant "UnitOfWork" as UnitOfWork
+entity "User" as User
+entity "Role" as Role
 
-Actor -> UI: Nhap thong tin tai khoan
-UI -> UI: Kiem tra truong bat buoc va mat khau xac nhan
-alt Du lieu giao dien hop le
-  UI -> Business: Gui yeu cau dang ky Vendor
-  Business -> DataAccess: Kiem tra username va email
-  DataAccess -> Database: Doc user trung lap
-  Database --> DataAccess: Tra ket qua
-  DataAccess --> Business: Tra tinh trang trung lap
-  alt Username va email chua ton tai
-    Business -> DataAccess: Doc vai tro Vendor
-    DataAccess -> Database: Tim role Vendor
-    Database --> DataAccess: Tra role
-    alt Role Vendor ton tai
-      Business -> Business: Bam mat khau va tao user active
-      Business -> DataAccess: Ghi user moi
-      DataAccess -> Database: Luu User va RoleId
-      Database --> DataAccess: Xac nhan
-      DataAccess --> Business: Hoan tat
-      Business --> UI: Dang ky thanh cong
-      UI --> Actor: Chuyen ve trang dang nhap
-    else Role Vendor chua cau hinh
-      Business --> UI: Tra loi khong the dang ky
-      UI --> Actor: Hien thi loi cau hinh
-    end
-  else Username hoac email da ton tai
-    Business --> UI: Tra loi du lieu bi trung
-    UI --> Actor: Hien thi loi dang ky
-  end
-else Thieu du lieu hoac mat khau khong khop
-  UI --> Actor: Hien thi loi tai form
+Vendor -> VendorRegisterPage: onSubmit(registerForm)
+VendorRegisterPage -> AuthApi: registerVendor(payload)
+AuthApi -> AuthController: Register(RegisterRequest)
+AuthController -> AuthService: RegisterAsync(request, cancellationToken)
+AuthService -> UserRepository: GetByUsernameAsync(request.Username)
+UserRepository --> AuthService: User?
+AuthService -> UserRepository: GetByEmailAsync(request.Email)
+UserRepository --> AuthService: User?
+AuthService -> RoleRepository: GetByNameAsync("Vendor")
+RoleRepository --> Role: Role
+alt username/email chua ton tai va Role ton tai
+  AuthService -> User: new User(...)
+  AuthService -> UserRepository: AddAsync(user, cancellationToken)
+  AuthService -> UnitOfWork: SaveChangesAsync(cancellationToken)
+  AuthController --> AuthApi: NoContent()
+  AuthApi --> VendorRegisterPage: void
+else trung username/email hoac thieu Role
+  AuthController --> AuthApi: BadRequest()
+  AuthApi --> VendorRegisterPage: ApiError
 end
 @enduml

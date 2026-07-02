@@ -9,6 +9,7 @@ public sealed class PresenceStore
     private readonly record struct Entry(string? PoiId, DateTimeOffset LastSeen);
 
     private readonly Dictionary<string, Entry> _sessions = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _sessionDates = new(StringComparer.Ordinal);
     /// <summary>
     /// Set of all session IDs ever seen since the process started.
     /// Used to count total unique visitors (resets on API restart — that's acceptable
@@ -26,7 +27,8 @@ public sealed class PresenceStore
     /// </summary>
     /// <param name="sessionId">Stable anonymous id from the browser (e.g. localStorage uuid).</param>
     /// <param name="poiId">Optional POI the session is currently viewing.</param>
-    public void Heartbeat(string sessionId, string? poiId)
+    /// <returns>True when this is the first heartbeat for the session on the given ICT date since API start.</returns>
+    public bool Heartbeat(string sessionId, string? poiId, DateOnly visitDate)
     {
         lock (_lock)
         {
@@ -36,6 +38,7 @@ public sealed class PresenceStore
                 Interlocked.Increment(ref _totalPageViews);
             }
             _sessions[sessionId] = new Entry(poiId, DateTimeOffset.UtcNow);
+            return _sessionDates.Add($"{sessionId}:{visitDate:yyyy-MM-dd}");
         }
     }
 

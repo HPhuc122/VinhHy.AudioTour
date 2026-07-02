@@ -1,128 +1,45 @@
 @startuml
-title Sequence Diagram - UC03 Xem dashboard va bieu do thong ke theo vai tro
+title Sequence Diagram - UC03 Xem dashboard theo vai tro
 
-actor "Admin/Vendor/AnalyticsViewer" as Actor
-participant "Presentation Layer\nWebAdminUI - DashboardPage" as UI
-participant "Business Logic Layer\nAnalyticsController + AnalyticsService" as Business
-participant "Data Access Layer\nUnitOfWork + ApplicationDbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+actor "Vendor" as Vendor
+participant "DashboardPage" as DashboardPage
+participant "analyticsApi" as AnalyticsApi
+participant "poisApi" as PoisApi
+participant "AnalyticsController" as AnalyticsController
+participant "AnalyticsService" as AnalyticsService
+participant "AnalyticsRepository" as AnalyticsRepository
+participant "PoisController" as PoisController
+participant "PoiService" as PoiService
+participant "PoiRepository" as PoiRepository
+entity "AnalyticsDaily" as AnalyticsDaily
+entity "Poi" as Poi
 
-Actor -> UI: Mo dashboard
-UI -> UI: Xac dinh vai tro hien tai
+Admin -> DashboardPage: useDashboardStatsQuery()
+Vendor -> DashboardPage: useDashboardStatsQuery()
+DashboardPage -> AnalyticsApi: getDashboard()
+AnalyticsApi -> AnalyticsController: GetDashboard()
+AnalyticsController -> AnalyticsService: GetDashboardAsync(cancellationToken)
+AnalyticsService -> AnalyticsRepository: GetByDateRangeAsync(from, to)
+AnalyticsRepository --> AnalyticsDaily: IReadOnlyList<AnalyticsDaily>
+AnalyticsService -> PoiRepository: GetPagedAsync(filter)
+PoiRepository --> Poi: IReadOnlyList<Poi>
+AnalyticsController --> AnalyticsApi: DashboardStatsDto
+AnalyticsApi --> DashboardPage: DashboardStatsDto
 
-alt Admin hoac AnalyticsViewer
-  UI -> Business: Gui yeu cau dashboard tong quan
-  Business -> Business: Kiem tra quyen analytics
-  Business -> DataAccess: Doc so dem van hanh, AudioTrack va presence hien tai
-  DataAccess -> Database: Doc POI, tour, QR, media, AudioTrack, narration va log nghe
-  Database --> DataAccess: Tra du lieu tong hop
-  DataAccess --> Business: Tra so dem dashboard va luot truy cap
-  Business --> UI: Tra the thong ke, khach online va luot hom nay
-
-  UI -> Business: Gui yeu cau bieu do theo khoang thoi gian
-  Business -> DataAccess: Doc log nghe theo ngay
-  DataAccess -> Database: Doc NarrationLogs
-  Database --> DataAccess: Tra log nghe
-  DataAccess --> Business: Tra du lieu theo ngay
-  Business --> UI: Tra line chart
-
-  UI -> Business: Gui yeu cau ti le nguon truy cap
-  Business -> DataAccess: Tong hop QR, GPS va thu cong
-  DataAccess -> Database: Doc NarrationLogs
-  Database --> DataAccess: Tra log nghe
-  DataAccess --> Business: Tra summary
-  Business --> UI: Tra donut chart
-
-  UI -> Business: Gui yeu cau thong ke nhom
-  Business -> DataAccess: Gom log theo gio, thu, ngay, tuan hoac thang
-  DataAccess -> Database: Doc NarrationLogs theo bo loc
-  Database --> DataAccess: Tra log nghe
-  DataAccess --> Business: Tra grouped analytics
-  Business --> UI: Tra bieu do cot theo nhom
-
-  opt Actor la Admin
-    UI -> Business: Gui yeu cau POI cho ban do
-    Business -> DataAccess: Doc POI co toa do
-    DataAccess -> Database: Doc POI
-    Database --> DataAccess: Tra POI
-    DataAccess --> Business: Tra danh sach POI
-    Business --> UI: Tra marker ban do
-
-    opt Actor chon marker POI
-      UI -> Business: Gui yeu cau preview audio cua POI
-      Business -> DataAccess: Doc AudioTrack active kem version va updatedAt
-      DataAccess -> Database: Doc AudioTrack va POI
-      Database --> DataAccess: Tra audio preview
-      DataAccess --> Business: Tra danh sach audio
-      Business --> UI: Tra audio preview bao ve CMS
-    end
-  end
-
-  UI -> UI: Ve the so lieu, line chart, donut, cot nhom va ban do
-else Vendor
-  UI -> Business: Gui yeu cau danh sach sap cua Vendor
-  Business -> Business: Ap dung owner hien tai
-  Business -> DataAccess: Doc POI thuoc Vendor
-  DataAccess -> Database: Doc POI
-  Database --> DataAccess: Tra danh sach sap
-  DataAccess --> Business: Tra sap cua Vendor
-  Business --> UI: Tra danh sach sap
-
-  alt Co sap chinh
-    UI -> Business: Gui yeu cau dashboard tong quan theo Vendor
-    Business -> DataAccess: Doc so dem POI, media, AudioTrack, narration, QR va presence cua sap
-    DataAccess -> Database: Doc POI, MediaFile, AudioTrack, NarrationDraft, PoiTranslation va NarrationLogs
-    Database --> DataAccess: Tra du lieu tong hop cua Vendor
-    DataAccess --> Business: Tra so dem va active visitors theo sap
-    Business --> UI: Tra the trang thai va chi so sap
-
-    UI -> Business: Gui yeu cau bieu do theo khoang thoi gian cua sap
-    Business -> Business: Kiem tra Vendor so huu POI
-    Business -> DataAccess: Doc log nghe cua POI
-    DataAccess -> Database: Doc NarrationLogs theo POI
-    Database --> DataAccess: Tra log nghe
-    DataAccess --> Business: Tra daily va summary
-    Business --> UI: Tra line chart va donut chart
-
-    UI -> Business: Gui yeu cau thong ke nhom cua sap
-    Business -> Business: Kiem tra Vendor so huu POI
-    Business -> DataAccess: Gom log cua POI theo bo loc
-    DataAccess -> Database: Doc NarrationLogs theo POI
-    Database --> DataAccess: Tra log nghe
-    DataAccess --> Business: Tra grouped analytics
-    Business --> UI: Tra bieu do cot theo nhom
-
-    UI -> Business: Gui yeu cau co cau noi dung sap
-    Business -> DataAccess: Doc anh, narration, AudioTrack va ban dich
-    DataAccess -> Database: Doc MediaFile, NarrationDraft, AudioTrack va PoiTranslation
-    Database --> DataAccess: Tra du lieu noi dung
-    DataAccess --> Business: Tra thong ke noi dung
-    Business --> UI: Tra cot ngang noi dung
-
-    opt Sap cho thanh toan
-      Actor -> UI: Chon thanh toan MoMo mo phong
-      UI -> Business: Chuyen sang luong UC06
-    end
-
-    opt Vendor chon tac vu noi dung
-      Actor -> UI: Chon anh, thuyet minh hoac ban dich
-      UI -> UI: Dieu huong sang UC08, UC10 hoac UC07 voi poiId hien tai
-    end
-
-    UI -> UI: Ve trang thai sap, ban do, bieu do khach ghe va co cau noi dung
-  else Chua co sap
-    UI --> Actor: Hien thi trang thai trong va nut dang ky sap
-  end
-else Vai tro khong co dashboard chuyen biet
-  UI --> Actor: Hien thi thong tin vai tro gioi han
-end
-
-alt Khong co quyen hoac Vendor khong so huu POI
-  Business --> UI: Tu choi truy cap
-  UI --> Actor: Hien thi thong bao khong co quyen
-else Truy van loi
-  UI --> Actor: Hien thi loi tai du lieu
-else Thanh cong
-  UI --> Actor: Hien thi dashboard va bieu do thong ke
+alt Admin xem ban do POI
+  DashboardPage -> PoisApi: getPaged({ pageSize: 500 })
+  PoisApi -> PoisController: GetPaged(PoiListFilter)
+  PoisController -> PoiService: GetPagedAsync(filter, cancellationToken)
+  PoiService -> PoiRepository: GetPagedAsync(filter)
+  PoiRepository --> Poi: IReadOnlyList<Poi>
+  PoisController --> PoisApi: PagedResult<PoiDto>
+else Vendor xem POI cua minh
+  DashboardPage -> PoisApi: getPaged({ ownerUserId })
+  PoisApi -> PoisController: GetPaged(PoiListFilter)
+  PoisController -> PoiService: GetPagedAsync(filter, currentUserId, isVendor, cancellationToken)
+  PoiService -> PoiRepository: GetPagedAsync(filter)
+  PoiRepository --> Poi: IReadOnlyList<Poi>
+  PoisController --> PoisApi: PagedResult<PoiDto>
 end
 @enduml

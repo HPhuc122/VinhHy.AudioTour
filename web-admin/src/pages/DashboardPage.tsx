@@ -990,7 +990,6 @@ function ActiveVisitorsCard({ value, isLoading }: { value?: number; isLoading: b
       <p className="mt-1 inline-block rounded px-2 py-0.5 text-2xl font-bold bg-emerald-100 text-emerald-800">
         {isLoading ? '...' : formatStat(value ?? 0)}
       </p>
-      <p className="mt-1 text-xs text-emerald-600">Cập nhật mỗi 10 giây · tự giảm sau 45s không hoạt động</p>
     </Card>
   );
 }

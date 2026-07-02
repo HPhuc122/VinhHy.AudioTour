@@ -22,7 +22,10 @@ public class AuthService : IAuthService
         LoginRequest request,
         CancellationToken cancellationToken = default)
     {
-        var user = await _uow.Users.GetByUsernameAsync(request.Username, cancellationToken)
+        var loginIdentifier = request.Username.Trim();
+        var user = await _uow.Users.GetByUsernameAsync(loginIdentifier, cancellationToken)
+            .ConfigureAwait(false)
+            ?? await _uow.Users.GetByEmailAsync(loginIdentifier, cancellationToken)
             .ConfigureAwait(false);
 
         if (user is null || !user.IsActive || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))

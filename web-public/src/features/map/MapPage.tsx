@@ -3,6 +3,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { poisApi } from '../../api/poisApi';
 import { publicAudioTourApi, type AudioTourTriggerType, type PublicAudioTourPoiDto } from '../../api/publicAudioTourApi';
+import { publicRoutesApi } from '../../api/publicRoutesApi';
 import { toursApi } from '../../api/toursApi';
 import { Spinner } from '../../components/ui/Spinner';
 import type { Lang } from '../../hooks/useLanguage';
@@ -108,6 +109,8 @@ export function MapPage({ lang }: Props) {
   const [routeSummary, setRouteSummary] = useState<RouteSummary | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
+  const [customRouteStartPoiId, setCustomRouteStartPoiId] = useState<number | ''>('');
+  const [customRouteEndPoiId, setCustomRouteEndPoiId] = useState<number | ''>('');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
   const tourId = searchParams.get('tour');
@@ -135,6 +138,28 @@ export function MapPage({ lang }: Props) {
     queryFn: () => toursApi.getById(Number(tourId), lang),
     enabled: !!tourId,
   });
+
+  const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
+  const customRouteStartPoi = typeof customRouteStartPoiId === 'number'
+    ? listedPois.find((poi) => poi.id === customRouteStartPoiId) ?? null
+    : null;
+  const customRouteEndPoi = typeof customRouteEndPoiId === 'number'
+    ? listedPois.find((poi) => poi.id === customRouteEndPoiId) ?? null
+    : null;
+  const isSameCustomRoutePoi = Boolean(customRouteStartPoi && customRouteEndPoi && customRouteStartPoi.id === customRouteEndPoi.id);
+  const customRouteDistanceMeters = customRouteStartPoi && customRouteEndPoi && !isSameCustomRoutePoi
+    ? getDistanceMeters(
+        customRouteStartPoi.latitude,
+        customRouteStartPoi.longitude,
+        customRouteEndPoi.latitude,
+        customRouteEndPoi.longitude,
+      )
+    : null;
+  const hasCustomRouteSelection = Boolean(customRouteStartPoi && customRouteEndPoi && !isSameCustomRoutePoi);
+  const customRouteSignature = hasCustomRouteSelection
+    ? `custom:${customRouteStartPoi!.id}:${customRouteEndPoi!.id}`
+    : null;
+  const activeRouteSignature = customRouteSignature ?? routeTargetSignature;
 
   const accessRecord = selectedPoi ? getAccessRecordForPoi(selectedPoi.id) : null;
   const audioTourQuery = useQuery<PublicAudioTourPoiDto>({
@@ -290,10 +315,19 @@ export function MapPage({ lang }: Props) {
     setRouteSummary(null);
     setRouteError(null);
 
-    const routePois = tourId
-      ? tourDetail?.pois ?? []
-      : navigationPoi ? [navigationPoi] : [];
-    if (routePois.length === 0 || routeStartLatitude === null || routeStartLongitude === null) {
+    const routePois = hasCustomRouteSelection
+      ? [customRouteEndPoi!]
+      : tourId
+        ? tourDetail?.pois ?? []
+        : navigationPoi ? [navigationPoi] : [];
+    const startLatitude = hasCustomRouteSelection
+      ? customRouteStartPoi!.latitude
+      : routeStartLatitude;
+    const startLongitude = hasCustomRouteSelection
+      ? customRouteStartPoi!.longitude
+      : routeStartLongitude;
+
+    if (routePois.length === 0 || startLatitude === null || startLongitude === null) {
       fittedRouteTargetRef.current = null;
       setRouteLoading(false);
       return () => controller.abort();
@@ -301,7 +335,7 @@ export function MapPage({ lang }: Props) {
 
     setRouteLoading(true);
     const coordinates: [number, number][] = [
-      [routeStartLongitude, routeStartLatitude],
+      [startLongitude, startLatitude],
       ...routePois.map(
         (poi: PublicPoiDto) => [poi.longitude, poi.latitude] as [number, number],
       ),
@@ -309,7 +343,9 @@ export function MapPage({ lang }: Props) {
 
     void (async () => {
       try {
-        const result = await getDrivingRoute(coordinates, controller.signal);
+        const result = hasCustomRouteSelection
+          ? await getPoiToPoiRoute(customRouteStartPoi!.id, customRouteEndPoi!.id, controller.signal)
+          : await getDrivingRoute(coordinates, controller.signal);
         if (cancelled || !leafletMapRef.current) return;
 
         const L = await import('leaflet');
@@ -334,9 +370,9 @@ export function MapPage({ lang }: Props) {
           distanceMeters: result.distanceMeters,
           durationSeconds: result.durationSeconds,
         });
-        if (routeTargetSignature && fittedRouteTargetRef.current !== routeTargetSignature) {
+        if (activeRouteSignature && fittedRouteTargetRef.current !== activeRouteSignature) {
           map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
-          fittedRouteTargetRef.current = routeTargetSignature;
+          fittedRouteTargetRef.current = activeRouteSignature;
         }
         scheduleMapResize(map);
       } catch (error) {
@@ -351,10 +387,26 @@ export function MapPage({ lang }: Props) {
       cancelled = true;
       controller.abort();
     };
-  }, [mapReady, navigationPoi, routeStartLatitude, routeStartLongitude, routeTargetSignature, t, tourDetail, tourId]);
+  }, [
+    activeRouteSignature,
+    customRouteEndPoi,
+    customRouteStartPoi,
+    hasCustomRouteSelection,
+    mapReady,
+    navigationPoi,
+    routeStartLatitude,
+    routeStartLongitude,
+    t,
+    tourDetail,
+    tourId,
+  ]);
 
   useEffect(() => {
-    if (tourId) setNavigationPoi(null);
+    if (tourId) {
+      setNavigationPoi(null);
+      setCustomRouteStartPoiId('');
+      setCustomRouteEndPoiId('');
+    }
   }, [tourId]);
 
   useEffect(() => {
@@ -397,7 +449,6 @@ export function MapPage({ lang }: Props) {
     return () => { cancelled = true; };
   }, [mapReady, userLocation, t]);
 
-  const listedPois = tourDetail ? tourDetail.pois : poisData?.items ?? [];
   const selectedDistance = selectedPoi && userLocation
     ? getDistanceMeters(userLocation.latitude, userLocation.longitude, selectedPoi.latitude, selectedPoi.longitude)
     : null;
@@ -655,14 +706,85 @@ export function MapPage({ lang }: Props) {
           </button>
           {locationMessage ? <p className="mt-2 text-xs leading-5 text-amber-300">{locationMessage}</p> : null}
           {autoAudioMessage ? <p className="mt-2 text-xs leading-5 text-emerald-200">{autoAudioMessage}</p> : null}
-          {(tourDetail?.pois.length || navigationPoi) ? (
+
+          {!tourId && listedPois.length >= 2 ? (
             <div className="mt-3 rounded-lg border border-gray-700 bg-gray-800 p-3 text-xs">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="font-semibold text-white">Khoảng cách 2 POI</p>
+                {(customRouteStartPoiId || customRouteEndPoiId) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomRouteStartPoiId('');
+                      setCustomRouteEndPoiId('');
+                    }}
+                    className="text-gray-400 transition-colors hover:text-white"
+                  >
+                    Xóa
+                  </button>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <label className="block">
+                  <span className="mb-1 block text-gray-400">Từ POI</span>
+                  <select
+                    value={customRouteStartPoiId}
+                    onChange={(event) => {
+                      setNavigationPoi(null);
+                      setCustomRouteStartPoiId(event.target.value ? Number(event.target.value) : '');
+                    }}
+                    className="w-full rounded-md border border-gray-700 bg-gray-900 px-2 py-2 text-xs text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Chọn điểm bắt đầu</option>
+                    {listedPois.map((poi) => (
+                      <option key={poi.id} value={poi.id}>{poi.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-gray-400">Đến POI</span>
+                  <select
+                    value={customRouteEndPoiId}
+                    onChange={(event) => {
+                      setNavigationPoi(null);
+                      setCustomRouteEndPoiId(event.target.value ? Number(event.target.value) : '');
+                    }}
+                    className="w-full rounded-md border border-gray-700 bg-gray-900 px-2 py-2 text-xs text-white outline-none focus:border-emerald-500"
+                  >
+                    <option value="">Chọn điểm đến</option>
+                    {listedPois.map((poi) => (
+                      <option key={poi.id} value={poi.id}>{poi.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {isSameCustomRoutePoi ? (
+                <p className="mt-2 leading-5 text-amber-300">Hãy chọn hai POI khác nhau.</p>
+              ) : customRouteDistanceMeters !== null ? (
+                <p className="mt-2 text-gray-300">
+                  Đường thẳng: <span className="font-semibold text-white">{formatDistance(customRouteDistanceMeters)}</span>
+                </p>
+              ) : (
+                <p className="mt-2 leading-5 text-gray-400">Chọn hai POI để tính khoảng cách và hiển thị đường đi.</p>
+              )}
+            </div>
+          ) : null}
+
+          {(tourDetail?.pois.length || navigationPoi || hasCustomRouteSelection) ? (
+            <div className="mt-3 rounded-lg border border-gray-700 bg-gray-800 p-3 text-xs">
+              {hasCustomRouteSelection ? (
+                <p className="mb-2 truncate text-gray-300">
+                  Tuyến POI: <span className="font-semibold text-white">{customRouteStartPoi?.name}</span>
+                  {' → '}
+                  <span className="font-semibold text-white">{customRouteEndPoi?.name}</span>
+                </p>
+              ) : null}
               {navigationPoi && !tourId ? (
                 <p className="mb-2 truncate text-gray-300">
                   {t('directionsTo')}: <span className="font-semibold text-white">{navigationPoi.name}</span>
                 </p>
               ) : null}
-              {!userLocation ? (
+              {!hasCustomRouteSelection && !userLocation ? (
                 <p className="leading-5 text-amber-300">
                   {t('routeWaitingForLocation')}
                 </p>
@@ -743,6 +865,8 @@ export function MapPage({ lang }: Props) {
             autoPlayRequestKey={autoPlayRequestKey}
             onNavigate={!tourId ? () => {
               shouldFollowUserRef.current = false;
+              setCustomRouteStartPoiId('');
+              setCustomRouteEndPoiId('');
               setNavigationPoi({ ...selectedPoi });
               if (!userLocation) requestLocation();
             } : undefined}
@@ -839,6 +963,20 @@ async function getDrivingRoute(
     latLngs,
     distanceMeters: Number(summary?.distance) || 0,
     durationSeconds: Number(summary?.duration) || 0,
+  };
+}
+
+async function getPoiToPoiRoute(
+  fromPoiId: number,
+  toPoiId: number,
+  signal: AbortSignal,
+): Promise<DirectionsResult> {
+  const result = await publicRoutesApi.getPoiToPoiRoute(fromPoiId, toPoiId, signal);
+
+  return {
+    latLngs: result.latLngs.map((point) => [point.latitude, point.longitude] as [number, number]),
+    distanceMeters: result.routeDistanceMeters,
+    durationSeconds: result.durationSeconds,
   };
 }
 

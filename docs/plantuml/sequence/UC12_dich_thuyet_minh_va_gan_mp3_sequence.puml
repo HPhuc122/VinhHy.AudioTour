@@ -1,86 +1,47 @@
 @startuml
 title Sequence Diagram - UC12 Dich thuyet minh va gan MP3
 
-actor "Admin / SuperAdmin" as Actor
-participant "Presentation Layer\nWebAdminUI - MediaLibraryPage va CmsAudioPreviewPlayer" as UI
-participant "Business Logic Layer\nNarrationsController + CmsAudioPreviewController + NarrationDraftService" as Business
-participant "Data Access Layer\nAudioTrackRepository + ApplicationDbContext" as DataAccess
-database "Database" as Database
+actor "Admin" as Admin
+participant "MediaLibraryPage" as MediaLibraryPage
+participant "CmsAudioPreviewPlayer" as CmsAudioPreviewPlayer
+participant "narrationsApi" as NarrationsApi
+participant "cmsAudioPreviewApi" as CmsAudioPreviewApi
+participant "NarrationsController" as NarrationsController
+participant "CmsAudioPreviewController" as CmsAudioPreviewController
+participant "NarrationDraftService" as NarrationDraftService
+participant "TranslationProvider" as TranslationProvider
+participant "GoogleTtsService" as GoogleTtsService
+participant "AudioTrackRepository" as AudioTrackRepository
+participant "ApplicationDbContext" as ApplicationDbContext
+participant "UnitOfWork" as UnitOfWork
+entity "NarrationDraft" as NarrationDraft
+entity "AudioTrack" as AudioTrack
 
-Actor -> UI: Duyet hoac mo narration da duyet
-alt Pipeline tu dong dich va tao TTS
-  UI -> Business: Gui yeu cau xu ly tu UC11 hoac generate-audio
-  Business -> Business: Kiem tra quyen, trang thai va ngon ngu active
-  Business -> DataAccess: Doc draft nguon, POI, Language active va AudioTrack hien co
-  DataAccess -> Database: Doc NarrationDraft, Language va AudioTrack
-  Database --> DataAccess: Tra du lieu nguon
-  alt Nguon va ngon ngu hop le
-    Business -> Business: Tao MP3 cho ngon ngu goc bang TTS noi bo
-    Business -> DataAccess: Upsert AudioTrack va gan GeneratedAudioTrack
-    DataAccess -> Database: Ghi AudioTrack, TTSText va NarrationDraft AudioGenerated
-    Database --> DataAccess: Xac nhan
-    loop Moi ngon ngu active con thieu
-      Business -> Business: Dich tieu de va noi dung sang ngon ngu dich
-      Business -> Business: Tao MP3 bang TTS noi bo cho noi dung dich
-      Business -> DataAccess: Tao hoac cap nhat NarrationDraft dich va AudioTrack
-      DataAccess -> Database: Ghi NarrationDraft, AudioTrack, version va metadata audio
-      Database --> DataAccess: Xac nhan
-    end
-    Business --> UI: Tra trang thai dang xu ly hoac da tao audio
-    UI -> UI: Tu dong refetch danh sach thuyet minh va am thanh
-  else Khong hop le hoac ngon ngu khong active
-    Business --> UI: Tra thong bao loi
-  end
-else Admin chinh sua noi dung da co audio
-  Actor -> UI: Sua text va luu
-  UI -> Business: Gui noi dung moi
-  Business -> Business: Lay ngon ngu vua sua lam nguon dong bo
-  Business -> Business: Tao lai MP3 cho ngon ngu nguon
-  Business -> DataAccess: Cap nhat NarrationDraft nguon, AudioTrack version va TTSText
-  DataAccess -> Database: Ghi Status AudioGenerated, fileUrl moi, version va metadata
-  Database --> DataAccess: Xac nhan
-  loop Moi ngon ngu active khac
-    Business -> Business: Dich lai title/text tu nguon moi
-    Business -> Business: Tao lai MP3 cho ngon ngu dich
-    Business -> DataAccess: Upsert NarrationDraft va AudioTrack
-    DataAccess -> Database: Ghi Status AudioGenerated, TTSText, version va metadata
-    Database --> DataAccess: Xac nhan
-  end
-  Business --> UI: Tra draft va danh sach audio moi
-  UI -> UI: Lam moi bang thuyet minh, bang am thanh va preview
-else TextContent bi sua ngoai trang admin
-  Actor -> Database: Cap nhat TextContent trong NarrationDrafts
-  Business -> DataAccess: Background scan draft co TextContent lech TTSText
-  DataAccess -> Database: Doc NarrationDraft va AudioTrack
-  Database --> DataAccess: Tra draft can dong bo
-  Business -> Business: Dua draft vao hang doi dich/TTS
-  Business -> Business: Lay ngon ngu vua sua lam nguon dong bo
-  Business -> DataAccess: Cap nhat Status AudioGenerated cho tat ca ngon ngu active
-  DataAccess -> Database: Ghi NarrationDraft, AudioTrack va metadata audio moi
-  Database --> DataAccess: Xac nhan
-else Tai MP3 thu cong de thay the
-  Actor -> UI: Chon file MP3 cho draft da duyet
-  UI -> Business: Gui file va tieu de
-  Business -> Business: Kiem tra AdminOnly, file va trang thai draft
-  Business -> Business: Luu tam va doc thoi luong MP3
-  alt File MP3 hop le
-    Business -> DataAccess: Tao/cap nhat AudioTrack va draft AudioGenerated
-    DataAccess -> Database: Ghi AudioTrack va NarrationDraft
-    Database --> DataAccess: Xac nhan
-    Business --> UI: Tra narration da gan audio
-  else File sai, rong, qua lon hoac khong doc duoc
-    Business -> Business: Xoa file khong hop le
-    Business --> UI: Tra thong bao loi
-  end
-end
+Admin -> MediaLibraryPage: clickGenerateTranslations(sourceDraftId)
+MediaLibraryPage -> NarrationsApi: generateTranslations(sourceDraftId, request)
+NarrationsApi -> NarrationsController: GenerateTranslations(id, GenerateNarrationTranslationsRequest)
+NarrationsController -> NarrationDraftService: GenerateTranslationsAsync(id, request, cancellationToken)
+NarrationDraftService -> TranslationProvider: TranslateAsync(text, source, target, cancellationToken)
+NarrationDraftService -> NarrationDraft: new translated NarrationDraft(...)
+NarrationDraftService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 
-opt Preview audio bao ve trong CMS
-  UI -> Business: Gui yeu cau preview audio
-  Business -> DataAccess: Doc AudioTrack active kem version va updatedAt
-  DataAccess -> Database: Doc metadata audio
-  Database --> DataAccess: Tra track
-  Business --> UI: Stream MP3 bao ve trong CMS
-end
+Admin -> MediaLibraryPage: clickGenerateAudio(draftId)
+MediaLibraryPage -> NarrationsApi: generateAudio(draftId)
+NarrationsApi -> NarrationsController: GenerateAudio(id)
+NarrationsController -> NarrationDraftService: GenerateAudioAsync(id, cancellationToken)
+NarrationDraftService -> GoogleTtsService: SynthesizeAsync(text, languageCode, cancellationToken)
+NarrationDraftService -> AudioTrackRepository: GetByPoiAndLanguageAsync(poiId, languageCode)
+AudioTrackRepository --> AudioTrack: AudioTrack?
+NarrationDraftService -> AudioTrackRepository: AddAsync(track) / Update(track)
+NarrationDraftService -> UnitOfWork: SaveChangesAsync(cancellationToken)
 
-UI --> Actor: Cap nhat tab audio hoac hien thi loi
+Admin -> CmsAudioPreviewPlayer: loadPreview(poiId)
+CmsAudioPreviewPlayer -> CmsAudioPreviewApi: getByPoi(poiId)
+CmsAudioPreviewApi -> CmsAudioPreviewController: GetByPoi(poiId)
+CmsAudioPreviewController -> ApplicationDbContext: AudioTracks.AsNoTracking().WhereByPoiAndActive(poiId)
+ApplicationDbContext --> AudioTrack: IReadOnlyList<AudioTrack>
+CmsAudioPreviewPlayer -> CmsAudioPreviewApi: stream(audioTrackId)
+CmsAudioPreviewApi -> CmsAudioPreviewController: Stream(audioTrackId)
+CmsAudioPreviewController -> ApplicationDbContext: AudioTracks.FirstOrDefaultAsync(audioTrackId)
+ApplicationDbContext --> AudioTrack: AudioTrack
 @enduml

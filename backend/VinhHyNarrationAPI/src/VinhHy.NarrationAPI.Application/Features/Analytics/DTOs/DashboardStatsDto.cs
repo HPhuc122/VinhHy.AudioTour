@@ -48,8 +48,8 @@ public class DashboardStatsDto
     public int TotalSiteVisits { get; set; }
 
     /// <summary>
-    /// Unique browser sessions recorded today since the API started.
-    /// Reflects real-time web traffic without waiting for NarrationLog entries.
+    /// Unique browser sessions recorded today (ICT), persisted across API restarts.
+    /// Reflects real-time web traffic from public web heartbeats.
     /// </summary>
     public int TodaySiteVisits { get; set; }
 

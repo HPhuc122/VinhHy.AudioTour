@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VinhHy.NarrationAPI.Application.Features.Auth.DTOs;
 using VinhHy.NarrationAPI.Domain.Constants;
@@ -21,6 +22,13 @@ public class AnalyticsEndpointTests(NarrationApiWebApplicationFactory factory)
     {
         await AuthenticateAsync();
         await SeedDashboardDataAsync();
+        var baselineTodayVisits = await CountTodaySiteVisitsAsync();
+
+        var firstSession = $"dash-visit-{Guid.NewGuid():N}";
+        var secondSession = $"dash-visit-{Guid.NewGuid():N}";
+        await SendHeartbeatAsync(firstSession);
+        await SendHeartbeatAsync(firstSession);
+        await SendHeartbeatAsync(secondSession);
 
         var response = await _client.GetAsync("/api/v1/analytics/dashboard");
 
@@ -40,6 +48,7 @@ public class AnalyticsEndpointTests(NarrationApiWebApplicationFactory factory)
         Assert.Equal(JsonValueKind.Null, data.GetProperty("totalTourViews").ValueKind);
         Assert.True(data.GetProperty("totalQrScans").GetInt32() >= 1);
         Assert.True(data.GetProperty("totalAudioPlays").GetInt32() >= 2);
+        Assert.True(data.GetProperty("todaySiteVisits").GetInt32() >= baselineTodayVisits + 2);
     }
 
     private async Task AuthenticateAsync()
@@ -53,6 +62,27 @@ public class AnalyticsEndpointTests(NarrationApiWebApplicationFactory factory)
         using var doc = JsonDocument.Parse(await loginResponse.Content.ReadAsStringAsync());
         var token = doc.RootElement.GetProperty("data").GetProperty("accessToken").GetString();
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private async Task SendHeartbeatAsync(string sessionId)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/public/presence/heartbeat")
+        {
+            Content = JsonContent.Create(new { poiId = (string?)null })
+        };
+        request.Headers.Add("X-Guest-Device-Id", sessionId);
+
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private async Task<int> CountTodaySiteVisitsAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var todayIct = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+
+        return await db.PublicWebVisits.CountAsync(v => v.VisitDate == todayIct);
     }
 
     private async Task SeedDashboardDataAsync()
@@ -98,6 +128,18 @@ public class AnalyticsEndpointTests(NarrationApiWebApplicationFactory factory)
         await db.Tours.AddRangeAsync(activeTour, inactiveTour);
         await db.Pois.AddAsync(poi);
         await db.SaveChangesAsync();
+
+        await db.AudioTracks.AddAsync(new AudioTrack
+        {
+            POIId = poi.Id,
+            LanguageCode = "vi",
+            Title = $"Dashboard audio {suffix}",
+            AudioType = "tts",
+            TTSText = "Noi dung thuyet minh dashboard.",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
 
         await db.QrLocations.AddRangeAsync(
             new QrLocation

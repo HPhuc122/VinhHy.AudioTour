@@ -1,6 +1,6 @@
 # SEQUENCE DIAGRAM INDEX
 
-Bo sequence nay duoc sinh tu danh sach UC chuan trong [`UC_AUDIT_FOR_DIAGRAM.md`](../UC_AUDIT_FOR_DIAGRAM.md) va luong nghiep vu trong [`UC_BUSINESS_FLOWS.md`](../UC_BUSINESS_FLOWS.md). Tat ca diagram chi dung bon thanh phan: Actor, Presentation Layer, Business Logic Layer, Data Access Layer va Database. Participant database luon co nhan dung la `Database`.
+Bo sequence nay duoc cap nhat theo code hien tai trong `web-admin`, `web-public` va `backend/VinhHyNarrationAPI`. Tat ca diagram chi dung 3 actor hop le cua he thong: `Admin`, `Vendor`, `Guest`. Participant khong gom theo layer chung chung; moi lifeline phai la UI/API client, controller, service, repository hoac entity that su ton tai trong source code. Mui ten phai ghi ten ham/API handler that nhu `AuthController.Login()`, `AuthService.LoginAsync()`, `UserRepository.GetByUsernameAsync()`. Diagram dung o entity domain lien quan, khong tao participant `Database`.
 
 ## Danh sach UC da ve
 
@@ -32,14 +32,14 @@ Bo sequence nay duoc sinh tu danh sach UC chuan trong [`UC_AUDIT_FOR_DIAGRAM.md`
 
 ## UC co mot phan / can xac nhan
 
-- UC20 co mot phan theo kien truc bat buoc: du lieu POI/tour di qua backend 3 lop, nhung tinh tuyen duong duoc `MapPage.tsx` goi truc tiep OpenRouteService. Diagram giu dung bon participant va ghi chu thao tac ngoai backend o Presentation Layer; khong tao `MapController`, `MapService` hay repository ao.
+- UC20 co mot phan theo kien truc hien tai: du lieu POI/tour di qua `PublicPoisController`, `PublicToursController`, service va repository that. Tinh tuyen POI-to-POI neu di qua backend thi dung `PublicRoutesController.GetPoiToPoiRoute()` va `PublicRouteService.GetPoiToPoiRouteAsync()`. Khong tao `MapController`, `MapService` hay repository ao.
 - X01 Dong bo du lieu offline qua API: co `SyncController`/`SyncService` va repository that, nhung khong co caller trong `web-admin`/`web-public`.
 - X02 Quan ly goi offline qua API: co backend CRUD, khong co man hinh web trong pham vi.
 - X03 Dang ky/theo doi thiet bi qua API: co backend, khong co caller trong hai web.
 - X04 Ghi/tra cuu narration log qua API: co backend, khong co UI/caller trong hai web.
 - X05 Cau hinh geofence qua API: co backend, nhung web hien sua cac truong geofence ngay trong form POI va khong goi `GeofenceController`.
 
-X01-X05 chua duoc danh so UC chuan va chua ve sequence. Can xac nhan APIClient co nam trong bo diagram mong muon hay khong; khong tu dung mobile native/SQLite de lap actor va data layer.
+X01-X05 chua duoc danh so UC chuan va chua ve sequence. Neu ve bo sung, caller phai gan voi mot trong ba actor `Admin`, `Vendor`, `Guest` hoac mot UI/API client that da co trong source; khong tu dung mobile native/SQLite de lap actor va data layer cho bo web sequence.
 
 ## UC/chuc nang khong ve va ly do
 
@@ -53,7 +53,7 @@ X01-X05 chua duoc danh so UC chuan va chua ve sequence. Can xac nhan APIClient c
 | Tao TTS noi bo rieng le ngoai quy trinh thuyet minh | Da nam trong UC11/UC12: duyet hoac sua text se tao/cap nhat MP3 tu dong, upload MP3 chi con la thao tac thay the. |
 | Phan tich xu huong/du bao nang cao | UC03 da co bieu do 30 ngay va ti le nguon truy cap; khong co forecast, ranking xu huong hay service du bao rieng. |
 | Quan ly AudioTrack truc tiep | Co backend CRUD nhung khong co caller/page web; audio that da duoc bieu dien trong UC12 va UC23. |
-| Xem ho so/dang xuat | Chi doc/xoa session o Presentation Layer, khong co Business/Data Access/Database de ve theo mau bat buoc. |
+| Xem ho so/dang xuat | Chi doc/xoa session o frontend, khong co chuoi controller/service/repository/entity rieng de ve sequence backend. |
 | Doc audit log | Co service/repository/entity nhung khong co controller/page; khong co chuoi Presentation -> Business day du. |
 | Mobile native va SQLite | Code co ton tai nhung nam ngoai pham vi bo diagram web lan nay. |
 
